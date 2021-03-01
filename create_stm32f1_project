@@ -1,0 +1,386 @@
+#!/bin/sh
+
+if [ "$1" = "--help" ]
+  then 
+      echo ""
+      echo "    STM32F1 Project Creator v0.01 ALPHA";
+      echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
+      exit
+fi
+
+
+wg="wget -c"
+cmsis="https://raw.githubusercontent.com/STMicroelectronics/STM32CubeF1/master/Drivers/CMSIS/Include"
+f1="https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master"
+svd="https://raw.githubusercontent.com/posborne/cmsis-svd/master/data/STMicro/STM32F103xx.svd"
+
+$wg $cmsis/cmsis_compiler.h $cmsis/cmsis_armclang.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
+    $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
+    $f1/Source/Templates/gcc/startup_stm32f103xb.s $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld $svd
+
+#
+# generate main.h
+#
+
+cat <<MAIN_H >main.h
+#ifndef __MAIN_H
+#define __MAIN_H
+
+#include "stm32f1xx.h"
+
+#ifdef __cplusplus
+ extern C {
+#endif
+
+#define USE_HSE                         1
+#define USE_PLL                         1
+#define USE_USART                       1
+#define USE_SWD                         1
+
+#define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
+                                                                                       /*
+    In input mode (MODE[1:0] = 00):
+
+  00: Analog mode
+  01: Floating input (reset state)
+  10: Input with pull-up / pull-down
+  11: Reserved
+                                                                                       */
+#define I_ANALOG                        (0ULL << 2)
+#define I_FLOAT                         (1ULL << 2)
+#define I_PULL                          (2ULL << 2)
+                                                                                       /*
+    In output mode (MODE[1:0] > 00):
+
+  00: General purpose output push-pull
+  01: General purpose output Open-drain
+  10: Alternate function output Push-pull
+  11: Alternate function output Open-drain
+                                                                                       */
+#define O_PP                            (0ULL << 2)
+#define O_OD                            (1ULL << 2)
+#define O_AF                            (2ULL << 2)
+                                                                                       /*
+  MODEy[1:0]: Port x mode bits (y = 0 .. 7)
+  These bits are written by software to configure the corresponding I/O port.
+  Refer to Table 20: Port bit configuration table.
+
+  00: Input mode (reset state)
+  01: Output mode, max speed 10 MHz.
+  10: Output mode, max speed 2 MHz.
+  11: Output mode, max speed 50 MHz.
+                                                                                       */
+#define O_10MHZ                         (1ULL)
+#define O_2MHZ                          (2ULL)
+#define O_50MHZ                         (3ULL)
+
+#define LOW                             GPIO_BSRR_BR
+#define HIGH                            GPIO_BSRR_BS
+
+#define CAT(A, B)                       A ## B
+#define SW_PIN(PORT, PIN, STATE)        GPIO ## PORT->BSRR = CAT(STATE, PIN)
+#define PULL(PIN, STATE)                CAT(STATE, PIN)
+
+#define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
+#define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
+
+#define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
+#define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
+
+
+__STATIC_INLINE void init(void) {
+
+  RCC->APB2ENR = (
+    #if defined USE_USART && USE_USART != 0                   
+      RCC_APB2ENR_USART1EN        |                           /* Enable clock for USART1            */
+    #endif
+    RCC_APB2ENR_AFIOEN            |                           /* Enable clock for AFIO              */
+    RCC_APB2ENR_IOPAEN            |                           /* Enable clock for GPIOA             */
+    RCC_APB2ENR_IOPCEN                                        /* Enable clock for GPIOC             */
+  );
+
+  AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;                 /* Disable JTAG, SWD debug only       */
+
+  *(__IO uint64_t*) GPIOC_BASE = PIN_CFG(13, O_2MHZ);         /* PC13: output, push-pull, 10Mhz     */
+  GPIOC->BSRR = GPIO_BSRR_BS13;                               /* Set PC13 pin HIGH (LED off)        */
+
+  #if defined USE_USART && USE_USART != 0
+
+    *(__IO uint64_t*) GPIOA_BASE = (
+      PIN_CFG(9,  O_AF + O_10MHZ) |                           /* PA9:  USART1 TX, alternate, 10Mhz  */
+      PIN_CFG(10, I_PULL)         |                           /* PA10: USART1 RX, input, pull-down  */
+      PIN_CFG(13, I_PULL)         |                           /* PA13: SWDIO, input, pull-up        */
+      PIN_CFG(14, I_PULL)                                     /* PA14: SWCLK, input, pull-down      */
+    );
+
+    GPIOA->BSRR = PULL(10, LOW) | PULL(13, HIGH) | PULL(14, LOW);
+
+  #endif
+
+  #if defined USE_HSE && USE_HSE != 0
+
+    RCC->CR = RCC_CR_HSEON;                                   /* Switch HSE on                      */
+    while((RCC->CR & RCC_CR_HSERDY) == 0) {/* NO OP */}       /* Wait until HSE becomes ready       */
+
+    #define RCC_CFGR RCC_CFGR_PLLSRC | RCC_CFGR_PLLMULL9      /* 72 MHz: PllSrc = HSE, Mul = 9      */
+    #define RCC_CR   RCC_CR_PLLON | RCC_CR_HSEON
+    #define HCLK     72000000UL
+
+  #else
+
+    #define RCC_CFGR RCC_CFGR_PLLMULL16                       /* 64 MHz: PllSrc = HSI / 2, Mul = 16 */
+    #define RCC_CR   RCC_CR_PLLON
+    #define HCLK     64000000UL
+
+  #endif
+
+  #if defined USE_PLL && USE_PLL != 0
+
+    RCC->CFGR = RCC_CFGR;                                     /* Configure PLL                      */
+    RCC->CR = RCC_CR;                                         /* Switch PLL on                      */
+    while((RCC->CR & RCC_CR_PLLRDY) == 0) { /* NO OP */}      /* Wait until PLL becomes ready       */
+    FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
+    RCC->CFGR = (
+      RCC_CFGR_SW_PLL      |                                  /* Set PLL as system clock source     */
+      RCC_CFGR_PPRE1_DIV2                                     /* Set APB1 clock as HCLK / 2         */
+    );
+
+  #else
+
+    #undef HCLK
+    #define HCLK 8000000UL
+
+  #endif
+
+  SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
+  SysTick->CTRL = SysTick_CTRL_ENABLE_Msk;                    /* Start SysTick timer (HCLK / 8)     */
+
+  #if defined USE_USART && USE_USART != 0
+    #define BAUDRATE 115200
+
+    USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
+    USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
+
+  #endif
+
+}
+
+#if defined USE_USART && USE_USART != 0
+  __STATIC_INLINE void uputc(char c) {
+    while (!(USART1->SR & USART_SR_TXE)) { /* JUST WAIT */ }  /* Wait until TX becomes empty        */
+    USART1->DR = c;
+  }
+
+  __STATIC_INLINE void uputs(char *c) {
+    while(*c) {
+      uputc(*c++);
+    }
+  }
+  
+  #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
+  
+    /* Convert a nibble to HEX and send it via UART */
+  __STATIC_INLINE void uput_x(const uint8_t c) {
+    /* Convert a nibble to HEX char and send it via UART */
+    uputc(HEX(c));
+  }
+
+    /* Convert a byte to HEX and send it via UART */
+  __STATIC_INLINE void uputx(const uint8_t c) {
+    uput_x(c >> 4);
+    uput_x(c & 0x0F);
+  }
+  
+  #define uprintf(...) do{char _[160]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
+  
+#endif
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* __MAIN_H */
+MAIN_H
+
+#
+# generate main.c
+#
+
+cat <<MAIN_C >main.c
+#include <stdlib.h>
+#include <stdio.h>
+#include "main.h"
+
+int main(void) {
+
+  init();
+
+  for(;;) {
+    for(int i = 0; i < 6; i++) {
+      GPIOC->ODR ^= GPIO_ODR_ODR13;
+      DELAY_MS(35);
+    }
+    #if defined USE_USART && USE_USART != 0
+      #if 0
+        uputs("It is OK.\n");
+      #else
+        uprintf("Just a test. Magic code is 0x%04X\n", rand() %0xFFFF);
+      #endif
+    #endif
+    DELAY_MS(1000 - 35 * 6);
+  }
+
+  return 0;
+}
+MAIN_C
+
+#
+# generate Makefile
+#
+
+cat <<MAKEFILE >Makefile
+TARGET = project
+DEBUG = 1
+
+BUILD_DIR = build
+
+C_SOURCES = main.c system_stm32f1xx.c
+
+ASM_SOURCES = startup_stm32f103xb.s
+
+PREFIX = arm-none-eabi-
+ifdef GCC_PATH
+  CC = \$(GCC_PATH)/\$(PREFIX)gcc
+  AS = \$(GCC_PATH)/\$(PREFIX)gcc -x assembler-with-cpp
+  CP = \$(GCC_PATH)/\$(PREFIX)objcopy
+  SZ = \$(GCC_PATH)/\$(PREFIX)size
+else
+  CC = \$(PREFIX)gcc
+  AS = \$(PREFIX)gcc -x assembler-with-cpp
+  CP = \$(PREFIX)objcopy
+  SZ = \$(PREFIX)size
+endif
+HEX = \$(CP) -O ihex
+BIN = \$(CP) -O binary -S
+
+MCU = -mcpu=cortex-m3 -mthumb
+
+AS_DEFS =
+
+C_DEFS = -DSTM32F103xB
+
+AS_INCLUDES =
+
+C_INCLUDES = -I.
+
+ifeq (\$(DEBUG), 1)
+  OPT = -Og -g -gdwarf-4
+else
+  OPT = -O3 -g0 -flto
+endif
+
+ASFLAGS = \$(MCU) \$(AS_DEFS) \$(AS_INCLUDES) -Wall -Werror -Wextra -fdata-sections -ffunction-sections \$(OPT)
+
+CFLAGS = \$(MCU) \$(C_DEFS) \$(C_INCLUDES) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11 \$(OPT)
+
+CFLAGS += -MMD -MP -MF"\$(@:%.o=%.d)"
+
+ifeq (\$(OS), Windows_NT)
+
+    CCFLAGS += -D WIN32
+    ifeq (\$(PROCESSOR_ARCHITEW6432), AMD64)
+        CCFLAGS += -D AMD64
+    else
+        ifeq (\$(PROCESSOR_ARCHITECTURE), AMD64)
+            CCFLAGS += -D AMD64
+        endif
+        ifeq (\$(PROCESSOR_ARCHITECTURE), x86)
+            CCFLAGS += -D IA32
+        endif
+    endif
+
+    STLINK = ST-LINK_CLI.exe
+    STLINK_FLAGS = -c UR -V -P \$(BUILD_DIR)/\$(TARGET).hex -HardRst -Run
+
+else
+
+    UNAME_S := \$(shell uname -s)
+    ifeq (\$(UNAME_S), Linux)
+        CCFLAGS += -D LINUX
+    endif
+    ifeq (\$(UNAME_S), Darwin)
+        CCFLAGS += -D OSX
+    endif
+    UNAME_P := \$(shell uname -p)
+    ifeq (\$(UNAME_P), x86_64)
+        CCFLAGS += -D AMD64
+    endif
+    ifneq (\$(filter %86, \$(UNAME_P)),)
+        CCFLAGS += -D IA32
+    endif
+    ifneq (\$(filter arm%, \$(UNAME_P)),)
+        CCFLAGS += -D ARM
+    endif
+
+    STLINK = st-flash
+    STLINK_FLAGS = --reset --format ihex write \$(BUILD_DIR)/\$(TARGET).hex
+
+endif
+
+LDSCRIPT = STM32F103XB_FLASH.ld
+
+LIBS = -lc -lm -lnosys
+LIBDIR =
+LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIBDIR) \$(LIBS) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections \$(OPT)
+
+all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
+
+OBJECTS = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(C_SOURCES:.c=.o)))
+vpath %.c \$(sort \$(dir \$(C_SOURCES)))
+
+OBJECTS += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM_SOURCES:.s=.o)))
+vpath %.s \$(sort \$(dir \$(ASM_SOURCES)))
+
+\$(BUILD_DIR)/%.o: %.c Makefile | \$(BUILD_DIR)
+	\$(CC) -c \$(CFLAGS) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
+
+\$(BUILD_DIR)/%.o: %.s Makefile | \$(BUILD_DIR)
+	\$(AS) -c \$(CFLAGS) \$< -o \$@
+
+\$(BUILD_DIR)/\$(TARGET).elf: \$(OBJECTS) Makefile
+	\$(CC) \$(OBJECTS) \$(LDFLAGS) -o \$@
+	\$(SZ) \$@
+
+\$(BUILD_DIR)/%.hex: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
+	\$(HEX) \$< \$@
+	
+\$(BUILD_DIR)/%.bin: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
+	\$(BIN) \$< \$@
+	
+\$(BUILD_DIR):
+	mkdir \$@
+
+# Display compiler version information.
+gccversion :
+	@\$(CC) --version
+
+# Program the device.  
+program: \$(BUILD_DIR)/\$(TARGET).hex
+	\$(STLINK) \$(STLINK_FLAGS)
+
+clean:
+	rm -fR \$(BUILD_DIR)
+
+-include \$(wildcard \$(BUILD_DIR)/*.d)
+
+# *** EOF ***
+MAKEFILE
+
+#
+# run 'make' utility
+#
+
+make
+
+echo
+echo "type \"make program\" to download the firmware into the chip."
