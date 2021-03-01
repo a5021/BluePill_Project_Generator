@@ -32,10 +32,11 @@ cat <<MAIN_H >main.h
  extern C {
 #endif
 
-#define USE_HSE                         1
-#define USE_PLL                         1
-#define USE_USART                       1
-#define USE_SWD                         1
+
+// #define USE_HSE                         1
+// #define USE_PLL                         1
+// #define USE_USART                       1
+// #define USE_SWD                         1
 
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
