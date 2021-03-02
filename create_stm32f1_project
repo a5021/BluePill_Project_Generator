@@ -37,6 +37,7 @@ cat <<MAIN_H >main.h
 // #define USE_PLL                         1
 // #define USE_USART                       1
 // #define USE_SWD                         1
+// #define DISABLE_SWD                     1
 
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
@@ -100,7 +101,11 @@ __STATIC_INLINE void init(void) {
     RCC_APB2ENR_IOPCEN                                        /* Enable clock for GPIOC             */
   );
 
-  AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;                 /* Disable JTAG, SWD debug only       */
+  #if defined DISABLE_SWD && DISABLE_SWD != 0
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE                    /* Disable JTAG and SWD debug         */
+  #else
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG debug, enable SWD one */
+  #endif
 
   *(__IO uint64_t*) GPIOC_BASE = PIN_CFG(13, O_2MHZ);         /* PC13: output, push-pull, 10Mhz     */
   GPIOC->BSRR = GPIO_BSRR_BS13;                               /* Set PC13 pin HIGH (LED off)        */
