@@ -37,8 +37,8 @@ cat <<MAIN_H >main.h
 // #define USE_PLL                         1
 // #define USE_USART                       1
 // #define USE_SWD                         1
-// #define DISABLE_SWD                     1
 
+#define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO ## PORT ## _BASE = (CFG)
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
     In input mode (MODE[1:0] = 00):
@@ -72,16 +72,18 @@ cat <<MAIN_H >main.h
   10: Output mode, max speed 2 MHz.
   11: Output mode, max speed 50 MHz.
                                                                                        */
-#define O_10MHZ                         (1ULL)
-#define O_2MHZ                          (2ULL)
-#define O_50MHZ                         (3ULL)
+#define O_10MHZ                         1ULL
+#define O_2MHZ                          2ULL
+#define O_50MHZ                         3ULL
 
-#define LOW                             GPIO_BSRR_BR
-#define HIGH                            GPIO_BSRR_BS
+#define DOWN                            GPIO_BSRR_BR
+#define UP                              GPIO_BSRR_BS
 
 #define CAT(A, B)                       A ## B
 #define SW_PIN(PORT, PIN, STATE)        GPIO ## PORT->BSRR = CAT(STATE, PIN)
 #define PULL(PIN, STATE)                CAT(STATE, PIN)
+#define HIGH(PIN)                       GPIO_BSRR_BS ## PIN
+#define LOW(PIN)                        GPIO_BSRR_BR ## PIN
 
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
@@ -89,37 +91,60 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
+#if defined(USE_SWD) && (USE_SWD != 0)
+  #define SWD_EN                        1
+#else
+  #define SWD_EN                        0
+#endif
+
+#if defined(USE_USART) && (USE_USART != 0)
+  #define USART_EN                      1
+#else
+  #define USART_EN                      0
+#endif
+
 
 __STATIC_INLINE void init(void) {
 
   RCC->APB2ENR = (
-    #if defined USE_USART && USE_USART != 0                   
+
+    #if USART_EN
       RCC_APB2ENR_USART1EN        |                           /* Enable clock for USART1            */
+      RCC_APB2ENR_IOPAEN          |                           /* Enable clock for GPIOA             */
     #endif
+
     RCC_APB2ENR_AFIOEN            |                           /* Enable clock for AFIO              */
-    RCC_APB2ENR_IOPAEN            |                           /* Enable clock for GPIOA             */
+
+    #if SWD_EN
+      RCC_APB2ENR_IOPAEN          |                           /* Enable clock for GPIOA             */
+    #endif
+
     RCC_APB2ENR_IOPCEN                                        /* Enable clock for GPIOC             */
   );
 
-  #if defined DISABLE_SWD && DISABLE_SWD != 0
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE                    /* Disable JTAG and SWD debug         */
-  #else
+  #if SWD_EN
     AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG debug, enable SWD one */
+  #else
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable JTAG and SWD debug         */
   #endif
 
-  *(__IO uint64_t*) GPIOC_BASE = PIN_CFG(13, O_2MHZ);         /* PC13: output, push-pull, 10Mhz     */
-  GPIOC->BSRR = GPIO_BSRR_BS13;                               /* Set PC13 pin HIGH (LED off)        */
+  PORT_CFG(C, PIN_CFG(13, O_2MHZ));                           /* PC13: output, push-pull, 2Mhz      */
+  SW_PIN(C, 13, UP);                                          /* Set PC13 pin HIGH (LED off)        */
 
-  #if defined USE_USART && USE_USART != 0
+  #if USART_EN || SWD_EN
 
-    *(__IO uint64_t*) GPIOA_BASE = (
-      PIN_CFG(9,  O_AF + O_10MHZ) |                           /* PA9:  USART1 TX, alternate, 10Mhz  */
-      PIN_CFG(10, I_PULL)         |                           /* PA10: USART1 RX, input, pull-down  */
-      PIN_CFG(13, I_PULL)         |                           /* PA13: SWDIO, input, pull-up        */
-      PIN_CFG(14, I_PULL)                                     /* PA14: SWCLK, input, pull-down      */
+    PORT_CFG(A, 
+      USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |                /* PA9:  USART1 TX, alternate, 10Mhz  */
+      USART_EN * PIN_CFG(10, I_PULL)         |                /* PA10: USART1 RX, input, pull-down  */
+      SWD_EN   * PIN_CFG(13, I_PULL)         |                /* PA13: SWDIO, input, pull-up        */
+      SWD_EN   * PIN_CFG(14, I_PULL)                          /* PA14: SWCLK, input, pull-down      */
     );
 
-    GPIOA->BSRR = PULL(10, LOW) | PULL(13, HIGH) | PULL(14, LOW);
+    GPIOA->BSRR = (
+      USART_EN * PULL(10, DOWN) |                             /* Pull-down USART1 RX pin            */
+      SWD_EN   * PULL(13, UP)   |                             /* Pull-up SWDIO pin                  */
+      SWD_EN   * PULL(14, DOWN)                               /* Pull-down SWCLK pin                */
+    );
 
   #endif
 
@@ -161,7 +186,7 @@ __STATIC_INLINE void init(void) {
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk;                    /* Start SysTick timer (HCLK / 8)     */
 
-  #if defined USE_USART && USE_USART != 0
+  #if USART_EN
     #define BAUDRATE 115200
 
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
@@ -171,7 +196,7 @@ __STATIC_INLINE void init(void) {
 
 }
 
-#if defined USE_USART && USE_USART != 0
+#if USART_EN
   __STATIC_INLINE void uputc(char c) {
     while (!(USART1->SR & USART_SR_TXE)) { /* JUST WAIT */ }  /* Wait until TX becomes empty        */
     USART1->DR = c;
@@ -222,17 +247,20 @@ int main(void) {
   init();
 
   for(;;) {
+
     for(int i = 0; i < 6; i++) {
-      GPIOC->ODR ^= GPIO_ODR_ODR13;
+      GPIOC->BSRR = GPIO_BSRR_BR13 | GPIO_BSRR_BS13 * (i & 1);
       DELAY_MS(35);
     }
-    #if defined USE_USART && USE_USART != 0
+
+    #if USART_EN
       #if 0
         uputs("It is OK.\n");
       #else
         uprintf("Just a test. Magic code is 0x%04X\n", rand() %0xFFFF);
       #endif
     #endif
+
     DELAY_MS(1000 - 35 * 6);
   }
 
@@ -246,7 +274,6 @@ MAIN_C
 
 cat <<MAKEFILE >Makefile
 TARGET = project
-DEBUG = 1
 
 BUILD_DIR = build
 
@@ -254,54 +281,43 @@ C_SOURCES = main.c system_stm32f1xx.c
 
 ASM_SOURCES = startup_stm32f103xb.s
 
-PREFIX = arm-none-eabi-
 ifdef GCC_PATH
-  CC = \$(GCC_PATH)/\$(PREFIX)gcc
-  AS = \$(GCC_PATH)/\$(PREFIX)gcc -x assembler-with-cpp
-  CP = \$(GCC_PATH)/\$(PREFIX)objcopy
-  SZ = \$(GCC_PATH)/\$(PREFIX)size
+  PREFIX = \$(GCC_PATH)/arm-none-eabi-
 else
-  CC = \$(PREFIX)gcc
-  AS = \$(PREFIX)gcc -x assembler-with-cpp
-  CP = \$(PREFIX)objcopy
-  SZ = \$(PREFIX)size
+  PREFIX = arm-none-eabi-
 endif
+
+CC = \$(PREFIX)gcc
+AS = \$(PREFIX)gcc -x assembler-with-cpp
+CP = \$(PREFIX)objcopy
+SZ = \$(PREFIX)size
+
 HEX = \$(CP) -O ihex
 BIN = \$(CP) -O binary -S
 
 MCU = -mcpu=cortex-m3 -mthumb
 
-AS_DEFS =
+DEF = -DSTM32F103xB
 
-C_DEFS = -DSTM32F103xB
+INC = -I.
 
-AS_INCLUDES =
+OPT = -O3 -g0 -flto
 
-C_INCLUDES = -I.
+FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11
 
-ifeq (\$(DEBUG), 1)
-  OPT = -Og -g -gdwarf-4
-else
-  OPT = -O3 -g0 -flto
-endif
-
-ASFLAGS = \$(MCU) \$(AS_DEFS) \$(AS_INCLUDES) -Wall -Werror -Wextra -fdata-sections -ffunction-sections \$(OPT)
-
-CFLAGS = \$(MCU) \$(C_DEFS) \$(C_INCLUDES) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11 \$(OPT)
-
-CFLAGS += -MMD -MP -MF"\$(@:%.o=%.d)"
+FLAG += -MMD -MP -MF"\$(@:%.o=%.d)"
 
 ifeq (\$(OS), Windows_NT)
 
-    CCFLAGS += -D WIN32
+    FLAG += -D WIN32
     ifeq (\$(PROCESSOR_ARCHITEW6432), AMD64)
-        CCFLAGS += -D AMD64
+        FLAG += -D AMD64
     else
         ifeq (\$(PROCESSOR_ARCHITECTURE), AMD64)
-            CCFLAGS += -D AMD64
+            FLAG += -D AMD64
         endif
         ifeq (\$(PROCESSOR_ARCHITECTURE), x86)
-            CCFLAGS += -D IA32
+            FLAG += -D IA32
         endif
     endif
 
@@ -312,20 +328,20 @@ else
 
     UNAME_S := \$(shell uname -s)
     ifeq (\$(UNAME_S), Linux)
-        CCFLAGS += -D LINUX
+        FLAGS += -D LINUX
     endif
     ifeq (\$(UNAME_S), Darwin)
-        CCFLAGS += -D OSX
+        FLAGS += -D OSX
     endif
     UNAME_P := \$(shell uname -p)
     ifeq (\$(UNAME_P), x86_64)
-        CCFLAGS += -D AMD64
+        FLAGS += -D AMD64
     endif
     ifneq (\$(filter %86, \$(UNAME_P)),)
-        CCFLAGS += -D IA32
+        FLAGS += -D IA32
     endif
     ifneq (\$(filter arm%, \$(UNAME_P)),)
-        CCFLAGS += -D ARM
+        FLAGS += -D ARM
     endif
 
     STLINK = st-flash
@@ -335,26 +351,26 @@ endif
 
 LDSCRIPT = STM32F103XB_FLASH.ld
 
-LIBS = -lc -lm -lnosys
+LIB = -lc -lm -lnosys
 LIBDIR =
-LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIBDIR) \$(LIBS) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections \$(OPT)
+LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIBDIR) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
 
 all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
 
-OBJECTS = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(C_SOURCES:.c=.o)))
+OBJ = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(C_SOURCES:.c=.o)))
 vpath %.c \$(sort \$(dir \$(C_SOURCES)))
 
-OBJECTS += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM_SOURCES:.s=.o)))
+OBJ += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM_SOURCES:.s=.o)))
 vpath %.s \$(sort \$(dir \$(ASM_SOURCES)))
 
 \$(BUILD_DIR)/%.o: %.c Makefile | \$(BUILD_DIR)
-	\$(CC) -c \$(CFLAGS) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
+	\$(CC) -c \$(FLAG) \$(OPT) \$< -o \$@
 
 \$(BUILD_DIR)/%.o: %.s Makefile | \$(BUILD_DIR)
-	\$(AS) -c \$(CFLAGS) \$< -o \$@
+	\$(AS) -c \$(FLAG) \$(OPT) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
 
-\$(BUILD_DIR)/\$(TARGET).elf: \$(OBJECTS) Makefile
-	\$(CC) \$(OBJECTS) \$(LDFLAGS) -o \$@
+\$(BUILD_DIR)/\$(TARGET).elf: \$(OBJ) Makefile
+	\$(CC) \$(OBJ) \$(LDFLAGS) \$(OPT) -o \$@
 	\$(SZ) \$@
 
 \$(BUILD_DIR)/%.hex: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
@@ -365,6 +381,10 @@ vpath %.s \$(sort \$(dir \$(ASM_SOURCES)))
 	
 \$(BUILD_DIR):
 	mkdir \$@
+
+debug: OPT = -Og -g -gdwarf-4
+debug: FLAG += -DUSE_SWD=1
+debug: all
 
 # Display compiler version information.
 gccversion :
@@ -381,6 +401,46 @@ clean:
 
 # *** EOF ***
 MAKEFILE
+
+cat <<DEBUG_JLINK >project.jdebug
+void OnProjectLoad (void) {
+  Project.SetDevice ("STM32F103C8");
+  Project.SetHostIF ("USB", "");
+  Project.SetTargetIF ("SWD");
+  Project.SetTIFSpeed ("4 MHz");
+  Project.AddSvdFile ("\$(InstallDir)/Config/CPU/Cortex-M3.svd");
+  Project.AddSvdFile ("STM32F103xx.svd");
+  File.Open ("build/project.elf");
+}
+
+void AfterTargetReset (void) {
+  _SetupTarget();
+}
+
+void AfterTargetDownload (void) {
+  _SetupTarget();
+}
+
+void _SetupTarget(void) {
+  unsigned int SP;
+  unsigned int PC;
+  unsigned int VectorTableAddr;
+
+  VectorTableAddr = Elf.GetBaseAddr();
+
+  SP = Target.ReadU32(VectorTableAddr);
+  if (SP != 0xFFFFFFFF) {
+    Target.SetReg("SP", SP);
+  }
+
+  PC = Elf.GetEntryPointPC();
+  if (PC != 0xFFFFFFFF) {
+    Target.SetReg("PC", PC);
+  } else {
+    Util.Error("Project script error: failed to set up entry point PC", 1);
+  }
+}
+DEBUG_JLINK
 
 #
 # run 'make' utility
