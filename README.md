@@ -4,15 +4,20 @@ Shell script to generate simple Makefile project for "BluePill" STM32F103C8 devb
 
 Just run ***create_stm32f1_project*** script and it will fetch all necessary files from STMicro CMSIS repo, generate main.h/main.c sources and build them with GNU ARM toolchain.
 
+
 To upload compiled firmware to the "BluePill" microcontroller simply type:
 
   ***make program***
   
 (st-link programmer and st-link utility are required)
 
+
+
 If it is nessesary to rebuild sources with debug information supplied just run make utility as follows:
 
   ***make debug***
+  
+  
 
 It is possible to compile firmware with macros predefined. It can be done with Makefile variable named EXT. For instance run
 
