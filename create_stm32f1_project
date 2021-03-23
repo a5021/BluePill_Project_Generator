@@ -33,10 +33,13 @@ cat <<MAIN_H >main.h
 #endif
 
 
-// #define USE_HSE                         1
-// #define USE_PLL                         1
-// #define USE_USART                       1
-// #define USE_SWD                         1
+/*
+#define USE_HSE                         1
+#define USE_PLL                         1
+#define USE_USART                       1
+#define USE_SWD                         1
+*/
+
 
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO ## PORT ## _BASE = (CFG)
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
@@ -123,9 +126,9 @@ __STATIC_INLINE void init(void) {
   );
 
   #if SWD_EN
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG debug, enable SWD one */
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG, enable SWD           */
   #else
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable JTAG and SWD debug         */
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable both JTAG and SWD          */
   #endif
 
   PORT_CFG(C, PIN_CFG(13, O_2MHZ));                           /* PC13: output, push-pull, 2Mhz      */
@@ -254,11 +257,7 @@ int main(void) {
     }
 
     #if USART_EN
-      #if 0
-        uputs("It is OK.\n");
-      #else
-        uprintf("Just a test. Magic code is 0x%04X\n", rand() %0xFFFF);
-      #endif
+      uprintf("Just a test. Magic code is 0x%04X\n", rand() % 0xFFFF);
     #endif
 
     DELAY_MS(1000 - 35 * 6);
@@ -274,34 +273,28 @@ MAIN_C
 
 cat <<MAKEFILE >Makefile
 TARGET = project
-
 BUILD_DIR = build
 
-C_SOURCES = main.c system_stm32f1xx.c
-
-ASM_SOURCES = startup_stm32f103xb.s
+SRC = main.c system_stm32f1xx.c
+ASM = startup_stm32f103xb.s
+MCU = -mcpu=cortex-m3 -mthumb
+DEF = -DSTM32F103xB
+INC = -I.
+OPT = -O3 -g0 -flto
 
 ifdef GCC_PATH
-  PREFIX = \$(GCC_PATH)/arm-none-eabi-
+  TOOLCHAIN = \$(GCC_PATH)/arm-none-eabi-
 else
-  PREFIX = arm-none-eabi-
+  TOOLCHAIN = arm-none-eabi-
 endif
 
-CC = \$(PREFIX)gcc
-AS = \$(PREFIX)gcc -x assembler-with-cpp
-CP = \$(PREFIX)objcopy
-SZ = \$(PREFIX)size
+CC = \$(TOOLCHAIN)gcc
+AS = \$(TOOLCHAIN)gcc -x assembler-with-cpp
+CP = \$(TOOLCHAIN)objcopy
+SZ = \$(TOOLCHAIN)size
 
 HEX = \$(CP) -O ihex
 BIN = \$(CP) -O binary -S
-
-MCU = -mcpu=cortex-m3 -mthumb
-
-DEF = -DSTM32F103xB
-
-INC = -I.
-
-OPT = -O3 -g0 -flto
 
 FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11
 
@@ -349,28 +342,26 @@ else
 
 endif
 
-LDSCRIPT = STM32F103XB_FLASH.ld
-
 LIB = -lc -lm -lnosys
-LIBDIR =
-LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIBDIR) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
+LDSCRIPT = STM32F103XB_FLASH.ld
+LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
 
 all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
 
-OBJ = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(C_SOURCES:.c=.o)))
-vpath %.c \$(sort \$(dir \$(C_SOURCES)))
+OBJ = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(SRC:.c=.o)))
+vpath %.c \$(sort \$(dir \$(SRC)))
 
-OBJ += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM_SOURCES:.s=.o)))
-vpath %.s \$(sort \$(dir \$(ASM_SOURCES)))
+OBJ += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM:.s=.o)))
+vpath %.s \$(sort \$(dir \$(ASM)))
 
 \$(BUILD_DIR)/%.o: %.c Makefile | \$(BUILD_DIR)
-	\$(CC) -c \$(FLAG) \$(OPT) \$< -o \$@
+	\$(CC) -c \$(FLAG) \$(OPT) \$(EXT) \$< -o \$@
 
 \$(BUILD_DIR)/%.o: %.s Makefile | \$(BUILD_DIR)
-	\$(AS) -c \$(FLAG) \$(OPT) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
+	\$(AS) -c \$(FLAG) \$(OPT) \$(EXT) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
 
 \$(BUILD_DIR)/\$(TARGET).elf: \$(OBJ) Makefile
-	\$(CC) \$(OBJ) \$(LDFLAGS) \$(OPT) -o \$@
+	\$(CC) \$(OBJ) \$(LDFLAGS) \$(OPT) \$(EXT) -o \$@
 	\$(SZ) \$@
 
 \$(BUILD_DIR)/%.hex: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
@@ -382,7 +373,7 @@ vpath %.s \$(sort \$(dir \$(ASM_SOURCES)))
 \$(BUILD_DIR):
 	mkdir \$@
 
-debug: OPT = -Og -g -gdwarf-4
+debug: OPT = -Og -g -gdwarf
 debug: FLAG += -DUSE_SWD=1
 debug: all
 
