@@ -23,4 +23,5 @@ It is possible to compile firmware with macros predefined. It can be done with M
 
   ***make EXT="-DUSE_PLL=1 -DUSE_HSE=1"***
   
-to build firmware with HSE generator switched ON and PLL selected as system clock.
+to build firmware with HSE generator switched ON and PLL selected as system clock. The list of macros can be fount at the top of main.h
+
