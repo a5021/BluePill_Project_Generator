@@ -32,13 +32,18 @@ cat <<MAIN_H >main.h
  extern C {
 #endif
 
-
+/* *********************************************************************************** */
+/* ******** Uncomment lines below if these features are required ********************* */
+/* *********************************************************************************** */
 #if 0
   #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
   #define USE_PLL                       1  /* Use PLL as system clock source           */
   #define USE_USART                     1  /* Configure USART1 for send and receive    */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
 #endif
+/* *********************************************************************************** */
+/* ********  or force using them while running make utility  ************************* */
+/* *********************************************************************************** */
 
 
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO ## PORT ## _BASE = (CFG)
