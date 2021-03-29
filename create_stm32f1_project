@@ -39,6 +39,8 @@ cat <<MAIN_H >main.h
   #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
   #define USE_PLL                       1  /* Use PLL as system clock source           */
   #define USE_USART                     1  /* Configure USART1 for send and receive    */
+  #define USE_I2C                       1  /* Configure I2C1 100kHz                    */
+  #define USE_SPI                       1  /* Configure SPI1                           */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
 #endif
 /* *********************************************************************************** */
@@ -99,6 +101,8 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
+     /* I2C bus speed  */
+
 #if defined(USE_SWD) && (USE_SWD != 0)
   #define SWD_EN                        1
 #else
@@ -111,6 +115,41 @@ cat <<MAIN_H >main.h
   #define USART_EN                      0
 #endif
 
+#if defined(USE_I2C) && (USE_I2C != 0)
+  #define I2C_EN                        1
+  #define I2C_SPEED_STANDARD            100000
+  #define I2C_SPEED_FAST                400000
+
+  #if 0
+    #define I2C_SPEED_MODE              I2C_SPEED_STANDARD
+  #else
+    #define I2C_SPEED_MODE              I2C_SPEED_FAST
+  #endif
+
+  #define I2C_DUTY_CYCLE_2              0x00000000U                      /* I2C fast mode Tlow/Thigh = 2        */
+  #define I2C_DUTY_CYCLE_16_9           I2C_CCR_DUTY                     /* I2C fast mode Tlow/Thigh = 16/9     */
+
+  #define I2C_CONFIGURE_CCR(APB1_CLOCK, I2C_SPEED)                       (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD)? \
+                                                                         (I2C_CONFIGURE_CCR_STANDARD((APB1_CLOCK), (I2C_SPEED))) : \
+                                                                         (I2C_CONFIGURE_CCR_FAST((APB1_CLOCK), (I2C_SPEED), (I2C_DUTY_CYCLE_2))))
+
+  #define I2C_CONFIGURE_CCR_STANDARD(APB1_CLOCK, I2C_SPEED)              (uint32_t)(((((APB1_CLOCK)/((I2C_SPEED) << 1U)) & I2C_CCR_CCR) < 4U) ? 4U:((APB1_CLOCK) / ((I2C_SPEED) << 1U)))
+
+  #define I2C_CONFIGURE_CCR_FAST(APB1_CLOCK, I2C_SPEED, I2C_DUTY_CYCLE)  (uint32_t)(((I2C_DUTY_CYCLE) == I2C_DUTY_CYCLE_2) ? \
+                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 3U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 3U))) : \
+                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 25U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 25U))))
+
+  #define I2C_RISE_TIME(APB1_CLOCK, I2C_SPEED)                           (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD) ? ((APB1_CLOCK) / 1000000 + 1) : ((((APB1_CLOCK) / 1000000) * 300) / 1000) + 1)
+#else
+  #define I2C_EN                        0
+#endif
+
+#if defined(USE_SPI) && (USE_SPI != 0)
+  #define SPI_EN                        1
+#else
+  #define SPI_EN                        0
+#endif
+
 
 __STATIC_INLINE void init(void) {
 
@@ -119,6 +158,15 @@ __STATIC_INLINE void init(void) {
     #if USART_EN
       RCC_APB2ENR_USART1EN        |                           /* Enable clock for USART1            */
       RCC_APB2ENR_IOPAEN          |                           /* Enable clock for GPIOA             */
+    #endif
+
+    #if SPI_EN
+      RCC_APB2ENR_IOPAEN          |                           /* Enable clock for GPIOA             */
+      RCC_APB2ENR_SPI1EN          |                           /* Enable clock for SPI1              */
+    #endif
+
+    #if I2C_EN
+      RCC_APB2ENR_IOPBEN          |                           /* Enable clock for GPIOB             */
     #endif
 
     RCC_APB2ENR_AFIOEN            |                           /* Enable clock for AFIO              */
@@ -130,30 +178,48 @@ __STATIC_INLINE void init(void) {
     RCC_APB2ENR_IOPCEN                                        /* Enable clock for GPIOC             */
   );
 
-  #if SWD_EN
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG, enable SWD           */
-  #else
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable both JTAG and SWD          */
+  #if I2C_EN
+
+    RCC->APB1ENR = (
+      I2C_EN * RCC_APB1ENR_I2C1EN                             /* Enable clock for I2C1              */
+    );
+
+    PORT_CFG(B, 
+      I2C_EN   * PIN_CFG(6,  O_AF + O_OD)    |                /* PB6:  I2C1 SCL, altern, open drain */
+      I2C_EN   * PIN_CFG(7,  O_AF + O_OD)                     /* PA7:  I2C1 SDA, altern, open drain */
+    );
+
   #endif
 
   PORT_CFG(C, PIN_CFG(13, O_2MHZ));                           /* PC13: output, push-pull, 2Mhz      */
   SW_PIN(C, 13, UP);                                          /* Set PC13 pin HIGH (LED off)        */
 
-  #if USART_EN || SWD_EN
+  #if USART_EN || SWD_EN || SPI_EN
 
     PORT_CFG(A, 
-      USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |                /* PA9:  USART1 TX, alternate, 10Mhz  */
+      SPI_EN   * PIN_CFG(4,  O_10MHZ)        |                /* PA4:  SPI1 CS, output, 10MHz       */
+      SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |                /* PA5:  SPI1 CLK, alternate, 50MHz   */
+      SPI_EN   * PIN_CFG(6,  I_PULL)         |                /* PA6:  SPI1 MISO, input, pull-down  */
+      SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ) |                /* PA7:  SPI1 MOSI, alternate, 50MHz  */
+      USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |                /* PA9:  USART1 TX, alternate, 10MHz  */
       USART_EN * PIN_CFG(10, I_PULL)         |                /* PA10: USART1 RX, input, pull-down  */
       SWD_EN   * PIN_CFG(13, I_PULL)         |                /* PA13: SWDIO, input, pull-up        */
       SWD_EN   * PIN_CFG(14, I_PULL)                          /* PA14: SWCLK, input, pull-down      */
     );
 
     GPIOA->BSRR = (
+      SPI_EN   * PULL(6,  DOWN) |                             /* Pull-down SPI1 MISO pin            */
       USART_EN * PULL(10, DOWN) |                             /* Pull-down USART1 RX pin            */
       SWD_EN   * PULL(13, UP)   |                             /* Pull-up SWDIO pin                  */
       SWD_EN   * PULL(14, DOWN)                               /* Pull-down SWCLK pin                */
     );
 
+  #endif
+
+  #if SWD_EN
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG, enable SWD           */
+  #else
+    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable both JTAG and SWD          */
   #endif
 
   #if defined USE_HSE && USE_HSE != 0
@@ -184,10 +250,13 @@ __STATIC_INLINE void init(void) {
       RCC_CFGR_PPRE1_DIV2                                     /* Set APB1 clock as HCLK / 2         */
     );
 
+    #define APB1_CLK ((HCLK) / 2)
+
   #else
 
-    #undef HCLK
-    #define HCLK 8000000UL
+    #undef  HCLK
+    #define HCLK     8000000UL
+    #define APB1_CLK HCLK
 
   #endif
 
@@ -200,6 +269,13 @@ __STATIC_INLINE void init(void) {
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
 
+  #endif
+
+  #if I2C_EN
+    I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE); /* Write CCR only when I2C is disabled */
+    I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);   /* Maximum rise time in Fm/Sm mode     */
+    I2C1->CR2 = APB1_CLK / 1000000;                          /* Configure Peripheral Clock Freq.    */
+    I2C1->CR1 = I2C_CR1_PE;                                  /* Enable Peripheral                   */
   #endif
 
 }
