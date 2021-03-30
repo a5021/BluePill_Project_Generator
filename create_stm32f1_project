@@ -310,6 +310,121 @@ __STATIC_INLINE void init(void) {
   
 #endif
 
+#if I2C_EN
+
+  #define I2C_TIMEOUT                   10
+  #define I2C_ERR_TIMEOUT               1
+  #define I2C_ERROR                     (                                                            \
+                                          I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\
+                                          I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\
+                                          I2C_SR1_AF    |  /*  Acknowledge Failure  (0x00000400)   */\
+                                          I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\
+                                        )
+
+extern unsigned short i2c_status;
+
+__STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
+  unsigned t_out = I2C_TIMEOUT;
+  (void) SysTick->CTRL;
+
+  while((I2C1->SR1 & bitFlag) == 0) {
+    t_out -= SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos;
+    if (t_out == 0) {
+      i2c_status |= I2C_ERR_TIMEOUT;
+      return ERROR;
+    }
+
+    unsigned e_status = I2C1->SR1 & I2C_ERROR;
+    if (e_status) {
+      i2c_status = (unsigned short)e_status;
+      return ERROR;
+    }
+  }
+
+  return SUCCESS;
+}
+
+
+__STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
+  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
+  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+
+  I2C1->DR = (unsigned) addr << 1;
+  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+
+  (void) I2C1->SR2;
+
+  for(unsigned i = 0; i < len; i++) {
+    if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
+    I2C1->DR = data[i];
+  }
+
+  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+
+  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
+  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
+}
+
+
+__STATIC_INLINE ErrorStatus i2c_read(const char addr, volatile char *data, unsigned len) {
+
+  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
+  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+
+  I2C1->DR = (char)(addr << 1) + 1;
+  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+  if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
+
+  (void) I2C1->SR2;
+
+  for(unsigned i = 0; i < len; i++) {
+    if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
+    if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
+    data[i] = (char) I2C1->DR;
+  }
+
+  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
+
+  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
+}
+
+__STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
+  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
+  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+
+  I2C1->DR = (unsigned) addr << 1;                      /* send slave address         */
+  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+
+  (void) I2C1->SR2;                                     /* dummy read status register */
+  if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
+
+  I2C1->DR = reg;                                       /* send register number       */
+  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+
+  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate RE-START          */
+  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+
+  I2C1->DR = (char)(addr << 1) + 1;                     /* send slave addr + read req */
+  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+
+  if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
+
+  (void) I2C1->SR2;                                     /* dummy read status register */
+
+  for(unsigned i = 0; i < len; i++) {
+    if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
+    if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
+    data[i] = (char) I2C1->DR;                          /* store received data        */
+  }
+
+  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;  /* generate STOP              */
+
+  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
+}
+#endif
+
 #ifdef __cplusplus
 }
 #endif
@@ -326,6 +441,10 @@ cat <<MAIN_C >main.c
 #include <stdio.h>
 #include "main.h"
 
+#if I2C_EN
+  unsigned short i2c_status;
+#endif
+
 int main(void) {
 
   init();
@@ -339,6 +458,14 @@ int main(void) {
 
     #if USART_EN
       uprintf("Just a test. Magic code is 0x%04X\n", rand() % 0xFFFF);
+    #endif
+
+    #if I2C_EN
+      char buf[10];
+      i2c_read_reg(0x78, buf, 0, 1);
+      if (i2c_status != 0) {
+        /* just check */
+      }
     #endif
 
     DELAY_MS(1000 - 35 * 6);
