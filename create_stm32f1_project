@@ -101,7 +101,15 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
-     /* I2C bus speed  */
+#define WAIT_FOR_FLAG(REG, FLAG, TIMEOUT) do {                                  \
+          unsigned timeout = SysTick->CTRL >> (SysTick_CTRL_COUNTFLAG_Pos + 1); \
+          while(((REG) & (FLAG)) != (FLAG)) {                                   \
+            timeout += GET_TICK();                                              \
+            if (timeout > (TIMEOUT)) {                                          \
+              return ERROR;                                                     \
+            }                                                                   \
+          }                                                                     \
+        } while(0)
 
 #if defined(USE_SWD) && (USE_SWD != 0)
   #define SWD_EN                        1
@@ -146,6 +154,16 @@ cat <<MAIN_H >main.h
 
 #if defined(USE_SPI) && (USE_SPI != 0)
   #define SPI_EN                        1
+  __STATIC_INLINE char spi_xfer(char d) {
+    while((SPI1->SR & SPI_SR_TXE) != SPI_SR_TXE) {
+      /* wait until spi transfer completes */
+    }
+    *((__IO char *)&SPI1->DR) = d;
+    while((SPI1->SR & SPI_SR_RXNE) != SPI_SR_RXNE) {
+      /* wait until spi transfer completes */
+    }
+    return *(__IO char *)&SPI1->DR;
+  }
 #else
   #define SPI_EN                        0
 #endif
@@ -272,10 +290,19 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if I2C_EN
-    I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE); /* Write CCR only when I2C is disabled */
-    I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);   /* Maximum rise time in Fm/Sm mode     */
-    I2C1->CR2 = APB1_CLK / 1000000;                          /* Configure Peripheral Clock Freq.    */
-    I2C1->CR1 = I2C_CR1_PE;                                  /* Enable Peripheral                   */
+    I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE);  /* Write CCR when I2C is disabled     */
+    I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);    /* Maximum rise time in Fm/Sm mode    */
+    I2C1->CR2 = APB1_CLK / 1000000;                           /* Configure Peripheral Clock Freq.   */
+    I2C1->CR1 = I2C_CR1_PE;                                   /* Enable Peripheral                  */
+  #endif
+
+  #if SPI_EN
+    SPI1->CR1 = (
+      SPI_CR1_SPE          |                                  /* 0x00000040 SPI Enable              */
+      SPI_CR1_MSTR         |                                  /* 0x00000004 Master Selection        */
+      SPI_CR1_SSI          |                                  /* 0x00000100 Internal slave select   */
+      SPI_CR1_SSM                                             /* 0x00000200 Software slave mgmnt    */
+    );
   #endif
 
 }
@@ -457,15 +484,28 @@ int main(void) {
     }
 
     #if USART_EN
-      uprintf("Just a test. Magic code is 0x%04X\n", rand() % 0xFFFF);
+      char print_buf[160] = {0};
+      int offs = snprintf(print_buf, sizeof(print_buf), "Just a test #0x%02X: ", rand() % 0xFF);
     #endif
 
     #if I2C_EN
-      char buf[10];
-      i2c_read_reg(0x78, buf, 0, 1);
+      char x;
+      i2c_read_reg(0x78, &x, 0, 1);
       if (i2c_status != 0) {
         /* just check */
       }
+      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "I2C code = 0x%02X, ", x);
+    #endif
+
+    #if SPI_EN
+      spi_xfer(0x00);
+      char y = spi_xfer(0xFF);
+      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "SPI code = 0x%02X, ", y);
+    #endif
+
+    #if USART_EN
+      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "\n");
+      uputs(print_buf);
     #endif
 
     DELAY_MS(1000 - 35 * 6);
