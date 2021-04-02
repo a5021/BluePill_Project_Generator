@@ -164,6 +164,13 @@ cat <<MAIN_H >main.h
     }
     return *(__IO char *)&SPI1->DR;
   }
+
+  #define CS_PORT                       GPIOA
+  #define CS_PIN                        4
+  #define CS(STATE)                     CS_PORT->BSRR = (1UL << ((!STATE) * 16 + CS_PIN))
+  #define CS_LOW()                      CS(0)
+  #define CS_HIGH()                     CS(1)
+
 #else
   #define SPI_EN                        0
 #endif
@@ -486,7 +493,7 @@ int main(void) {
 
     #if I2C_EN
       char x;
-      i2c_read_reg(0x78, &x, 0, 1);
+      i2c_read_reg(0x76, &x, 0, 1);
       if (i2c_status != 0) {
         /* just check */
       }
@@ -494,8 +501,10 @@ int main(void) {
     #endif
 
     #if SPI_EN
+      CS_LOW();
       spi_xfer(0x00);
       char y = spi_xfer(0xFF);
+      CS_HIGH();
       offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "SPI code = 0x%02X, ", y);
     #endif
 
