@@ -9,11 +9,11 @@ Run the script in any convenient way.
 It will fetch all necessary files from STMicro CMSIS repo, generate main.h/main.c sources and build them with GNU ARM toolchain. Linux and Windows (cygwin required) are supported.
 The script can also be run with additional parameter `mdk` to generate config for Keil MDK-ARM.
 
-To upload compiled firmware to the "BluePill" microcontroller simply type:
+To upload firmware to the "BluePill" microcontroller simply type:
 
   `make program`
   
-(st-link programmer and st-link utility are required)
+*Note: st-link programmer and st-link utility are required*
 
 
 
