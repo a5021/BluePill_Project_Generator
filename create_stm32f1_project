@@ -5,18 +5,452 @@ if [ "$1" = "--help" ]
       echo ""
       echo "    STM32F1 Project Creator v0.01 ALPHA";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
+      echo
+      echo "Usage:"
+      echo "        $0 [command] [options]"
+      echo 
+      echo "Commands:"
+      echo "        mdk  generate simple Keil MDK-ARM config" 
       exit
 fi
 
 
 wg="wget -c"
-cmsis="https://raw.githubusercontent.com/STMicroelectronics/STM32CubeF1/master/Drivers/CMSIS/Include"
-f1="https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master"
+raw=https://raw.githubusercontent.com
+st=$raw/STMicroelectronics/
+cmsis=$st/STM32CubeF1/master/Drivers/CMSIS/Include
+f1=$st/cmsis_device_f1/master
+# https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master
+# /Source/Templates/arm/startup_stm32f103xb.s
 svd="https://raw.githubusercontent.com/posborne/cmsis-svd/master/data/STMicro/STM32F103xx.svd"
 
-$wg $cmsis/cmsis_compiler.h $cmsis/cmsis_armclang.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
+$wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
     $f1/Source/Templates/gcc/startup_stm32f103xb.s $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld $svd
+
+
+if [ "$1" = "mdk" ]
+  then 
+  $wg $cmsis/cmsis_armclang.h 
+  mkdir MDK-ARM
+  cd MDK-ARM
+  $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
+  cat << MDK_CONFIG > project.uvprojx
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
+
+  <SchemaVersion>2.1</SchemaVersion>
+
+  <Header>### uVision Project, (C) Keil Software</Header>
+
+  <Targets>
+    <Target>
+      <TargetName>project</TargetName>
+      <ToolsetNumber>0x4</ToolsetNumber>
+      <ToolsetName>ARM-ADS</ToolsetName>
+      <pCCUsed>6160000::V6.16::ARMCLANG</pCCUsed>
+      <uAC6>1</uAC6>
+      <TargetOption>
+        <TargetCommonOption>
+          <Device>STM32F103CB</Device>
+          <Vendor>STMicroelectronics</Vendor>
+          <PackID>Keil.STM32F1xx_DFP.2.3.0</PackID>
+          <PackURL>http://www.keil.com/pack/</PackURL>
+          <Cpu>IRAM(0x20000000,0x00005000) IROM(0x08000000,0x00020000) CPUTYPE("Cortex-M3") CLOCK(8000000) ELITTLE</Cpu>
+          <FlashUtilSpec></FlashUtilSpec>
+          <StartupFile></StartupFile>
+          <FlashDriverDll>UL2CM3(-S0 -C0 -P0 -FD20000000 -FC1000 -FN1 -FF0STM32F10x_128 -FS08000000 -FL020000 -FP0($$Device:STM32F103CB$Flash\STM32F10x_128.FLM))</FlashDriverDll>
+          <DeviceId>0</DeviceId>
+          <RegisterFile>$$Device:STM32F103CB$Device\Include\stm32f10x.h</RegisterFile>
+          <MemoryEnv></MemoryEnv>
+          <Cmp></Cmp>
+          <Asm></Asm>
+          <Linker></Linker>
+          <OHString></OHString>
+          <InfinionOptionDll></InfinionOptionDll>
+          <SLE66CMisc></SLE66CMisc>
+          <SLE66AMisc></SLE66AMisc>
+          <SLE66LinkerMisc></SLE66LinkerMisc>
+          <SFDFile>$$Device:STM32F103CB$SVD\STM32F103xx.svd</SFDFile>
+          <bCustSvd>0</bCustSvd>
+          <UseEnv>0</UseEnv>
+          <BinPath></BinPath>
+          <IncludePath></IncludePath>
+          <LibPath></LibPath>
+          <RegisterFilePath></RegisterFilePath>
+          <DBRegisterFilePath></DBRegisterFilePath>
+          <TargetStatus>
+            <Error>0</Error>
+            <ExitCodeStop>0</ExitCodeStop>
+            <ButtonStop>0</ButtonStop>
+            <NotGenerated>0</NotGenerated>
+            <InvalidFlash>1</InvalidFlash>
+          </TargetStatus>
+          <OutputDirectory>.\OUTPUT\</OutputDirectory>
+          <OutputName>project</OutputName>
+          <CreateExecutable>1</CreateExecutable>
+          <CreateLib>0</CreateLib>
+          <CreateHexFile>1</CreateHexFile>
+          <DebugInformation>1</DebugInformation>
+          <BrowseInformation>1</BrowseInformation>
+          <ListingPath></ListingPath>
+          <HexFormatSelection>1</HexFormatSelection>
+          <Merge32K>0</Merge32K>
+          <CreateBatchFile>0</CreateBatchFile>
+          <BeforeCompile>
+            <RunUserProg1>0</RunUserProg1>
+            <RunUserProg2>0</RunUserProg2>
+            <UserProg1Name></UserProg1Name>
+            <UserProg2Name></UserProg2Name>
+            <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+            <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopU1X>0</nStopU1X>
+            <nStopU2X>0</nStopU2X>
+          </BeforeCompile>
+          <BeforeMake>
+            <RunUserProg1>0</RunUserProg1>
+            <RunUserProg2>0</RunUserProg2>
+            <UserProg1Name></UserProg1Name>
+            <UserProg2Name></UserProg2Name>
+            <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+            <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopB1X>0</nStopB1X>
+            <nStopB2X>0</nStopB2X>
+          </BeforeMake>
+          <AfterMake>
+            <RunUserProg1>0</RunUserProg1>
+            <RunUserProg2>0</RunUserProg2>
+            <UserProg1Name></UserProg1Name>
+            <UserProg2Name></UserProg2Name>
+            <UserProg1Dos16Mode>0</UserProg1Dos16Mode>
+            <UserProg2Dos16Mode>0</UserProg2Dos16Mode>
+            <nStopA1X>0</nStopA1X>
+            <nStopA2X>0</nStopA2X>
+          </AfterMake>
+          <SelectedForBatchBuild>1</SelectedForBatchBuild>
+          <SVCSIdString></SVCSIdString>
+        </TargetCommonOption>
+        <CommonProperty>
+          <UseCPPCompiler>0</UseCPPCompiler>
+          <RVCTCodeConst>0</RVCTCodeConst>
+          <RVCTZI>0</RVCTZI>
+          <RVCTOtherData>0</RVCTOtherData>
+          <ModuleSelection>0</ModuleSelection>
+          <IncludeInBuild>1</IncludeInBuild>
+          <AlwaysBuild>0</AlwaysBuild>
+          <GenerateAssemblyFile>0</GenerateAssemblyFile>
+          <AssembleAssemblyFile>0</AssembleAssemblyFile>
+          <PublicsOnly>0</PublicsOnly>
+          <StopOnExitCode>3</StopOnExitCode>
+          <CustomArgument></CustomArgument>
+          <IncludeLibraryModules></IncludeLibraryModules>
+          <ComprImg>0</ComprImg>
+        </CommonProperty>
+        <DllOption>
+          <SimDllName>SARMCM3.DLL</SimDllName>
+          <SimDllArguments> -REMAP</SimDllArguments>
+          <SimDlgDll>DCM.DLL</SimDlgDll>
+          <SimDlgDllArguments>-pCM3</SimDlgDllArguments>
+          <TargetDllName>SARMCM3.DLL</TargetDllName>
+          <TargetDllArguments></TargetDllArguments>
+          <TargetDlgDll>TCM.DLL</TargetDlgDll>
+          <TargetDlgDllArguments>-pCM3</TargetDlgDllArguments>
+        </DllOption>
+        <DebugOption>
+          <OPTHX>
+            <HexSelection>1</HexSelection>
+            <HexRangeLowAddress>0</HexRangeLowAddress>
+            <HexRangeHighAddress>0</HexRangeHighAddress>
+            <HexOffset>0</HexOffset>
+            <Oh166RecLen>16</Oh166RecLen>
+          </OPTHX>
+        </DebugOption>
+        <Utilities>
+          <Flash1>
+            <UseTargetDll>1</UseTargetDll>
+            <UseExternalTool>0</UseExternalTool>
+            <RunIndependent>0</RunIndependent>
+            <UpdateFlashBeforeDebugging>1</UpdateFlashBeforeDebugging>
+            <Capability>1</Capability>
+            <DriverSelection>4101</DriverSelection>
+          </Flash1>
+          <bUseTDR>1</bUseTDR>
+          <Flash2>BIN\UL2CM3.DLL</Flash2>
+          <Flash3></Flash3>
+          <Flash4></Flash4>
+          <pFcarmOut></pFcarmOut>
+          <pFcarmGrp></pFcarmGrp>
+          <pFcArmRoot></pFcArmRoot>
+          <FcArmLst>0</FcArmLst>
+        </Utilities>
+        <TargetArmAds>
+          <ArmAdsMisc>
+            <GenerateListings>0</GenerateListings>
+            <asHll>1</asHll>
+            <asAsm>1</asAsm>
+            <asMacX>1</asMacX>
+            <asSyms>1</asSyms>
+            <asFals>1</asFals>
+            <asDbgD>1</asDbgD>
+            <asForm>1</asForm>
+            <ldLst>0</ldLst>
+            <ldmm>1</ldmm>
+            <ldXref>1</ldXref>
+            <BigEnd>0</BigEnd>
+            <AdsALst>1</AdsALst>
+            <AdsACrf>1</AdsACrf>
+            <AdsANop>0</AdsANop>
+            <AdsANot>0</AdsANot>
+            <AdsLLst>1</AdsLLst>
+            <AdsLmap>1</AdsLmap>
+            <AdsLcgr>1</AdsLcgr>
+            <AdsLsym>1</AdsLsym>
+            <AdsLszi>1</AdsLszi>
+            <AdsLtoi>1</AdsLtoi>
+            <AdsLsun>1</AdsLsun>
+            <AdsLven>1</AdsLven>
+            <AdsLsxf>1</AdsLsxf>
+            <RvctClst>0</RvctClst>
+            <GenPPlst>0</GenPPlst>
+            <AdsCpuType>"Cortex-M3"</AdsCpuType>
+            <RvctDeviceName></RvctDeviceName>
+            <mOS>0</mOS>
+            <uocRom>0</uocRom>
+            <uocRam>0</uocRam>
+            <hadIROM>1</hadIROM>
+            <hadIRAM>1</hadIRAM>
+            <hadXRAM>0</hadXRAM>
+            <uocXRam>0</uocXRam>
+            <RvdsVP>0</RvdsVP>
+            <RvdsMve>0</RvdsMve>
+            <RvdsCdeCp>0</RvdsCdeCp>
+            <hadIRAM2>0</hadIRAM2>
+            <hadIROM2>0</hadIROM2>
+            <StupSel>8</StupSel>
+            <useUlib>1</useUlib>
+            <EndSel>0</EndSel>
+            <uLtcg>0</uLtcg>
+            <nSecure>0</nSecure>
+            <RoSelD>3</RoSelD>
+            <RwSelD>3</RwSelD>
+            <CodeSel>0</CodeSel>
+            <OptFeed>0</OptFeed>
+            <NoZi1>0</NoZi1>
+            <NoZi2>0</NoZi2>
+            <NoZi3>0</NoZi3>
+            <NoZi4>0</NoZi4>
+            <NoZi5>0</NoZi5>
+            <Ro1Chk>0</Ro1Chk>
+            <Ro2Chk>0</Ro2Chk>
+            <Ro3Chk>0</Ro3Chk>
+            <Ir1Chk>1</Ir1Chk>
+            <Ir2Chk>0</Ir2Chk>
+            <Ra1Chk>0</Ra1Chk>
+            <Ra2Chk>0</Ra2Chk>
+            <Ra3Chk>0</Ra3Chk>
+            <Im1Chk>1</Im1Chk>
+            <Im2Chk>0</Im2Chk>
+            <OnChipMemories>
+              <Ocm1>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm1>
+              <Ocm2>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm2>
+              <Ocm3>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm3>
+              <Ocm4>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm4>
+              <Ocm5>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm5>
+              <Ocm6>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </Ocm6>
+              <IRAM>
+                <Type>0</Type>
+                <StartAddress>0x20000000</StartAddress>
+                <Size>0x5000</Size>
+              </IRAM>
+              <IROM>
+                <Type>1</Type>
+                <StartAddress>0x8000000</StartAddress>
+                <Size>0x20000</Size>
+              </IROM>
+              <XRAM>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </XRAM>
+              <OCR_RVCT1>
+                <Type>1</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT1>
+              <OCR_RVCT2>
+                <Type>1</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT2>
+              <OCR_RVCT3>
+                <Type>1</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT3>
+              <OCR_RVCT4>
+                <Type>1</Type>
+                <StartAddress>0x8000000</StartAddress>
+                <Size>0x20000</Size>
+              </OCR_RVCT4>
+              <OCR_RVCT5>
+                <Type>1</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT5>
+              <OCR_RVCT6>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT6>
+              <OCR_RVCT7>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT7>
+              <OCR_RVCT8>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT8>
+              <OCR_RVCT9>
+                <Type>0</Type>
+                <StartAddress>0x20000000</StartAddress>
+                <Size>0x5000</Size>
+              </OCR_RVCT9>
+              <OCR_RVCT10>
+                <Type>0</Type>
+                <StartAddress>0x0</StartAddress>
+                <Size>0x0</Size>
+              </OCR_RVCT10>
+            </OnChipMemories>
+            <RvctStartVector></RvctStartVector>
+          </ArmAdsMisc>
+          <Cads>
+            <interw>1</interw>
+            <Optim>3</Optim>
+            <oTime>0</oTime>
+            <SplitLS>0</SplitLS>
+            <OneElfS>1</OneElfS>
+            <Strict>0</Strict>
+            <EnumInt>0</EnumInt>
+            <PlainCh>0</PlainCh>
+            <Ropi>0</Ropi>
+            <Rwpi>0</Rwpi>
+            <wLevel>2</wLevel>
+            <uThumb>0</uThumb>
+            <uSurpInc>0</uSurpInc>
+            <uC99>1</uC99>
+            <uGnu>0</uGnu>
+            <useXO>0</useXO>
+            <v6Lang>6</v6Lang>
+            <v6LangP>9</v6LangP>
+            <vShortEn>1</vShortEn>
+            <vShortWch>1</vShortWch>
+            <v6Lto>0</v6Lto>
+            <v6WtE>1</v6WtE>
+            <v6Rtti>0</v6Rtti>
+            <VariousControls>
+              <MiscControls>-Wno-missing-prototypes -Wno-unreachable-code-return</MiscControls>
+              <Define>STM32F103xB,USE_SWD=1</Define>
+              <Undefine></Undefine>
+              <IncludePath>..</IncludePath>
+            </VariousControls>
+          </Cads>
+          <Aads>
+            <interw>1</interw>
+            <Ropi>0</Ropi>
+            <Rwpi>0</Rwpi>
+            <thumb>0</thumb>
+            <SplitLS>0</SplitLS>
+            <SwStkChk>0</SwStkChk>
+            <NoWarn>0</NoWarn>
+            <uSurpInc>0</uSurpInc>
+            <useXO>0</useXO>
+            <ClangAsOpt>4</ClangAsOpt>
+            <VariousControls>
+              <MiscControls></MiscControls>
+              <Define></Define>
+              <Undefine></Undefine>
+              <IncludePath></IncludePath>
+            </VariousControls>
+          </Aads>
+          <LDads>
+            <umfTarg>1</umfTarg>
+            <Ropi>0</Ropi>
+            <Rwpi>0</Rwpi>
+            <noStLib>0</noStLib>
+            <RepFail>1</RepFail>
+            <useFile>0</useFile>
+            <TextAddressRange></TextAddressRange>
+            <DataAddressRange></DataAddressRange>
+            <pXoBase></pXoBase>
+            <ScatterFile></ScatterFile>
+            <IncludeLibs></IncludeLibs>
+            <IncludeLibsPath></IncludeLibsPath>
+            <Misc></Misc>
+            <LinkerInputFile></LinkerInputFile>
+            <DisabledWarnings></DisabledWarnings>
+          </LDads>
+        </TargetArmAds>
+      </TargetOption>
+      <Groups>
+        <Group>
+          <GroupName>startup</GroupName>
+          <Files>
+            <File>
+              <FileName>startup_stm32f103xb.s</FileName>
+              <FileType>2</FileType>
+              <FilePath>startup_stm32f103xb.s</FilePath>
+            </File>
+            <File>
+              <FileName>system_stm32f1xx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../system_stm32f1xx.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>app</GroupName>
+          <Files>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>../main.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+      </Groups>
+    </Target>
+  </Targets>
+</Project>
+MDK_CONFIG
+  cd ..
+fi
+
 
 #
 # generate main.h
@@ -101,14 +535,14 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
-#define WAIT_FOR_FLAG(REG, FLAG, TIMEOUT) do {                                  \
-          unsigned timeout = SysTick->CTRL >> (SysTick_CTRL_COUNTFLAG_Pos + 1); \
-          while(((REG) & (FLAG)) != (FLAG)) {                                   \
-            timeout += GET_TICK();                                              \
-            if (timeout > (TIMEOUT)) {                                          \
-              return ERROR;                                                     \
-            }                                                                   \
-          }                                                                     \
+#define WAIT_FOR_FLAG(REG, FLAG, TIMEOUT) do {                                  \\
+          unsigned timeout = SysTick->CTRL >> (SysTick_CTRL_COUNTFLAG_Pos + 1); \\
+          while(((REG) & (FLAG)) != (FLAG)) {                                   \\
+            timeout += GET_TICK();                                              \\
+            if (timeout > (TIMEOUT)) {                                          \\
+              return ERROR;                                                     \\
+            }                                                                   \\
+          }                                                                     \\
         } while(0)
 
 #if defined(USE_SWD) && (USE_SWD != 0)
@@ -153,7 +587,9 @@ cat <<MAIN_H >main.h
 #endif
 
 #if defined(USE_SPI) && (USE_SPI != 0)
+
   #define SPI_EN                        1
+
   __STATIC_INLINE char spi_xfer(char d) {
     while((SPI1->SR & SPI_SR_TXE) != SPI_SR_TXE) {
       /* wait until spi transfer completes */
@@ -210,8 +646,8 @@ __STATIC_INLINE void init(void) {
     );
 
     PORT_CFG(B, 
-      I2C_EN   * PIN_CFG(6,  O_AF + O_OD)    |                /* PB6:  I2C1 SCL, altern, open drain */
-      I2C_EN   * PIN_CFG(7,  O_AF + O_OD)                     /* PA7:  I2C1 SDA, altern, open drain */
+      I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |         /* PB6:  I2C1 SCL, altern, open drain */
+      I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)           /* PB7:  I2C1 SDA, altern, open drain */
     );
 
   #endif
@@ -294,22 +730,26 @@ __STATIC_INLINE void init(void) {
 
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
-
   #endif
 
   #if I2C_EN
     I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE);  /* Write CCR when I2C is disabled     */
     I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);    /* Maximum rise time in Fm/Sm mode    */
     I2C1->CR2 = APB1_CLK / 1000000;                           /* Configure Peripheral Clock Freq.   */
-    I2C1->CR1 = I2C_CR1_PE;                                   /* Enable Peripheral                  */
+    I2C1->CR1 = I2C_CR1_PE;                                   /* Enable I2C1 Peripheral             */
   #endif
 
   #if SPI_EN
     SPI1->CR1 = (
-      SPI_CR1_SPE          |                                  /* 0x00000040 SPI Enable              */
-      SPI_CR1_MSTR         |                                  /* 0x00000004 Master Selection        */
-      SPI_CR1_SSI          |                                  /* 0x00000100 Internal slave select   */
-      SPI_CR1_SSM                                             /* 0x00000200 Software slave mgmnt    */
+
+      #if defined USE_PLL && USE_PLL != 0
+        SPI_CR1_BR_0       |                                  /* Configure baudrate as HCLK / 4     */ 
+      #endif
+
+      SPI_CR1_MSTR         |                                  /* Select Master mode                 */
+      SPI_CR1_SSM          |                                  /* Enable Software Slave Management   */
+      SPI_CR1_SSI          |                                  /* Set Internal slave select bit      */
+      SPI_CR1_SPE                                             /* Enable SPI1 Peripheral             */
     );
   #endif
 
@@ -317,7 +757,7 @@ __STATIC_INLINE void init(void) {
 
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
-    while (!(USART1->SR & USART_SR_TXE)) { /* JUST WAIT */ }  /* Wait until TX becomes empty        */
+    while (!(USART1->SR & USART_SR_TXE)) { /* JUST WAIT */ }  /* Wait until TX reg becomes empty    */
     USART1->DR = c;
   }
 
@@ -349,21 +789,23 @@ __STATIC_INLINE void init(void) {
 
   #define I2C_TIMEOUT                   10
   #define I2C_ERR_TIMEOUT               1
-  #define I2C_ERROR                     (                                                            \
-                                          I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\
-                                          I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\
-                                          I2C_SR1_AF    |  /*  Acknowledge Failure  (0x00000400)   */\
-                                          I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\
+  #define I2C_ERROR                     (                                                            \\
+                                          I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\\
+                                          I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\\
+                                          I2C_SR1_AF    |  /*  Acknowledge Failure  (0x00000400)   */\\
+                                          I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
                                         )
 
+
 extern unsigned short i2c_status;
+
 
 __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
   unsigned t_out = I2C_TIMEOUT;
   (void) SysTick->CTRL;
 
   while((I2C1->SR1 & bitFlag) == 0) {
-    t_out -= SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos;
+    t_out -= GET_TICK();
     if (t_out == 0) {
       i2c_status |= I2C_ERR_TIMEOUT;
       return ERROR;
@@ -486,18 +928,19 @@ int main(void) {
 
   for(;;) {
 
-    #if USART_EN
-      char print_buf[160] = {0};
-      int offs = snprintf(print_buf, sizeof(print_buf), "Just a test #0x%02X: ", rand() % 0xFF);
+    #if USART_EN || SPI_EN || I2C_EN
+      char pbuf[160];
+      int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % 0xFF);
     #endif
 
     #if I2C_EN
-      char x;
-      i2c_read_reg(0x76, &x, 0, 1);
-      if (i2c_status != 0) {
-        /* just check */
+      char x[10] = {0};
+      i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
+      if (i2c_status == 0) {
+        offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
+      } else {
+        offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; I2C ERR: %04X", i2c_status);
       }
-      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "I2C code = 0x%02X, ", x);
     #endif
 
     #if SPI_EN
@@ -505,12 +948,12 @@ int main(void) {
       spi_xfer(0x00);
       char y = spi_xfer(0xFF);
       CS_HIGH();
-      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "SPI code = 0x%02X, ", y);
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; SPI: 0x%02X", y);
     #endif
 
     #if USART_EN
-      offs += snprintf((char*)&print_buf[offs], sizeof(print_buf) - offs, "\n");
-      uputs(print_buf);
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "\n");
+      uputs(pbuf);
     #endif
 
     DELAY_MS(1000);
@@ -522,9 +965,7 @@ int main(void) {
 
 void SysTick_Handler(void) {
   static unsigned t_cnt;
-  if (++t_cnt == 1000) {
-    t_cnt = 0;
-  } 
+  if (++t_cnt == 1000) { t_cnt = 0; }         /* Count to 1000 then reset */
   GPIOC->BSRR = GPIO_BSRR_BR13 * ((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850));
   GPIOC->BSRR = GPIO_BSRR_BS13 * ((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0));
 }
