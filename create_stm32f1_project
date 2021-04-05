@@ -475,6 +475,8 @@ cat <<MAIN_H >main.h
   #define USE_USART                     1  /* Configure USART1 for send and receive    */
   #define USE_I2C                       1  /* Configure I2C1 100kHz                    */
   #define USE_SPI                       1  /* Configure SPI1                           */
+  #define USE_BTN                       1  /* Use buttons connected to PB1 and PB2     */
+  #define USE_RTC                       1  /* Configure and run RTC                    */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
 #endif
 /* *********************************************************************************** */
@@ -557,6 +559,12 @@ cat <<MAIN_H >main.h
   #define USART_EN                      0
 #endif
 
+#if defined(USE_BTN) && (USE_BTN != 0)
+  #define BTN_EN                        1
+#else
+  #define BTN_EN                        0
+#endif
+
 #if defined(USE_I2C) && (USE_I2C != 0)
   #define I2C_EN                        1
   #define I2C_SPEED_STANDARD            100000
@@ -626,7 +634,7 @@ __STATIC_INLINE void init(void) {
       RCC_APB2ENR_SPI1EN          |                           /* Enable clock for SPI1              */
     #endif
 
-    #if I2C_EN
+    #if I2C_EN || BTN_EN
       RCC_APB2ENR_IOPBEN          |                           /* Enable clock for GPIOB             */
     #endif
 
@@ -644,12 +652,19 @@ __STATIC_INLINE void init(void) {
     RCC->APB1ENR = (
       I2C_EN * RCC_APB1ENR_I2C1EN                             /* Enable clock for I2C1              */
     );
+  #endif
 
+  #if I2C_EN || BTN_EN
     PORT_CFG(B, 
+      BTN_EN   * PIN_CFG(0,  I_PULL)                |         /* PB0:  input, pull-up               */
+      BTN_EN   * PIN_CFG(1,  I_PULL)                |         /* PB1:  input, pull-up               */
       I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |         /* PB6:  I2C1 SCL, altern, open drain */
       I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)           /* PB7:  I2C1 SDA, altern, open drain */
     );
+  #endif
 
+  #if BTN_EN
+     GPIOB->BSRR = GPIO_BSRR_BS0 | GPIO_BSRR_BS1;
   #endif
 
   PORT_CFG(C, PIN_CFG(13, O_2MHZ));                           /* PC13: output, push-pull, 2Mhz      */
