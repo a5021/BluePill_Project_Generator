@@ -937,6 +937,10 @@ cat <<MAIN_C >main.c
   unsigned short i2c_status;
 #endif
 
+#if BTN_EN
+  static volatile unsigned key_state;
+#endif
+
 int main(void) {
 
   init();
@@ -966,6 +970,11 @@ int main(void) {
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; SPI: 0x%02X", y);
     #endif
 
+    #if BTN_EN
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; KEY: %s/%s", (key_state & (1 << 16)) ? "ON" : "OFF", (key_state & (2 << 16)) ? "ON" : "OFF");
+      key_state &= (unsigned)~((1 << 16) | (2 << 16));
+    #endif
+
     #if USART_EN
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "\n");
       uputs(pbuf);
@@ -983,6 +992,31 @@ void SysTick_Handler(void) {
   if (++t_cnt == 1000) { t_cnt = 0; }         /* Count to 1000 then reset */
   GPIOC->BSRR = GPIO_BSRR_BR13 * ((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850));
   GPIOC->BSRR = GPIO_BSRR_BS13 * ((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0));
+
+  #if BTN_EN
+    enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
+    static unsigned btn[TOTAL][TOTAL];
+
+    btn[0][CURRENT] <<= 1;
+    btn[0][CURRENT] |= (READ_PIN(B, 0) == 0);
+    btn[1][CURRENT] <<= 1;
+    btn[1][CURRENT] |= (READ_PIN(B, 1) == 0);
+
+    if ((btn[0][CURRENT] == 0xFFFFFFFF) && (btn[0][PREVIOUS] != 0xFFFFFFFF)) {
+    	key_state |= (1 << 0);
+    }
+    if ((btn[1][CURRENT] == 0xFFFFFFFF) && (btn[1][PREVIOUS] != 0xFFFFFFFF)) {
+    	key_state |= (1 << 1);
+    }
+    if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
+    	key_state |= (1 << 16);
+    }
+    if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
+    	key_state |= (1 << 17);
+    }
+    btn[0][PREVIOUS] = btn[0][CURRENT];
+    btn[1][PREVIOUS] = btn[1][CURRENT];
+  #endif
 }
 
 MAIN_C
