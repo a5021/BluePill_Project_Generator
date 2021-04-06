@@ -797,109 +797,109 @@ __STATIC_INLINE void init(void) {
                                         )
 
 
-extern unsigned short i2c_status;
+  extern unsigned short i2c_status;
 
 
-__STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
-  unsigned t_out = I2C_TIMEOUT;
-  (void) SysTick->CTRL;
-
-  while((I2C1->SR1 & bitFlag) == 0) {
-    t_out -= GET_TICK();
-    if (t_out == 0) {
-      i2c_status |= I2C_ERR_TIMEOUT;
-      return ERROR;
+  __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
+    unsigned t_out = I2C_TIMEOUT;
+    (void) SysTick->CTRL;
+  
+    while((I2C1->SR1 & bitFlag) == 0) {
+      t_out -= GET_TICK();
+      if (t_out == 0) {
+        i2c_status |= I2C_ERR_TIMEOUT;
+        return ERROR;
+      }
+  
+      unsigned e_status = I2C1->SR1 & I2C_ERROR;
+      if (e_status) {
+        i2c_status = (unsigned short)e_status;
+        return ERROR;
+      }
     }
-
-    unsigned e_status = I2C1->SR1 & I2C_ERROR;
-    if (e_status) {
-      i2c_status = (unsigned short)e_status;
-      return ERROR;
-    }
+  
+    return SUCCESS;
   }
-
-  return SUCCESS;
-}
-
-
-__STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
-  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
-  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-
-  I2C1->DR = (unsigned) addr << 1;
-  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-
-  (void) I2C1->SR2;
-
-  for(unsigned i = 0; i < len; i++) {
+  
+  
+  __STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
+    I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
+    if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+  
+    I2C1->DR = (unsigned) addr << 1;
+    if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+  
+    (void) I2C1->SR2;
+  
+    for(unsigned i = 0; i < len; i++) {
+      if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
+      I2C1->DR = data[i];
+    }
+  
+    if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+  
+    I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
+    return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
+  }
+  
+  
+  __STATIC_INLINE ErrorStatus i2c_read(const char addr, volatile char *data, unsigned len) {
+  
+    I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
+    if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+  
+    I2C1->DR = (char)(addr << 1) + 1;
+    if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+    if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
+  
+    (void) I2C1->SR2;
+  
+    for(unsigned i = 0; i < len; i++) {
+      if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
+      if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
+      data[i] = (char) I2C1->DR;
+    }
+  
+    if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+    I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
+  
+    return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
+  }
+  
+  __STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
+    I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
+    if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+  
+    I2C1->DR = (unsigned) addr << 1;                      /* send slave address         */
+    if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+  
+    (void) I2C1->SR2;                                     /* dummy read status register */
     if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
-    I2C1->DR = data[i];
+  
+    I2C1->DR = reg;                                       /* send register number       */
+    if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+  
+    I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate RE-START          */
+    if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
+  
+    I2C1->DR = (char)(addr << 1) + 1;                     /* send slave addr + read req */
+    if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
+  
+    if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
+  
+    (void) I2C1->SR2;                                     /* dummy read status register */
+  
+    for(unsigned i = 0; i < len; i++) {
+      if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
+      if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
+      data[i] = (char) I2C1->DR;                          /* store received data        */
+    }
+  
+    if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
+    I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;  /* generate STOP              */
+  
+    return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
   }
-
-  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-
-  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
-  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-}
-
-
-__STATIC_INLINE ErrorStatus i2c_read(const char addr, volatile char *data, unsigned len) {
-
-  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
-  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-
-  I2C1->DR = (char)(addr << 1) + 1;
-  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-  if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
-
-  (void) I2C1->SR2;
-
-  for(unsigned i = 0; i < len; i++) {
-    if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
-    if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
-    data[i] = (char) I2C1->DR;
-  }
-
-  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
-
-  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-}
-
-__STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
-  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
-  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-
-  I2C1->DR = (unsigned) addr << 1;                      /* send slave address         */
-  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-
-  (void) I2C1->SR2;                                     /* dummy read status register */
-  if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
-
-  I2C1->DR = reg;                                       /* send register number       */
-  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-
-  I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate RE-START          */
-  if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-
-  I2C1->DR = (char)(addr << 1) + 1;                     /* send slave addr + read req */
-  if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-
-  if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
-
-  (void) I2C1->SR2;                                     /* dummy read status register */
-
-  for(unsigned i = 0; i < len; i++) {
-    if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
-    if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
-    data[i] = (char) I2C1->DR;                          /* store received data        */
-  }
-
-  if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-  I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;  /* generate STOP              */
-
-  return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-}
 #endif
 
 #ifdef __cplusplus
