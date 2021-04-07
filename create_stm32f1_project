@@ -547,6 +547,24 @@ cat <<MAIN_H >main.h
           }                                                                     \\
         } while(0)
 
+#if defined USE_HSE && USE_HSE != 0
+  #define HSE_EN                        1
+#else
+  #define HSE_EN                        0
+#endif
+
+#if defined(USE_RTC) && (USE_RTC != 0)
+  #define RTC_EN                        1
+#else
+  #define RTC_EN                        0
+#endif
+
+#if defined(USE_LSE) && (USE_LSE != 0)
+  #define LSE_EN                        1
+#else
+  #define LSE_EN                        0
+#endif
+
 #if defined(USE_SWD) && (USE_SWD != 0)
   #define SWD_EN                        1
 #else
@@ -622,6 +640,32 @@ cat <<MAIN_H >main.h
 
 __STATIC_INLINE void init(void) {
 
+  #if I2C_EN || RTC_EN
+
+    RCC->APB1ENR = (
+      I2C_EN * RCC_APB1ENR_I2C1EN |                           /* Enable clock for I2C1              */
+      RTC_EN * RCC_APB1ENR_BKPEN  |                           /* Enable Backup interface clock      */
+      RTC_EN * RCC_APB1ENR_PWREN                              /* Power interface clock enable       */
+    );
+  #endif
+
+  #if RTC_EN
+    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
+
+    RCC->BDCR = (
+      #if LSE_EN
+        RCC_BDCR_LSEON            |                           /* Enable LSE oscillator              */
+        RCC_BDCR_RTCSEL_LSE       |                           /* LSE used as RTC clock              */
+      #elif HSE_EN
+        RCC_BDCR_RTCSEL_HSE       |                           /* HSE / 128 used as RTC clock        */
+      #else
+        RCC_BDCR_RTCSEL_LSI       |                           /* LSI used as RTC clock              */
+      #endif
+
+      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
+    );
+  #endif
+
   RCC->APB2ENR = (
 
     #if USART_EN
@@ -646,13 +690,6 @@ __STATIC_INLINE void init(void) {
 
     RCC_APB2ENR_IOPCEN                                        /* Enable clock for GPIOC             */
   );
-
-  #if I2C_EN
-
-    RCC->APB1ENR = (
-      I2C_EN * RCC_APB1ENR_I2C1EN                             /* Enable clock for I2C1              */
-    );
-  #endif
 
   #if I2C_EN || BTN_EN
     PORT_CFG(B, 
