@@ -3,14 +3,15 @@
 if [ "$1" = "--help" ]
   then 
       echo ""
-      echo "    STM32F1 Project Creator v0.01 ALPHA";
+      echo "    STM32F1 Project Creator v0.02";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
       echo
       echo "Usage:"
-      echo "        $0 [command] [options]"
+      echo "        $0 [command] [command] ... [options] [options] ... "
       echo 
       echo "Commands:"
-      echo "        mdk  generate simple Keil MDK-ARM config" 
+      echo "        mdk  generate simple Keil MDK-ARM config"
+      echo "        pdf  fetch stm32f10x reference manual (rm0008)"
       exit
 fi
 
@@ -20,22 +21,24 @@ raw=https://raw.githubusercontent.com
 st=$raw/STMicroelectronics/
 cmsis=$st/STM32CubeF1/master/Drivers/CMSIS/Include
 f1=$st/cmsis_device_f1/master
-# https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master
-# /Source/Templates/arm/startup_stm32f103xb.s
 svd="https://raw.githubusercontent.com/posborne/cmsis-svd/master/data/STMicro/STM32F103xx.svd"
 
 $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
     $f1/Source/Templates/gcc/startup_stm32f103xb.s $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld $svd
 
+if [ "$1" = "pdf" ] || [ "$2" = "pdf" ] || [ "$3" = "pdf" ] || [ "$4" = "pdf" ] || [ "$5" = "pdf" ] || [ "$6" = "pdf" ]
+  then
+      $wg https://www.st.com/resource/en/reference_manual/cd00171190-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf -O rm0008.pdf
+fi
 
-if [ "$1" = "mdk" ]
+if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] || [ "$5" = "mdk" ] || [ "$6" = "mdk" ]
   then 
-  $wg $cmsis/cmsis_armclang.h 
-  mkdir MDK-ARM
-  cd MDK-ARM
-  $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
-  cat << MDK_CONFIG > project.uvprojx
+      $wg $cmsis/cmsis_armclang.h 
+      mkdir MDK-ARM
+      cd MDK-ARM
+      $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
+      cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
 
@@ -351,7 +354,7 @@ if [ "$1" = "mdk" ]
           </ArmAdsMisc>
           <Cads>
             <interw>1</interw>
-            <Optim>3</Optim>
+            <Optim>1</Optim>
             <oTime>0</oTime>
             <SplitLS>0</SplitLS>
             <OneElfS>1</OneElfS>
@@ -375,7 +378,7 @@ if [ "$1" = "mdk" ]
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-missing-prototypes -Wno-unreachable-code-return</MiscControls>
-              <Define>STM32F103xB,USE_SWD=1</Define>
+              <Define>STM32F103xB,USE_SWD=1,USE_HSE=0,USE_PLL=0,USE_USART=0,USE_I2C=0,USE_SPI=0,USE_RTC=0,USE_LSE=0</Define>
               <Undefine></Undefine>
               <IncludePath>..</IncludePath>
             </VariousControls>
@@ -472,6 +475,7 @@ cat <<MAIN_H >main.h
 #if 0
   #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
   #define USE_PLL                       1  /* Use PLL as system clock source           */
+  #define USE_LSE                       1  /* Use LSE as RTC clock source              */
   #define USE_USART                     1  /* Configure USART1 for send and receive    */
   #define USE_I2C                       1  /* Configure I2C1 100kHz                    */
   #define USE_SPI                       1  /* Configure SPI1                           */
@@ -597,14 +601,14 @@ cat <<MAIN_H >main.h
   #define I2C_DUTY_CYCLE_2              0x00000000U                      /* I2C fast mode Tlow/Thigh = 2        */
   #define I2C_DUTY_CYCLE_16_9           I2C_CCR_DUTY                     /* I2C fast mode Tlow/Thigh = 16/9     */
 
-  #define I2C_CONFIGURE_CCR(APB1_CLOCK, I2C_SPEED)                       (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD)? \
-                                                                         (I2C_CONFIGURE_CCR_STANDARD((APB1_CLOCK), (I2C_SPEED))) : \
+  #define I2C_CONFIGURE_CCR(APB1_CLOCK, I2C_SPEED)                       (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD)? \\
+                                                                         (I2C_CONFIGURE_CCR_STANDARD((APB1_CLOCK), (I2C_SPEED))) : \\
                                                                          (I2C_CONFIGURE_CCR_FAST((APB1_CLOCK), (I2C_SPEED), (I2C_DUTY_CYCLE_2))))
 
   #define I2C_CONFIGURE_CCR_STANDARD(APB1_CLOCK, I2C_SPEED)              (uint32_t)(((((APB1_CLOCK)/((I2C_SPEED) << 1U)) & I2C_CCR_CCR) < 4U) ? 4U:((APB1_CLOCK) / ((I2C_SPEED) << 1U)))
 
-  #define I2C_CONFIGURE_CCR_FAST(APB1_CLOCK, I2C_SPEED, I2C_DUTY_CYCLE)  (uint32_t)(((I2C_DUTY_CYCLE) == I2C_DUTY_CYCLE_2) ? \
-                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 3U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 3U))) : \
+  #define I2C_CONFIGURE_CCR_FAST(APB1_CLOCK, I2C_SPEED, I2C_DUTY_CYCLE)  (uint32_t)(((I2C_DUTY_CYCLE) == I2C_DUTY_CYCLE_2) ? \\
+                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 3U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 3U))) : \\
                                                                          (((((APB1_CLOCK) / ((I2C_SPEED) * 25U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 25U))))
 
   #define I2C_RISE_TIME(APB1_CLOCK, I2C_SPEED)                           (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD) ? ((APB1_CLOCK) / 1000000 + 1) : ((((APB1_CLOCK) / 1000000) * 300) / 1000) + 1)
@@ -735,7 +739,7 @@ __STATIC_INLINE void init(void) {
     AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable both JTAG and SWD          */
   #endif
 
-  #if defined USE_HSE && USE_HSE != 0
+  #if HSE_EN
 
     RCC->CR = RCC_CR_HSEON;                                   /* Switch HSE on                      */
     while((RCC->CR & RCC_CR_HSERDY) == 0) {/* NO OP */}       /* Wait until HSE becomes ready       */
@@ -823,7 +827,6 @@ __STATIC_INLINE void init(void) {
   
     /* Convert a nibble to HEX and send it via UART */
   __STATIC_INLINE void uput_x(const uint8_t c) {
-    /* Convert a nibble to HEX char and send it via UART */
     uputc(HEX(c));
   }
 
@@ -834,7 +837,8 @@ __STATIC_INLINE void init(void) {
   }
   
   #define uprintf(...) do{char _[160]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
-  
+#else
+  #define uprintf(...) 
 #endif
 
 #if I2C_EN
@@ -986,7 +990,7 @@ int main(void) {
 
     #if USART_EN || SPI_EN || I2C_EN
       char pbuf[160];
-      int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % 0xFF);
+      int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % UINT8_MAX);
     #endif
 
     #if I2C_EN
@@ -1002,7 +1006,7 @@ int main(void) {
     #if SPI_EN
       CS_LOW();
       spi_xfer(0x00);
-      char y = spi_xfer(0xFF);
+      char y = spi_xfer(UINT8_MAX);
       CS_HIGH();
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; SPI: 0x%02X", y);
     #endif
@@ -1039,10 +1043,10 @@ void SysTick_Handler(void) {
     btn[1][CURRENT] <<= 1;
     btn[1][CURRENT] |= (READ_PIN(B, 1) == 0);
 
-    if ((btn[0][CURRENT] == 0xFFFFFFFF) && (btn[0][PREVIOUS] != 0xFFFFFFFF)) {
+    if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
     	key_state |= (1 << 0);
     }
-    if ((btn[1][CURRENT] == 0xFFFFFFFF) && (btn[1][PREVIOUS] != 0xFFFFFFFF)) {
+    if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
     	key_state |= (1 << 1);
     }
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
