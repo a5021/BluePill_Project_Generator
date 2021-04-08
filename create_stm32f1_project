@@ -559,6 +559,21 @@ cat <<MAIN_H >main.h
 
 #if defined(USE_RTC) && (USE_RTC != 0)
   #define RTC_EN                        1
+
+  __STATIC_INLINE unsigned rtc_read_counter(void) {
+    unsigned a, b, c, d;
+
+    do {
+      a = RTC->CNTH;
+      b = RTC->CNTL;
+      c = RTC->CNTH;
+      d = RTC->CNTL;
+    } while((a != c) || (b != d));
+
+    a = (a << 16U) | b;
+    return a;
+  }
+
 #else
   #define RTC_EN                        0
 #endif
@@ -988,7 +1003,7 @@ int main(void) {
 
   for(;;) {
 
-    #if USART_EN || SPI_EN || I2C_EN
+    #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN
       char pbuf[160];
       int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % UINT8_MAX);
     #endif
@@ -1014,6 +1029,10 @@ int main(void) {
     #if BTN_EN
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; KEY: %s/%s", (key_state & (1 << 16)) ? "ON" : "OFF", (key_state & (2 << 16)) ? "ON" : "OFF");
       key_state &= (unsigned)~((1 << 16) | (2 << 16));
+    #endif
+
+    #if RTC_EN
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC: %04X", rtc_read_counter());
     #endif
 
     #if USART_EN
