@@ -671,6 +671,10 @@ __STATIC_INLINE void init(void) {
   #if RTC_EN
     PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
 
+    #if !LSE_EN && !HSE_EN
+      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+    #endif
+
     RCC->BDCR = (
       #if LSE_EN
         RCC_BDCR_LSEON            |                           /* Enable LSE oscillator              */
