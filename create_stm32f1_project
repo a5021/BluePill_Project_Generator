@@ -489,10 +489,10 @@ cat <<MAIN_H >main.h
 
 
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
-#define PORT_CONF(PORT, CFG, STATE)     do {                                           \\
+#define PORT_CONFIG(PORT, CFG, STATE)   if (!0) {                                      \\
                                           *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG); \\
                                           if (STATE) { GPIO##PORT->BSRR = (STATE);}    \\
-                                        }while(0)
+                                        } else (void) 0
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
     In input mode (MODE[1:0] = 00):
@@ -807,23 +807,22 @@ __STATIC_INLINE void init(void) {
   );
 
   #if I2C_EN || BTN_EN
-    PORT_CFG(B, 
+    PORT_CONFIG(B, 
       BTN_EN   * PIN_CFG(0,  I_PULL)                |         /* PB0:  input, pull-up               */
       BTN_EN   * PIN_CFG(1,  I_PULL)                |         /* PB1:  input, pull-up               */
       I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |         /* PB6:  I2C1 SCL, altern, open drain */
       I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)           /* PB7:  I2C1 SDA, altern, open drain */
+      ,
+      BTN_EN   * PULL_UP(0)                         | 
+      BTN_EN   * PULL_UP(1)
     );
-  #endif
-
-  #if BTN_EN
-     GPIOB->BSRR = GPIO_BSRR_BS0 | GPIO_BSRR_BS1;
   #endif
 
   #if 0
     PORT_CFG(C, PIN_CFG(13, O_2MHZ));                         /* PC13: output, push-pull, 2Mhz      */
     SW_PIN(C, 13, UP);                                        /* Set PC13 pin HIGH (LED off)        */
   #else
-    PORT_CONF(C, PIN_CFG(13, O_2MHZ), PIN_HIGH(13));          /* PC13: output, push-pull, 2Mhz      */
+    PORT_CONFIG(C, PIN_CFG(13, O_2MHZ), PIN_HIGH(13));        /* PC13: output, push-pull, 2Mhz      */
   #endif
 
   #if USART_EN || SWD_EN || SPI_EN
@@ -847,7 +846,7 @@ __STATIC_INLINE void init(void) {
         SWD_EN   * PULL(14, DOWN)                             /* Pull-down SWCLK pin                */
       );
     #else
-      PORT_CONF(A,  
+      PORT_CONFIG(A,  
         SPI_EN   * PIN_CFG(4,  O_10MHZ)        |              /* PA4:  SPI1 CS, output, 10MHz       */
         SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |              /* PA5:  SPI1 CLK, alternate, 50MHz   */
         SPI_EN   * PIN_CFG(6,  I_PULL)         |              /* PA6:  SPI1 MISO, input, pull-down  */
@@ -856,11 +855,11 @@ __STATIC_INLINE void init(void) {
         USART_EN * PIN_CFG(10, I_PULL)         |              /* PA10: USART1 RX, input, pull-down  */
         SWD_EN   * PIN_CFG(13, I_PULL)         |              /* PA13: SWDIO, input, pull-up        */
         SWD_EN   * PIN_CFG(14, I_PULL)                        /* PA14: SWCLK, input, pull-down      */
-      ,
-        SPI_EN   * PULL(6,  DOWN) |                           /* Pull-down SPI1 MISO pin            */
-        USART_EN * PULL(10, DOWN) |                           /* Pull-down USART1 RX pin            */
-        SWD_EN   * PULL(13, UP)   |                           /* Pull-up SWDIO pin                  */
-        SWD_EN   * PULL(14, DOWN)                             /* Pull-down SWCLK pin                */
+        ,
+        SPI_EN   * PULL_DOWN(6)  |                            /* Pull-down SPI1 MISO pin            */
+        USART_EN * PULL_DOWN(10) |                            /* Pull-down USART1 RX pin            */
+        SWD_EN   * PULL_UP(13)   |                            /* Pull-up SWDIO pin                  */
+        SWD_EN   * PULL_DOWN(14)                              /* Pull-down SWCLK pin                */
       );
     #endif
 
@@ -1243,10 +1242,10 @@ int main(void) {
     #endif
 
     #if RTC_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC/%s: %04X", 
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC/%s: %04X",
                 ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
-	        ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
-	        ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
+                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
+                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
    #endif
 
     #if USART_EN
