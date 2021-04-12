@@ -488,7 +488,11 @@ cat <<MAIN_H >main.h
 /* *********************************************************************************** */
 
 
-#define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO ## PORT ## _BASE = (CFG)
+#define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
+#define PORT_CONF(PORT, CFG, STATE)     do {                                           \\
+                                          *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG); \\
+                                          if (STATE) { GPIO##PORT->BSRR = (STATE);}    \\
+                                        }while(0)
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
     In input mode (MODE[1:0] = 00):
@@ -535,6 +539,11 @@ cat <<MAIN_H >main.h
 #define HIGH(PIN)                       GPIO_BSRR_BS ## PIN
 #define LOW(PIN)                        GPIO_BSRR_BR ## PIN
 
+#define PIN_HIGH(PIN)                   GPIO_BSRR_BS ## PIN
+#define PIN_LOW(PIN)                    GPIO_BSRR_BR ## PIN
+#define PULL_UP(PIN)                    GPIO_BSRR_BS ## PIN
+#define PULL_DOWN(PIN)                  GPIO_BSRR_BR ## PIN
+
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
@@ -573,6 +582,89 @@ cat <<MAIN_H >main.h
     a = (a << 16U) | b;
     return a;
   }
+
+void rtc_set_alarm(uint32_t alarm_time) {
+
+  #if 0
+  while((RTC->CRL & RTC_CRL_SECF) != RTC_CRL_SECF)  {
+      /* JUST WAIT */
+  }
+  RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
+
+  uint32_t timeout = 1000;
+  while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
+    /* just wait for RTOFF  */
+    timeout -= GET_TICK();
+    if (timeout == 0) return;
+  }
+
+  uint32_t apb1enr_flags = 0;
+  if ((RCC->APB1ENR & RCC_APB1ENR_BKPEN) != RCC_APB1ENR_BKPEN) {
+    RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
+    apb1enr_flags |= RCC_APB1ENR_BKPEN;
+  }
+
+  if ((RCC->APB1ENR & RCC_APB1ENR_PWREN) != RCC_APB1ENR_PWREN) {
+    RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+    apb1enr_flags |= RCC_APB1ENR_PWREN;
+  }
+  #endif
+
+
+  RCC->APB1ENR |= (RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
+
+  // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
+  //     /* JUST WAIT */
+  // }
+
+  #if 0
+  while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
+      /* JUST WAIT */
+  }
+  #endif
+
+  PWR->CR |= PWR_CR_DBP;                      /* Disable Backup Domain Protection                                                                                   */
+
+  uint32_t timeout = 1000;
+  while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
+    /* just wait for RTOFF  */
+    timeout -= GET_TICK();
+    if (timeout == 0) return;
+  }
+
+  RTC->CRL |= RTC_CRL_CNF;
+
+  alarm_time--;
+
+  RTC->ALRH = alarm_time >> 16;
+  RTC->ALRL = alarm_time;
+
+  RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
+  RTC->CRH |= RTC_CRH_ALRIE;
+  RTC->CRL = ~RTC_CRL_CNF;
+
+  RTC->CRL &= (uint16_t)~RTC_CRL_RSF;
+  while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF) {}
+
+  // RCC->APB1ENR &= ~apb1enr_flags;
+
+  // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
+  //     /* JUST WAIT */
+  // }
+
+
+  timeout = 1000;
+  while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
+    /* just wait for RTOFF  */
+    timeout -= GET_TICK();
+    if (timeout == 0) return;
+  }
+
+  PWR->CR &= ~PWR_CR_DBP;                     /* Restore Backup Domain Protection                                                                                   */
+  RCC->APB1ENR &= ~(RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
+}
+
+
 
 #else
   #define RTC_EN                        0
@@ -727,28 +819,50 @@ __STATIC_INLINE void init(void) {
      GPIOB->BSRR = GPIO_BSRR_BS0 | GPIO_BSRR_BS1;
   #endif
 
-  PORT_CFG(C, PIN_CFG(13, O_2MHZ));                           /* PC13: output, push-pull, 2Mhz      */
-  SW_PIN(C, 13, UP);                                          /* Set PC13 pin HIGH (LED off)        */
+  #if 0
+    PORT_CFG(C, PIN_CFG(13, O_2MHZ));                         /* PC13: output, push-pull, 2Mhz      */
+    SW_PIN(C, 13, UP);                                        /* Set PC13 pin HIGH (LED off)        */
+  #else
+    PORT_CONF(C, PIN_CFG(13, O_2MHZ), PIN_HIGH(13));          /* PC13: output, push-pull, 2Mhz      */
+  #endif
 
   #if USART_EN || SWD_EN || SPI_EN
 
-    PORT_CFG(A, 
-      SPI_EN   * PIN_CFG(4,  O_10MHZ)        |                /* PA4:  SPI1 CS, output, 10MHz       */
-      SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |                /* PA5:  SPI1 CLK, alternate, 50MHz   */
-      SPI_EN   * PIN_CFG(6,  I_PULL)         |                /* PA6:  SPI1 MISO, input, pull-down  */
-      SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ) |                /* PA7:  SPI1 MOSI, alternate, 50MHz  */
-      USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |                /* PA9:  USART1 TX, alternate, 10MHz  */
-      USART_EN * PIN_CFG(10, I_PULL)         |                /* PA10: USART1 RX, input, pull-down  */
-      SWD_EN   * PIN_CFG(13, I_PULL)         |                /* PA13: SWDIO, input, pull-up        */
-      SWD_EN   * PIN_CFG(14, I_PULL)                          /* PA14: SWCLK, input, pull-down      */
-    );
-
-    GPIOA->BSRR = (
-      SPI_EN   * PULL(6,  DOWN) |                             /* Pull-down SPI1 MISO pin            */
-      USART_EN * PULL(10, DOWN) |                             /* Pull-down USART1 RX pin            */
-      SWD_EN   * PULL(13, UP)   |                             /* Pull-up SWDIO pin                  */
-      SWD_EN   * PULL(14, DOWN)                               /* Pull-down SWCLK pin                */
-    );
+    #if 0
+      PORT_CFG(A, 
+        SPI_EN   * PIN_CFG(4,  O_10MHZ)        |              /* PA4:  SPI1 CS, output, 10MHz       */
+        SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |              /* PA5:  SPI1 CLK, alternate, 50MHz   */
+        SPI_EN   * PIN_CFG(6,  I_PULL)         |              /* PA6:  SPI1 MISO, input, pull-down  */
+        SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ) |              /* PA7:  SPI1 MOSI, alternate, 50MHz  */
+        USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |              /* PA9:  USART1 TX, alternate, 10MHz  */
+        USART_EN * PIN_CFG(10, I_PULL)         |              /* PA10: USART1 RX, input, pull-down  */
+        SWD_EN   * PIN_CFG(13, I_PULL)         |              /* PA13: SWDIO, input, pull-up        */
+        SWD_EN   * PIN_CFG(14, I_PULL)                        /* PA14: SWCLK, input, pull-down      */
+      );
+  
+      GPIOA->BSRR = (
+        SPI_EN   * PULL(6,  DOWN) |                           /* Pull-down SPI1 MISO pin            */
+        USART_EN * PULL(10, DOWN) |                           /* Pull-down USART1 RX pin            */
+        SWD_EN   * PULL(13, UP)   |                           /* Pull-up SWDIO pin                  */
+        SWD_EN   * PULL(14, DOWN)                             /* Pull-down SWCLK pin                */
+      );
+    #else
+      PORT_CONF(A,  
+        SPI_EN   * PIN_CFG(4,  O_10MHZ)        |              /* PA4:  SPI1 CS, output, 10MHz       */
+        SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |              /* PA5:  SPI1 CLK, alternate, 50MHz   */
+        SPI_EN   * PIN_CFG(6,  I_PULL)         |              /* PA6:  SPI1 MISO, input, pull-down  */
+        SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ) |              /* PA7:  SPI1 MOSI, alternate, 50MHz  */
+        USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |              /* PA9:  USART1 TX, alternate, 10MHz  */
+        USART_EN * PIN_CFG(10, I_PULL)         |              /* PA10: USART1 RX, input, pull-down  */
+        SWD_EN   * PIN_CFG(13, I_PULL)         |              /* PA13: SWDIO, input, pull-up        */
+        SWD_EN   * PIN_CFG(14, I_PULL)                        /* PA14: SWCLK, input, pull-down      */
+      ,
+        SPI_EN   * PULL(6,  DOWN) |                           /* Pull-down SPI1 MISO pin            */
+        USART_EN * PULL(10, DOWN) |                           /* Pull-down USART1 RX pin            */
+        SWD_EN   * PULL(13, UP)   |                           /* Pull-up SWDIO pin                  */
+        SWD_EN   * PULL(14, DOWN)                             /* Pull-down SWCLK pin                */
+      );
+    #endif
 
   #endif
 
@@ -875,8 +989,8 @@ __STATIC_INLINE void init(void) {
     RTC->ALRL = cnt & 0xFFFF;                                 /* Set RTC Alarm Register LSB word    */
 
     RTC->CRH = (
-      /* USE_RTC_ALARM_IRQ */ RTC_CRH_ALRIE   |
-      /* USE_RTC_SEC_IRQ   */ RTC_CRH_SECIE
+      RTC_CRH_ALRIE   |                                       /* Enable RTC Alarm interrupt         */
+      RTC_CRH_SECIE                                           /* Enable RTC Second interrupt        */
     );
 
     /* 4. The write operation is only executed when the CNF bit is reset by software after has been set. */
@@ -892,43 +1006,40 @@ __STATIC_INLINE void init(void) {
       PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
     #endif
 
-    #if 0 // (USE_RTC_SEC_IRQ != 0) || (USE_RTC_ALARM_IRQ != 0)
-      NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-      NVIC_EnableIRQ(RTC_IRQn);
-    #endif
+    NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_EnableIRQ(RTC_IRQn);
 
-    #if 0 // USE_RTC_ALARM_EXTI_IRQ != 0
+    /* EXTI line 17 is connected to the RTC Alarm event  */
 
-      /* EXTI line 17 is connected to the RTC Alarm event  */
+    /* Configure exti and nvic for RTC IT                */
+    /* (13) unmask line 17                               */
+    /* (14) Rising edge for line 17                      */
+    /* (15) Clear pending request line 17                */
 
-      /* Configure exti and nvic for RTC IT                */
-      /* (13) unmask line 17                               */
-      /* (14) Rising edge for line 17                      */
-      /* (15) Clear pending request line 17                */
-
-      /* (16) Set priority                                 */
-      /* (17) Enable RTC_IRQn                              */
+    /* (16) Set priority                                 */
+    /* (17) Enable RTC_IRQn                              */
 
 
-      EXTI->IMR  |= EXTI_IMR_MR17;  /* (13) */
-      EXTI->RTSR |= EXTI_RTSR_TR17; /* (14) */
-      EXTI->PR   |= EXTI_PR_PR17;
+    EXTI->IMR  |= EXTI_IMR_MR17;  /* (13) */
+    EXTI->RTSR |= EXTI_RTSR_TR17; /* (14) */
+    EXTI->PR   |= EXTI_PR_PR17;
 
-      NVIC_SetPriority(RTC_Alarm_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
-      NVIC_ClearPendingIRQ(RTC_Alarm_IRQn);
-      NVIC_EnableIRQ(RTC_Alarm_IRQn);           /* Enable RTC Alarm through EXTI Line Interrupt                                                                     */
-    #endif
+    NVIC_SetPriority(RTC_Alarm_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_ClearPendingIRQ(RTC_Alarm_IRQn);
+    NVIC_EnableIRQ(RTC_Alarm_IRQn);           /* Enable RTC Alarm through EXTI Line Interrupt                                                                     */
 
   #endif /* USE_RTC */
 }
 
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
-    while (!(USART1->SR & USART_SR_TXE)) { /* JUST WAIT */ }  /* Wait until TX reg becomes empty    */
+    /*** Send char using USART1 ***/
+    while (!(USART1->SR & USART_SR_TXE)) {}  /* Wait until TX register becomes empty    */
     USART1->DR = c;
   }
 
   __STATIC_INLINE void uputs(char *c) {
+    /*** Send string using UART ***/
     while(*c) {
       uputc(*c++);
     }
@@ -936,13 +1047,13 @@ __STATIC_INLINE void init(void) {
   
   #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
   
-    /* Convert a nibble to HEX and send it via UART */
   __STATIC_INLINE void uput_x(const uint8_t c) {
+    /*** Convert a nibble to HEX and send it via UART ***/
     uputc(HEX(c));
   }
 
-    /* Convert a byte to HEX and send it via UART */
   __STATIC_INLINE void uputx(const uint8_t c) {
+    /* Convert a byte to HEX and send it via UART */
     uput_x(c >> 4);
     uput_x(c & 0x0F);
   }
@@ -1093,6 +1204,10 @@ cat <<MAIN_C >main.c
   static volatile unsigned key_state;
 #endif
 
+#if RTC_EN
+  static volatile unsigned rtc_flag;
+#endif
+
 int main(void) {
 
   init();
@@ -1128,15 +1243,24 @@ int main(void) {
     #endif
 
     #if RTC_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC: %04X", rtc_read_counter());
-    #endif
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC/%s: %04X", 
+                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
+	        ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
+	        ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
+   #endif
 
     #if USART_EN
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "\n");
       uputs(pbuf);
     #endif
 
-    DELAY_MS(1000);
+    #if RTC_EN
+      while(!(rtc_flag & RTC_CRL_SECF)) { }
+      rtc_flag &= ~RTC_CRL_SECF;
+    #else
+      DELAY_MS(1000);
+    #endif
+
   }
 
   return 0;
@@ -1174,6 +1298,31 @@ void SysTick_Handler(void) {
     btn[1][PREVIOUS] = btn[1][CURRENT];
   #endif
 }
+
+#if RTC_EN
+  void RTC_IRQHandler(void) {                   /* RTC global interrupt handler  */
+
+    if (RTC->CRL & RTC_CRL_ALRF) {
+      RTC->CRL &= ~RTC_CRL_ALRF;
+      rtc_flag |= RTC_CRL_ALRF;
+    }
+
+
+    if (RTC->CRL & RTC_CRL_SECF) {
+      RTC->CRL &= ~RTC_CRL_SECF;
+      rtc_flag |= RTC_CRL_SECF;
+    }
+
+  }
+
+  void RTCAlarm_IRQHandler(void) {              /* RTC alarm interrupt handler   */
+
+    if (EXTI->PR & EXTI_PR_PR17) {
+      EXTI->PR = EXTI_PR_PR17;
+    }
+
+  }
+#endif
 
 MAIN_C
 
