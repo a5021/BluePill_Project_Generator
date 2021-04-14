@@ -624,7 +624,7 @@ cat <<MAIN_H >main.h
     }
     #endif
   
-    PWR->CR |= PWR_CR_DBP;                      /* Disable Backup Domain Protection                                                                                   */
+    PWR->CR |= PWR_CR_DBP;                                  /* Disable Backup Domain Protection     */
   
     uint32_t timeout = 1000;
     while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
@@ -661,7 +661,7 @@ cat <<MAIN_H >main.h
       if (timeout == 0) return;
     }
   
-    PWR->CR &= ~PWR_CR_DBP;                     /* Restore Backup Domain Protection                                                                                   */
+    PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
     RCC->APB1ENR &= ~(RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
   }
 
@@ -757,7 +757,7 @@ cat <<MAIN_H >main.h
   #define TIM2_EN                       0
 #endif
 
-#define APB_ENABLE(BUS_NO, P_LIST) if(P_LIST){RCC->APB##BUS_NO##ENR = (P_LIST);}else(void)0
+#define APB_ENABLE(BUS_NO, P_LIST) if(P_LIST) {RCC->APB##BUS_NO##ENR = (P_LIST);} else (void)0
 
 __STATIC_INLINE void init(void) {
 
@@ -834,11 +834,14 @@ __STATIC_INLINE void init(void) {
     ) /* ****************************************************************************************** */
   );
 
-  #if SWD_EN
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_JTAGDISABLE;               /* Disable JTAG, enable SWD           */
-  #else
-    AFIO->MAPR = AFIO_MAPR_SWJ_CFG_DISABLE;                   /* Disable both JTAG and SWD          */
-  #endif
+  AFIO->MAPR = (
+    #if SWD_EN
+      AFIO_MAPR_SWJ_CFG_JTAGDISABLE          |                /* Disable JTAG, enable SWD           */
+    #else
+      AFIO_MAPR_SWJ_CFG_DISABLE              |                /* Disable both JTAG and SWD          */
+    #endif
+    TIM2_EN * AFIO_MAPR_TIM2_REMAP_PARTIALREMAP1      /* Remap CH1/PA15, CH2/PB3, CH3/PA2, CH4/PA3) */
+  );
 
   #if HSE_EN
     RCC->CR = RCC_CR_HSEON;                                   /* Switch HSE on                      */
@@ -905,30 +908,21 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if TIM2_EN
-    #define TIM2_PSC (       \\
-      0 * TIM_PSC_PSC           /* (0xFFFF << 0)      Prescaler Value                   0x0000FFFF  */\\
-    )
+    #define TIM2_PSC 0          /* 0..0xFFFF - Prescaler Value                                      */
     #if TIM2_PSC != 0
-      TIM2->PSC = TIM2_PSC;     /* 0x40000028: TIM prescaler register, Address offset: 0x28         */
+      TIM2->PSC = TIM2_PSC;     /* 0x40000028: TIM2 prescaler register                              */
     #endif
-    #undef TIM2_PSC
   
-    #define TIM2_ARR (       \\
-      0 * TIM_ARR_ARR           /* (0xFFFFFFFF << 0)  actual auto-reload Value          0xFFFFFFFF  */\\
-    )
+    #define TIM2_ARR 0          /* 0..0xFFFF - actual auto-reload Value                             */
     #if TIM2_ARR != 0
-      TIM2->ARR = TIM2_ARR;     /* 0x4000002C: TIM auto-reload register, Address offset: 0x2C       */
+      TIM2->ARR = TIM2_ARR;     /* 0x4000002C: TIM2 auto-reload register                            */
     #endif
-    #undef TIM2_ARR
   
-    #define TIM2_CCR1 (      \\
-      1 * (UINT16_MAX / 2 - 1)  /* (0xFFFF << 0)      Capture/Compare 1 Value           0x0000FFFF  */\\
-    )
+    #define TIM2_CCR1 0x7FFF    /* 0..0xFFFF - Capture/Compare 1 Value                              */
     #if TIM2_CCR1 != 0
-      TIM2->CCR1 = TIM2_CCR1;   /* 0x40000034: TIM capture/compare register 1, Address offset: 0x34 */
+      TIM2->CCR1 = TIM2_CCR1;   /* 0x40000034: TIM capture/compare register 1                       */
     #endif
-    #undef TIM2_CCR1
-  
+
     #define TIM2_EGR (    \\
       1 * TIM_EGR_UG      |  /* (1 << 0)    Update Generation                           0x00000001  */\\
       0 * TIM_EGR_CC1G    |  /* (1 << 1)    Capture/Compare 1 Generation                0x00000002  */\\
@@ -939,12 +933,10 @@ __STATIC_INLINE void init(void) {
       0 * TIM_EGR_TG      |  /* (1 << 6)    Trigger Generation                          0x00000040  */\\
       0 * TIM_EGR_BG         /* (1 << 7)    Break Generation                            0x00000080  */\\
     )
-    #if TIM2_EGR != 0
-      TIM2->EGR = TIM2_EGR;  /* 0x40000014: TIM event generation register, Address offset: 0x14     */
+    #if TIM2_EGR != 0 && TIM2_PSC != 0
+      TIM2->EGR = TIM2_EGR;  /* 0x40000014: TIM event generation register                           */
+      TIM2->SR = 0;          /* Reset TIM2 status flags                                             */
     #endif
-    #undef TIM2_EGR
-  
-    TIM2->SR = 0;
   
     #define TIM2_DIER (   \\
       1 * TIM_DIER_UIE    |  /* (1 << 0)    Update interrupt enable                     0x00000001  */\\
@@ -964,9 +956,8 @@ __STATIC_INLINE void init(void) {
       0 * TIM_DIER_TDE       /* (1 << 14)   Trigger DMA request enable                  0x00004000  */\\
     )
     #if TIM2_DIER != 0
-      TIM2->DIER = TIM2_DIER;/* 0x4000000C: TIM DMA/interrupt enable register, Address offset: 0x0C */
+      TIM2->DIER = TIM2_DIER;/* 0x4000000C: TIM DMA/interrupt enable register                       */
     #endif
-    #undef TIM2_DIER
   
     #define TIM2_CCMR1 (     \\
       0 * TIM_CCMR1_CC1S     |  /* (3 << 0)    CC1S[1:0] bits (Capture/Compare 1 Sel.)  0x00000003  */\\
@@ -978,8 +969,8 @@ __STATIC_INLINE void init(void) {
       0 * TIM_CCMR1_OC1M_0   |  /* (1 << 4)      0x00000010                                         */\\
       1 * TIM_CCMR1_OC1M_1   |  /* (2 << 4)      0x00000020                                         */\\
       1 * TIM_CCMR1_OC1M_2   |  /* (4 << 4)      0x00000040                                         */\\
-      0 * TIM_CCMR1_OC1CE    |  /* (1 << 7)    Output Compare 1Clear Enable             0x00000080  */\\
-      0 * TIM_CCMR1_CC2S     |  /* (3 << 8)    CC2S[1:0] bits (Capture/Compare 2 Selю)  0x00000300  */\\
+      0 * TIM_CCMR1_OC1CE    |  /* (1 << 7)    Output Compare 1 Clear Enable            0x00000080  */\\
+      0 * TIM_CCMR1_CC2S     |  /* (3 << 8)    CC2S[1:0] bits (Capture/Compare 2 Sel.)  0x00000300  */\\
       0 * TIM_CCMR1_CC2S_0   |  /* (1 << 8)      0x00000100                                         */\\
       0 * TIM_CCMR1_CC2S_1   |  /* (2 << 8)      0x00000200                                         */\\
       0 * TIM_CCMR1_OC2FE    |  /* (1 << 10)   Output Compare 2 Fast enable             0x00000400  */\\
@@ -997,7 +988,7 @@ __STATIC_INLINE void init(void) {
       0 * TIM_CCMR1_IC1F_1   |  /* (2 << 4)      0x00000020                                         */\\
       0 * TIM_CCMR1_IC1F_2   |  /* (4 << 4)      0x00000040                                         */\\
       0 * TIM_CCMR1_IC1F_3   |  /* (8 << 4)      0x00000080                                         */\\
-      0 * TIM_CCMR1_IC2PSC   |  /* (3 << 10)   IC2PSC[1:0] bits (Input Capture 2 Pscю)  0x00000C00  */\\
+      0 * TIM_CCMR1_IC2PSC   |  /* (3 << 10)   IC2PSC[1:0] bits (Input Capture 2 Psc.)  0x00000C00  */\\
       0 * TIM_CCMR1_IC2PSC_0 |  /* (1 << 10)     0x00000400                                         */\\
       0 * TIM_CCMR1_IC2PSC_1 |  /* (2 << 10)     0x00000800                                         */\\
       0 * TIM_CCMR1_IC2F     |  /* (0xF << 12) IC2F[3:0] bits (Input Capture 2 Filter)  0x0000F000  */\\
@@ -1009,7 +1000,6 @@ __STATIC_INLINE void init(void) {
     #if TIM2_CCMR1 != 0
       TIM2->CCMR1 = TIM2_CCMR1; /* 0x40000018: TIM2 capt/comp mode register 1                       */
     #endif
-    #undef TIM2_CCMR1
   
     #define TIM2_CCER (      \\
       1 * TIM_CCER_CC1E      |  /* (1 << 0)   Capture/Compare 1 output enable           0x00000001  */\\
@@ -1027,7 +1017,6 @@ __STATIC_INLINE void init(void) {
     #if TIM2_CCER != 0
       TIM2->CCER = TIM2_CCER;   /* 0x40000020: TIM capture/compare enable register                  */
     #endif
-    #undef TIM2_CCER
   
     NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
     NVIC_ClearPendingIRQ(TIM2_IRQn);
@@ -1050,7 +1039,6 @@ __STATIC_INLINE void init(void) {
     #if TIM2_CR1 != 0
       TIM2->CR1 = TIM2_CR1;/* 0x40000000: TIM control register 1                                    */
     #endif
-    #undef TIM2_CR1
   #endif
 
   #if USE_RTC
