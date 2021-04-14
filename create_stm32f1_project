@@ -378,7 +378,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-missing-prototypes -Wno-unreachable-code-return</MiscControls>
-              <Define>STM32F103xB,USE_SWD=1,USE_HSE=0,USE_PLL=0,USE_BTN=0,USE_USART=0,USE_I2C=0,USE_SPI=0,USE_RTC=0,USE_LSE=0,USE_TIM2=0</Define>
+              <Define>STM32F103xB,USE_SWD=1,USE_HSE=0,USE_PLL=0,USE_BTN=0,USE_USART=0,USE_I2C=0,USE_SPI=0,USE_RTC=0,USE_LSE=0,USE_TIM2=0,USE_CRC=0</Define>
               <Undefine></Undefine>
               <IncludePath>..</IncludePath>
             </VariousControls>
@@ -482,6 +482,7 @@ cat <<MAIN_H >main.h
   #define USE_BTN                       1  /* Use buttons connected to PB1 and PB2     */
   #define USE_RTC                       1  /* Configure and run RTC                    */
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
+  #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
 #endif
 /* *********************************************************************************** */
@@ -757,11 +758,34 @@ cat <<MAIN_H >main.h
   #define TIM2_EN                       0
 #endif
 
-#define APB_ENABLE(BUS_NO, P_LIST) if(P_LIST) {RCC->APB##BUS_NO##ENR = (P_LIST);} else (void)0
+#if defined(USE_CRC) && (USE_CRC != 0)
+  #define CRC_EN                        1
+  __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
+
+    unsigned i;
+
+    CRC->CR = CRC_CR_RESET;
+
+    for (i = 0; i < (cnt / 4); i++) CRC->DR = __RBIT(data[i]);
+
+    unsigned result = __RBIT(CRC->DR);
+    cnt = (cnt % 4) * 8;
+    if (cnt) {
+      CRC->DR = CRC->DR;
+      CRC->DR = __RBIT((data[i] & (0xFFFFFFFF >> (32 - cnt))) ^ result) >> (32 - cnt);
+      result = (result >> cnt) ^ __RBIT(CRC->DR);
+    }
+    return ~result;
+  }
+#else
+  #define CRC_EN                        0
+#endif
+
+#define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
 
 __STATIC_INLINE void init(void) {
 
-  APB_ENABLE(1, 
+  CLOCK_ENABLE(APB1, 
     TIM2_EN * RCC_APB1ENR_TIM2EN  |                           /* Enable clock for TIM2 peripheral   */
     I2C_EN  * RCC_APB1ENR_I2C1EN  |                           /* Enable clock for I2C1 peripheral   */
     RTC_EN  * RCC_APB1ENR_BKPEN   |                           /* Enable Backup interface clock      */
@@ -789,7 +813,7 @@ __STATIC_INLINE void init(void) {
     );
   #endif
  
-  APB_ENABLE(2, 
+  CLOCK_ENABLE(APB2, 
     USART_EN * RCC_APB2ENR_USART1EN  |                        /* Enable clock for USART1            */
     USART_EN * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
     TIM2_EN  * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
@@ -1128,12 +1152,14 @@ __STATIC_INLINE void init(void) {
     NVIC_EnableIRQ(RTC_Alarm_IRQn);                           /* Enable RTC Alarm EXTI Interrupt    */
 
   #endif /* USE_RTC */
+
+  CLOCK_ENABLE(AHB, CRC_EN * RCC_AHBENR_CRCEN);               /* Enable clock for USART1            */
 }
 
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
     /*** Send char using USART1 ***/
-    while (!(USART1->SR & USART_SR_TXE)) {}                   /* Wait until TX register becomes empty    */
+    while (!(USART1->SR & USART_SR_TXE)) {}                 /* Wait until TX register becomes empty */
     USART1->DR = c;
   }
 
@@ -1293,6 +1319,7 @@ MAIN_H
 cat <<MAIN_C >main.c
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "main.h"
 
 #if I2C_EN
@@ -1307,13 +1334,17 @@ cat <<MAIN_C >main.c
   static volatile unsigned rtc_flag;
 #endif
 
+#if TIM2_EN
+  static volatile unsigned tim2_counter;
+#endif
+
 int main(void) {
 
   init();
 
   for(;;) {
 
-    #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN
+    #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN
       char pbuf[160];
       int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % UINT8_MAX);
     #endif
@@ -1346,7 +1377,20 @@ int main(void) {
                 ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
                 ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
                 ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
-   #endif
+    #endif
+
+    #if TIM2_EN
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; TIM2: %08X", tim2_counter);
+    #endif
+
+    #if CRC_EN
+      union {
+        char a[sizeof(pbuf)];
+        unsigned b[sizeof(pbuf) / 4];
+      } raw;
+      memcpy(&raw.a, pbuf, sizeof(pbuf));
+      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; CRC: %08X", crc32_zlib(raw.b, sizeof(pbuf)));
+    #endif
 
     #if USART_EN
       offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "\n");
@@ -1436,6 +1480,7 @@ void SysTick_Handler(void) {
     } else if (TIM2->SR & TIM_SR_CC4IF) {
       TIM2->SR &= ~TIM_SR_CC4IF;
     }
+    tim2_counter++;
   }
 #endif
 
