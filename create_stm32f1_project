@@ -30,6 +30,7 @@ $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/cor
 if [ "$1" = "pdf" ] || [ "$2" = "pdf" ] || [ "$3" = "pdf" ] || [ "$4" = "pdf" ] || [ "$5" = "pdf" ] || [ "$6" = "pdf" ]
   then
       $wg https://www.st.com/resource/en/reference_manual/cd00171190-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf -O rm0008.pdf
+      $wg https://www.st.com/resource/en/datasheet/stm32f103c8.pdf
 fi
 
 if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] || [ "$5" = "mdk" ] || [ "$6" = "mdk" ]
