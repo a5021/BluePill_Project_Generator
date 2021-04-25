@@ -1359,7 +1359,7 @@ __STATIC_INLINE void init(void) {
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
-                  SysTick_CTRL_TICKINT_Msk;
+                  SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
 
   #if USART_EN
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
@@ -1839,7 +1839,6 @@ MAIN_H
 cat <<MAIN_C >main.c
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "main.h"
 
 #if I2C_EN
@@ -1862,59 +1861,62 @@ int main(void) {
 
   init();
 
-  for(;;) {
-
-    #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN
+#if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN
+  for(int i = 0; i <= INT32_MAX;) {
+    union {
       char pbuf[160];
-      int offs = snprintf(pbuf, sizeof(pbuf), "Test #0x%02X", rand() % UINT8_MAX);
-    #endif
+      unsigned ubuf[sizeof(160/4)];
+    } z = {0};
+    i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rand() % UINT8_MAX);
+#else
+  for(;;) {
+#endif
 
     #if I2C_EN
-      char x[10] = {0};
+      char x[0x13] = {0};
       i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
       if (i2c_status == 0) {
-        offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
+        i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
       } else {
-        offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; I2C ERR: %04X", i2c_status);
+        i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
       }
     #endif
 
     #if SPI_EN
       CS_LOW();
-      spi_xfer(0x00);
-      char y = spi_xfer(UINT8_MAX);
+        spi_xfer(0x00);
+        char y = spi_xfer(UINT8_MAX);
       CS_HIGH();
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; SPI: 0x%02X", y);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; SPI: 0x%02X", y);
     #endif
 
     #if BTN_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; KEY: %s/%s", (key_state & (1 << 16)) ? "ON" : "OFF", (key_state & (2 << 16)) ? "ON" : "OFF");
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; KEY: %s/%s", (key_state & (1 << 16)) ? "ON" : "OFF", (key_state & (2 << 16)) ? "ON" : "OFF");
       key_state &= (unsigned)~((1 << 16) | (2 << 16));
     #endif
 
     #if RTC_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; RTC/%s: %04X",
-                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
-                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
-                ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %04X",
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
     #endif
 
     #if TIM2_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; TIM2: %08X", tim2_counter);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; TIM2: %08X", tim2_counter);
     #endif
 
     #if CRC_EN
-      union {
-        char a[sizeof(pbuf)];
-        unsigned b[sizeof(pbuf) / 4];
-      } raw;
-      memcpy(&raw.a, pbuf, sizeof(pbuf));
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "; CRC: %08X", crc32_zlib(raw.b, sizeof(pbuf)));
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; CRC: %08X", crc32_zlib(z.ubuf, sizeof(z.ubuf)));
+    #endif
+
+    #if ADC_EN
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %u", (unsigned) ADC1->DR);
     #endif
 
     #if USART_EN
-      offs += snprintf((char*)&pbuf[offs], sizeof(pbuf) - (unsigned) offs, "\n");
-      uputs(pbuf);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "\n");
+      uputs(z.pbuf);
     #endif
 
     #if RTC_EN
@@ -2003,6 +2005,21 @@ void SysTick_Handler(void) {
     tim2_counter++;
   }
 #endif
+
+#if ADC_EN
+  void ADC1_2_IRQHandler(void) {
+    ADC1->SR = 0;
+  }
+#endif
+
+void __attribute__((noreturn)) HardFault_Handler(void) {
+  for(;;) {
+    SW_PIN(C, 13, DOWN);
+    DELAY_MS(60);
+    SW_PIN(C, 13, UP);
+    DELAY_MS(60);
+  }
+}
 
 MAIN_C
 
