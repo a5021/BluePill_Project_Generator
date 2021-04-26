@@ -1424,6 +1424,9 @@ __STATIC_INLINE void init(void) {
       }
     #endif
 
+    ADC1->CR2 |= ADC_CR2_CONT;
+    ADC1->CR2 |= ADC_CR2_ADON;
+
     #if 0
       /* ADC1 interrupt Init */
       NVIC_SetPriority(ADC1_2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
