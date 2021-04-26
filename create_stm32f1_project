@@ -39,6 +39,8 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
       mkdir MDK-ARM
       cd MDK-ARM
       $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
+      def_set1="<Define>STM32F103xB,"
+      def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0</Define>"
       cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
@@ -379,7 +381,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-missing-prototypes -Wno-unreachable-code-return</MiscControls>
-              <Define>STM32F103xB,USE_SWD=1,USE_HSE=0,USE_PLL=0,USE_USART=1,USE_I2C=0,USE_SPI=0,USE_RTC=0,USE_LSE=0,USE_BTN=0,USE_TIM2=0,USE_CRC=0,USE_ADC=0</Define>
+              $def_set1 USE_SWD=1, $def_set2
               <Undefine></Undefine>
               <IncludePath>..</IncludePath>
             </VariousControls>
@@ -780,7 +782,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls>-Wno-missing-prototypes -Wno-unreachable-code-return</MiscControls>
-              <Define>STM32F103xB,USE_SWD=0,USE_HSE=0,USE_PLL=0,USE_USART=0,USE_I2C=0,USE_SPI=0,USE_RTC=0,USE_LSE=0,USE_BTN=0,USE_TIM2=0,USE_CRC=0,USE_ADC=0</Define>
+              $def_set1 NDEBUG, USE_SWD=0, $def_set2
               <Undefine></Undefine>
               <IncludePath>..</IncludePath>
             </VariousControls>
@@ -1132,6 +1134,20 @@ cat <<MAIN_H >main.h
 
   #define ADC_SMPR1(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR1_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR1_SMP ## SEQ_NUM)
   #define ADC_SMPR2(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
+
+  unsigned adc_get_bit(void) {
+    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+    }
+    return ADC1->DR & 1;
+  }
+
+  unsigned adc_get_random_bit(void) {
+    unsigned a;
+    do {
+      a = adc_get_bit();
+    } while (a == adc_get_bit());
+    return a;
+  }
 #else
   #define ADC_EN                        0
 #endif
@@ -1391,38 +1407,6 @@ __STATIC_INLINE void init(void) {
     ADC1->SMPR1 = ADC_SMPR1(16, 239) | ADC_SMPR1(17, 239);
     ADC1->SQR3 = ADC_SQR3(1, 16);
     ADC1->SQR1 = ADC_SQR1_LEN(1);
-
-    ADC1->CR2 |= ADC_CR2_ADON;
-    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-      /* Wait until conversion completes */
-    }
-
-    /* (void)ADC1->DR; */
-
-    #if 0 /* This block is for testing purposes only                                                                                                                */
-      ADC1->CR2 |= ADC_CR2_CONT;
-      ADC1->CR2 |= ADC_CR2_ADON;
-
-      enum {SAMPLES = 16};
-      static uint32_t res1[SAMPLES], res2[SAMPLES];
-      for(unsigned i = 0; i < SAMPLES; i++) {
-        extract_randomness(&res1[i]);
-      }
-
-      ADC1->CR2 &= ~ADC_CR2_CONT;
-      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-        /* Wait until conversion completes */
-      }
-
-      (void)ADC1->DR;
-
-      ADC1->SQR3 = ADC_SQR3(1, 17);
-      ADC1->CR2 |= ADC_CR2_CONT;
-      ADC1->CR2 |= ADC_CR2_ADON;
-      for(unsigned i = 0; i < SAMPLES; i++) {
-        extract_randomness(&res2[i]);
-      }
-    #endif
 
     ADC1->CR2 |= ADC_CR2_CONT;
     ADC1->CR2 |= ADC_CR2_ADON;
@@ -1840,9 +1824,20 @@ MAIN_H
 #
 
 cat <<MAIN_C >main.c
-#include <stdlib.h>
 #include <stdio.h>
 #include "main.h"
+
+static unsigned rnext = 1;
+int rnd(void) {
+  rnext = rnext * 1103515245 + 12345;
+  return rnext / 65536 % 32768;
+}
+
+
+void srnd(unsigned seed) {
+  rnext = seed;
+}
+
 
 #if I2C_EN
   unsigned short i2c_status;
@@ -1860,6 +1855,10 @@ cat <<MAIN_C >main.c
   static volatile unsigned tim2_counter;
 #endif
 
+#if ADC_EN
+  static unsigned adc_data;
+#endif
+
 int main(void) {
 
   init();
@@ -1870,7 +1869,7 @@ int main(void) {
       char pbuf[160];
       unsigned ubuf[sizeof(160/4)];
     } z = {0};
-    i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rand() % UINT8_MAX);
+    i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
 #else
   for(;;) {
 #endif
@@ -1914,21 +1913,31 @@ int main(void) {
     #endif
 
     #if ADC_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %u", (unsigned) ADC1->DR);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %08X", adc_data);
     #endif
 
     #if USART_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "\n");
+      z.pbuf[i++] = '\n';
+      z.pbuf[i] = 0;
       uputs(z.pbuf);
     #endif
 
-    #if RTC_EN
-      while(!(rtc_flag & RTC_CRL_SECF)) { }
-      rtc_flag &= ~RTC_CRL_SECF;
-    #else
-      DELAY_MS(1000);
-    #endif
+    int j = 1000;
+    do {
 
+      #if ADC_EN
+        adc_data = (adc_data << 1) | adc_get_random_bit();
+      #endif
+      
+      #if RTC_EN
+        if (rtc_flag & RTC_CRL_SECF) {
+          rtc_flag &= ~RTC_CRL_SECF;
+          j = 0;
+        }
+      #else
+        j -= GET_TICK();
+      #endif
+    } while(j);
   }
 
   return 0;
