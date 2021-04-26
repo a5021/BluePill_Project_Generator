@@ -1827,18 +1827,6 @@ cat <<MAIN_C >main.c
 #include <stdio.h>
 #include "main.h"
 
-static unsigned rnext = 1;
-int rnd(void) {
-  rnext = rnext * 1103515245 + 12345;
-  return rnext / 65536 % 32768;
-}
-
-
-void srnd(unsigned seed) {
-  rnext = seed;
-}
-
-
 #if I2C_EN
   unsigned short i2c_status;
 #endif
@@ -1859,6 +1847,11 @@ void srnd(unsigned seed) {
   static unsigned adc_data;
 #endif
 
+
+int rnd(void);             /* Get pseudo-random number            */
+void srnd(unsigned seed);  /* Seed pseudo-random number generator */
+
+
 int main(void) {
 
   init();
@@ -1867,7 +1860,7 @@ int main(void) {
   for(int i = 0; i <= INT32_MAX;) {
     union {
       char pbuf[160];
-      unsigned ubuf[sizeof(160/4)];
+      unsigned ubuf[sizeof(160/sizeof(unsigned))];
     } z = {0};
     i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
 #else
@@ -2031,6 +2024,18 @@ void __attribute__((noreturn)) HardFault_Handler(void) {
     SW_PIN(C, 13, UP);
     DELAY_MS(60);
   }
+}
+
+static unsigned rnext = 1;
+
+int rnd(void) {
+  rnext = rnext * 1103515245 + 12345;
+  return rnext / 65536 % 32768;
+}
+
+
+void srnd(unsigned seed) {
+  rnext = seed;
 }
 
 MAIN_C
