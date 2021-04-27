@@ -1343,9 +1343,23 @@ __STATIC_INLINE void init(void) {
     RCC->CR = RCC_CR_HSEON;                                   /* Switch HSE on                      */
     while((RCC->CR & RCC_CR_HSERDY) == 0) {/* NO OP */}       /* Wait until HSE becomes ready       */
 
-    #define RCC_CFGR RCC_CFGR_PLLSRC | RCC_CFGR_PLLMULL9      /* 72 MHz: PllSrc = HSE, Mul = 9      */
+    #if defined OVRCLK && OVRCLK != 0
+      #define RCC_CFGR (                                      /* 112 MHz:                           */\\
+                RCC_CFGR_PLLSRC                  |            /*   Pll Source is HSE                */\\
+                RCC_CFGR_PLLMULL14               |            /*   Pll multiplier is 14             */\\
+                RCC_CFGR_ADCPRE_DIV8                          /*   ADC clock divider is 8           */\\
+              )
+      #define HCLK     112000000UL
+    #else
+      #define RCC_CFGR (                                      /* 72 MHz:                            */\\
+                RCC_CFGR_PLLSRC                  |            /*   Pll Source is HSE                */\\
+                RCC_CFGR_PLLMULL9                |            /*   Pll multiplier is 9              */\\
+                RCC_CFGR_ADCPRE_DIV6                          /*   ADC clock divider is 6           */\\
+              )
+      #define HCLK     72000000UL
+    #endif
+
     #define RCC_CR   RCC_CR_PLLON | RCC_CR_HSEON
-    #define HCLK     72000000UL
   #else
     #define RCC_CFGR RCC_CFGR_PLLMULL16                       /* 64 MHz: PllSrc = HSI / 2, Mul = 16 */
     #define RCC_CR   RCC_CR_PLLON
@@ -1354,7 +1368,7 @@ __STATIC_INLINE void init(void) {
 
   #if defined USE_PLL && USE_PLL != 0
 
-    RCC->CFGR = RCC_CFGR | (ADC_EN * RCC_CFGR_ADCPRE_DIV6);   /* Configure PLL                      */
+    RCC->CFGR = RCC_CFGR;                                     /* Configure PLL                      */
     RCC->CR = RCC_CR;                                         /* Switch PLL on                      */
     while((RCC->CR & RCC_CR_PLLRDY) == 0) { /* NO OP */}      /* Wait until PLL becomes ready       */
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
