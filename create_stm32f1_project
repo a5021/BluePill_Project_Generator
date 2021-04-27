@@ -883,7 +883,7 @@ cat <<MAIN_H >main.h
 /* *********************************************************************************** */
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
-#if 0
+#if 0                                      /*                                          */
   #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
   #define USE_PLL                       1  /* Use PLL as system clock source           */
   #define USE_LSE                       1  /* Use LSE as RTC clock source              */
@@ -896,7 +896,8 @@ cat <<MAIN_H >main.h
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
-#endif
+  #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
+#endif                                     /*                                          */
 /* *********************************************************************************** */
 /* ********  or force using them while running make utility  ************************* */
 /* *********************************************************************************** */
@@ -1135,11 +1136,13 @@ cat <<MAIN_H >main.h
   #define ADC_SMPR1(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR1_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR1_SMP ## SEQ_NUM)
   #define ADC_SMPR2(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
 
+
   unsigned adc_get_bit(void) {
     while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
     }
     return ADC1->DR & 1;
   }
+
 
   unsigned adc_get_random_bit(void) {
     unsigned a;
@@ -1148,6 +1151,52 @@ cat <<MAIN_H >main.h
     } while (a == adc_get_bit());
     return a;
   }
+
+
+  void get_adc_internals(short *t, unsigned short *v) {
+  
+    enum { ADC_SAMPLE_COUNT = 4096 };
+  
+    unsigned vcc_data = 0, temp_data = 0;
+  
+    for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
+  
+      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+      }
+  
+      temp_data += ADC1->DR;
+    }
+    ADC1->CR2 &= ~ADC_CR2_ADON;
+    temp_data /= ADC_SAMPLE_COUNT;
+    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+    }
+
+    ADC1->SQR3 = ADC_SQR3(1, 17);
+    ADC1->CR2 |= ADC_CR2_ADON;
+
+    for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
+  
+      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+      }
+  
+      vcc_data += ADC1->DR;
+    }
+    ADC1->CR2 &= ~ADC_CR2_ADON;
+    vcc_data /= ADC_SAMPLE_COUNT;
+    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+    }
+
+    ADC1->SQR3 = ADC_SQR3(1, 16);
+    ADC1->CR2 |= ADC_CR2_ADON;
+
+    unsigned vcc = 1200UL * 4095UL / vcc_data;
+    int temp = temp_data * vcc / 4095L;
+    temp = ((1430L - temp) * 10L / 43L) + 25L;
+    if (t != NULL) *t = (short) temp;
+    if (v != NULL) *v = (unsigned short) vcc;
+  
+  }
+
 #else
   #define ADC_EN                        0
 #endif
@@ -1373,6 +1422,7 @@ __STATIC_INLINE void init(void) {
     while((RCC->CR & RCC_CR_PLLRDY) == 0) { /* NO OP */}      /* Wait until PLL becomes ready       */
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
     RCC->CFGR = (
+      RCC_CFGR             |  
       RCC_CFGR_SW_PLL      |                                  /* Set PLL as system clock source     */
       RCC_CFGR_PPRE1_DIV2                                     /* Set APB1 clock as HCLK / 2         */
     );
@@ -1624,14 +1674,14 @@ __STATIC_INLINE void init(void) {
       RTC->PRLL = 0x9CC0; // 0x9C3F
     #endif
 
-    uint32_t cnt = 1620191105;       /* Epoch timestamp: 1620191105 = Wed, 05 May 2021 05:05:05 GMT */
+    #define RTC_CNT 1620191105       /* Epoch timestamp: 1620191105 = Wed, 05 May 2021 05:05:05 GMT */
 
-    RTC->CNTH = cnt >> 16;                                    /* Set RTC Counter MSB word           */
-    RTC->CNTL = cnt & 0xFFFF;                                 /* Set RTC Counter LSB word           */
+    RTC->CNTH = RTC_CNT >> 16;                                /* Set RTC Counter MS word            */
+    RTC->CNTL = RTC_CNT & 0xFFFF;                             /* Set RTC Counter LS word            */
 
-    cnt += 25000;
-    RTC->ALRH = cnt >> 16;                                    /* Set RTC Alarm Register MSB word    */
-    RTC->ALRL = cnt & 0xFFFF;                                 /* Set RTC Alarm Register LSB word    */
+    #define ALR_OFFS 25000
+    RTC->ALRH = (RTC_CNT + ALR_OFFS) >> 16;                   /* Set RTC Alarm Register MS word     */
+    RTC->ALRL = (RTC_CNT + ALR_OFFS) & 0xFFFF;                /* Set RTC Alarm Register LS word     */
 
     RTC->CRH = (
       RTC_CRH_ALRIE   |                                       /* Enable RTC Alarm interrupt         */
