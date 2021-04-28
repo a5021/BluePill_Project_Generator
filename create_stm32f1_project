@@ -1160,33 +1160,31 @@ cat <<MAIN_H >main.h
     unsigned vcc_data = 0, temp_data = 0;
   
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
-  
-      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-      }
-  
+
+      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
       temp_data += ADC1->DR;
     }
+
     ADC1->CR2 &= ~ADC_CR2_ADON;
     temp_data /= ADC_SAMPLE_COUNT;
-    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-    }
+    while (ADC1->CR2 & ADC_CR2_ADON) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 17);
     ADC1->CR2 |= ADC_CR2_ADON;
+    ADC1->CR2 |= ADC_CR2_ADON;
 
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
-  
-      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-      }
-  
+ 
+      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
       vcc_data += ADC1->DR;
     }
+
     ADC1->CR2 &= ~ADC_CR2_ADON;
     vcc_data /= ADC_SAMPLE_COUNT;
-    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
-    }
+    while (ADC1->CR2 & ADC_CR2_ADON) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 16);
+    ADC1->CR2 |= ADC_CR2_ADON;
     ADC1->CR2 |= ADC_CR2_ADON;
 
     unsigned vcc = 1200UL * 4095UL / vcc_data;
@@ -1194,7 +1192,6 @@ cat <<MAIN_H >main.h
     temp = ((1430L - temp) * 10L / 43L) + 25L;
     if (t != NULL) *t = (short) temp;
     if (v != NULL) *v = (unsigned short) vcc;
-  
   }
 
 #else
@@ -1770,9 +1767,7 @@ __STATIC_INLINE void init(void) {
                                           I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
                                         )
 
-
   extern unsigned short i2c_status;
-
 
   __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
     unsigned t_out = I2C_TIMEOUT;
@@ -1925,14 +1920,14 @@ int main(void) {
     union {
       char pbuf[160];
       unsigned ubuf[sizeof(160/sizeof(unsigned))];
-    } z = {0};
+    } z;
     i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
 #else
   for(;;) {
 #endif
 
     #if I2C_EN
-      char x[0x13] = {0};
+      char x[0x13];
       i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
       if (i2c_status == 0) {
         i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
@@ -1970,7 +1965,10 @@ int main(void) {
     #endif
 
     #if ADC_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %08X", adc_data);
+      short t;
+      unsigned short v;
+      get_adc_internals(&t, &v);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
     #endif
 
     #if USART_EN
