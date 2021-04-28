@@ -1,14 +1,14 @@
 #!/bin/sh
 
 if [ "$1" = "--help" ]
-  then 
+  then
       echo ""
       echo "    STM32F1 Project Creator v0.02";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
       echo
       echo "Usage:"
       echo "        $0 [command] [command] ... [options] [options] ... "
-      echo 
+      echo
       echo "Commands:"
       echo "        mdk  generate simple Keil MDK-ARM config"
       echo "        pdf  fetch stm32f10x reference manual (rm0008)"
@@ -34,13 +34,13 @@ if [ "$1" = "pdf" ] || [ "$2" = "pdf" ] || [ "$3" = "pdf" ] || [ "$4" = "pdf" ] 
 fi
 
 if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] || [ "$5" = "mdk" ] || [ "$6" = "mdk" ]
-  then 
-      $wg $cmsis/cmsis_armclang.h 
+  then
+      $wg $cmsis/cmsis_armclang.h
       mkdir MDK-ARM
       cd MDK-ARM
       $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
       def_set1="<Define>STM32F103xB,"
-      def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0</Define>"
+      def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0, USE_RNG=0</Define>"
       cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
@@ -880,6 +880,7 @@ cat <<MAIN_H >main.h
  extern C {
 #endif
 
+
 /* *********************************************************************************** */
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
@@ -891,15 +892,16 @@ cat <<MAIN_H >main.h
   #define USE_USART                     1  /* Configure USART1 for send and receive    */
   #define USE_I2C                       1  /* Configure I2C1 100kHz                    */
   #define USE_SPI                       1  /* Configure SPI1                           */
-  #define USE_BTN                       1  /* Use buttons connected to PB1 and PB2     */
+  #define USE_BTN                       1  /* Handle buttons connected to PB1 and PB2  */
   #define USE_RTC                       1  /* Configure and run RTC                    */
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
   #define USE_CRC                       1  /* Add CRC computation code                 */
+  #define USE_RNG                       1  /* Add random numbers generation code       */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
 /* *********************************************************************************** */
-/* ********  or force using them while running make utility  ************************* */
+/* **********  or force using them while running make utility  *********************** */
 /* *********************************************************************************** */
 
 
@@ -1001,82 +1003,82 @@ cat <<MAIN_H >main.h
   }
 
   void rtc_set_alarm(uint32_t alarm_time) {
-  
+
     #if 0
     while((RTC->CRL & RTC_CRL_SECF) != RTC_CRL_SECF)  {
         /* JUST WAIT */
     }
     RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
-  
+
     uint32_t timeout = 1000;
     while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
       /* just wait for RTOFF  */
       timeout -= GET_TICK();
       if (timeout == 0) return;
     }
-  
+
     uint32_t apb1enr_flags = 0;
     if ((RCC->APB1ENR & RCC_APB1ENR_BKPEN) != RCC_APB1ENR_BKPEN) {
       RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
       apb1enr_flags |= RCC_APB1ENR_BKPEN;
     }
-  
+
     if ((RCC->APB1ENR & RCC_APB1ENR_PWREN) != RCC_APB1ENR_PWREN) {
       RCC->APB1ENR |= RCC_APB1ENR_PWREN;
       apb1enr_flags |= RCC_APB1ENR_PWREN;
     }
     #endif
-  
-  
+
+
     RCC->APB1ENR |= (RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
-  
+
     // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
     //     /* JUST WAIT */
     // }
-  
+
     #if 0
     while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
         /* JUST WAIT */
     }
     #endif
-  
+
     PWR->CR |= PWR_CR_DBP;                                  /* Disable Backup Domain Protection     */
-  
+
     uint32_t timeout = 1000;
     while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
       /* just wait for RTOFF  */
       timeout -= GET_TICK();
       if (timeout == 0) return;
     }
-  
+
     RTC->CRL |= RTC_CRL_CNF;
-  
+
     alarm_time--;
-  
+
     RTC->ALRH = alarm_time >> 16;
     RTC->ALRL = alarm_time;
-  
+
     RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
     RTC->CRH |= RTC_CRH_ALRIE;
     RTC->CRL = ~RTC_CRL_CNF;
-  
+
     RTC->CRL &= (uint16_t)~RTC_CRL_RSF;
     while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF) {}
-  
+
     // RCC->APB1ENR &= ~apb1enr_flags;
-  
+
     // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
     //     /* JUST WAIT */
     // }
-  
-  
+
+
     timeout = 1000;
     while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
       /* just wait for RTOFF  */
       timeout -= GET_TICK();
       if (timeout == 0) return;
     }
-  
+
     PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
     RCC->APB1ENR &= ~(RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
   }
@@ -1154,11 +1156,11 @@ cat <<MAIN_H >main.h
 
 
   void get_adc_internals(short *t, unsigned short *v) {
-  
+
     enum { ADC_SAMPLE_COUNT = 4096 };
-  
+
     unsigned vcc_data = 0, temp_data = 0;
-  
+
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
 
       while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
@@ -1174,7 +1176,7 @@ cat <<MAIN_H >main.h
     ADC1->CR2 |= ADC_CR2_ADON;
 
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
- 
+
       while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
       vcc_data += ADC1->DR;
     }
@@ -1296,55 +1298,43 @@ cat <<MAIN_H >main.h
   #define CRC_EN                        0
 #endif
 
+#if defined(USE_RNG) && (USE_RNG != 0)
+  #define RNG_EN                        1
+#else
+  #define RNG_EN                        0
+#endif
+
 #define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
+#define AHB_ENR(PER)              RCC_AHBENR_  ## PER ## EN
+#define APB1_ENR(PER)             RCC_APB1ENR_ ## PER ## EN
+#define APB2_ENR(PER)             RCC_APB2ENR_ ## PER ## EN
 
 __STATIC_INLINE void init(void) {
 
-  CLOCK_ENABLE(AHB, CRC_EN * RCC_AHBENR_CRCEN);               /* Enable clock for CRC peripheral    */
+  CLOCK_ENABLE(AHB, CRC_EN * AHB_ENR(CRC));                   /* Enable clock for CRC peripheral    */
 
-  CLOCK_ENABLE(APB1, 
-    TIM2_EN * RCC_APB1ENR_TIM2EN  |                           /* Enable clock for TIM2 peripheral   */
-    I2C_EN  * RCC_APB1ENR_I2C1EN  |                           /* Enable clock for I2C1 peripheral   */
-    RTC_EN  * RCC_APB1ENR_BKPEN   |                           /* Enable Backup interface clock      */
-    RTC_EN  * RCC_APB1ENR_PWREN                               /* Power interface clock enable       */
+  CLOCK_ENABLE(APB1,
+    TIM2_EN *  APB1_ENR(TIM2)    |                            /* Enable clock for TIM2 peripheral   */
+    I2C_EN  *  APB1_ENR(I2C1)    |                            /* Enable clock for I2C1 peripheral   */
+    RTC_EN  *  APB1_ENR(BKP)     |                            /* Enable clock for Backup interface  */
+    RTC_EN  *  APB1_ENR(PWR)                                  /* Enable clock for Power interface   */
   );
 
-  CLOCK_ENABLE(APB2, 
-    USART_EN * RCC_APB2ENR_USART1EN  |                        /* Enable clock for USART1            */
-    USART_EN * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
-    TIM2_EN  * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
-    SPI_EN   * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
-    SWD_EN   * RCC_APB2ENR_IOPAEN    |                        /* Enable clock for GPIOA             */
-    SPI_EN   * RCC_APB2ENR_SPI1EN    |                        /* Enable clock for SPI1              */
-    I2C_EN   * RCC_APB2ENR_IOPBEN    |                        /* Enable clock for GPIOB             */
-    BTN_EN   * RCC_APB2ENR_IOPBEN    |                        /* Enable clock for GPIOB             */
-    ADC_EN   * RCC_APB2ENR_ADC1EN    |                        /* Enable clock for ADC1              */
-               RCC_APB2ENR_IOPCEN    |                        /* Enable clock for GPIOC             */
-               RCC_APB2ENR_AFIOEN                             /* Enable clock for AFIO              */
+  CLOCK_ENABLE(APB2,
+    USART_EN * APB2_ENR(USART1)  |                            /* Enable clock for USART1            */
+    USART_EN * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
+    TIM2_EN  * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
+    SPI_EN   * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
+    SWD_EN   * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
+    SPI_EN   * APB2_ENR(SPI1)    |                            /* Enable clock for SPI1              */
+    I2C_EN   * APB2_ENR(IOPB)    |                            /* Enable clock for GPIOB             */
+    BTN_EN   * APB2_ENR(IOPB)    |                            /* Enable clock for GPIOB             */
+    ADC_EN   * APB2_ENR(ADC1)    |                            /* Enable clock for ADC1              */
+               APB2_ENR(IOPC)    |                            /* Enable clock for GPIOC             */
+               APB2_ENR(AFIO)                                 /* Enable clock for AFIO              */
   );
 
-  #if RTC_EN
-    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
-
-    #if !LSE_EN && !HSE_EN
-      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
-    #endif
-
-    RCC->BDCR = (
-      #if LSE_EN
-        RCC_BDCR_LSEON            |                           /* Enable LSE oscillator              */
-        RCC_BDCR_RTCSEL_LSE       |                           /* LSE used as RTC clock              */
-      #elif HSE_EN
-        RCC_BDCR_RTCSEL_HSE       |                           /* HSE / 128 used as RTC clock        */
-      #else
-        RCC_BDCR_RTCSEL_LSI       |                           /* LSI used as RTC clock              */
-      #endif
-
-      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
-    );
-  #endif
- 
-  PORT_CONFIG(B, 
+  PORT_CONFIG(B,
     BTN_EN   * PIN_CFG(0,  I_PULL)                |           /* PB0:  input, pull-up               */
     BTN_EN   * PIN_CFG(1,  I_PULL)                |           /* PB1:  input, pull-up               */
     I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |           /* PB6:  I2C1 SCL, altern, open drain */
@@ -1356,7 +1346,7 @@ __STATIC_INLINE void init(void) {
 
   PORT_CONFIG(C, PIN_CFG(13, O_2MHZ), PIN_HIGH(13));          /* PC13: output, push-pull, 2Mhz      */
                                                               /* Set PC13 pin HIGH (LED off)        */
-  PORT_CONFIG(A, 
+  PORT_CONFIG(A,
     ( /* ****** Configure mode for pins selected ************************************************** */
       SPI_EN   * PIN_CFG(4,  O_10MHZ)        |                /* PA4:  SPI1 CS, output, 10MHz       */
       SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |                /* PA5:  SPI1 CLK, alternate, 50MHz   */
@@ -1419,7 +1409,7 @@ __STATIC_INLINE void init(void) {
     while((RCC->CR & RCC_CR_PLLRDY) == 0) { /* NO OP */}      /* Wait until PLL becomes ready       */
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
     RCC->CFGR = (
-      RCC_CFGR             |  
+      RCC_CFGR             |
       RCC_CFGR_SW_PLL      |                                  /* Set PLL as system clock source     */
       RCC_CFGR_PPRE1_DIV2                                     /* Set APB1 clock as HCLK / 2         */
     );
@@ -1438,19 +1428,55 @@ __STATIC_INLINE void init(void) {
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
                   SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
 
+  #if RNG_EN
+    unsigned entropy = 0;
+    for(int i = 0; i < 1000; i++) {
+      RCC->CSR = RCC_CSR_LSION;                                 /* Enable LSI oscillator              */
+      while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
+      entropy = (entropy ^ SysTick->VAL) << 1;
+      RCC->CSR = 0;                                             /* Disable LSI oscillator             */
+      while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
+    }
+
+    extern void srnd(unsigned);
+    srnd(entropy);
+
+  #endif
+
+  #if RTC_EN
+    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
+
+    #if !LSE_EN && !HSE_EN
+      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+    #endif
+
+    RCC->BDCR = (
+      #if LSE_EN
+        RCC_BDCR_LSEON           |                            /* Enable LSE oscillator              */
+        RCC_BDCR_RTCSEL_LSE      |                            /* LSE used as RTC clock              */
+      #elif HSE_EN
+        RCC_BDCR_RTCSEL_HSE      |                            /* HSE / 128 used as RTC clock        */
+      #else
+        RCC_BDCR_RTCSEL_LSI      |                            /* LSI used as RTC clock              */
+      #endif
+
+      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
+    );
+  #endif
+
   #if USART_EN
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
   #endif
 
   #if USE_ADC
-    ADC1->CR2 = ADC_CR2_ADON                                  /* ADC enable                         */ 
+    ADC1->CR2 = ADC_CR2_ADON                                  /* ADC enable                         */
               | ADC_CR2_TSVREFE;                              /* ADC internal path to VrefInt and   */
                                                               /*          temperature sensor enable */
 
-    DELAY_MS(2);                                              /* Before starting a calibration, 
-                                                                 the ADC must have been in power-on 
-                                                                 state for at least two ADC clock 
+    DELAY_MS(2);                                              /* Before starting a calibration,
+                                                                 the ADC must have been in power-on
+                                                                 state for at least two ADC clock
                                                                  cycles.                            */
 
     ADC1->CR2 |= ADC_CR2_CAL;                                 /* Start ADC1 calibration             */
@@ -1460,8 +1486,8 @@ __STATIC_INLINE void init(void) {
     }
 
     /*
-      The Temperature sensor is connected to channel ADCx_IN16 and the internal reference voltage 
-      VREFINT is connected to ADCx_IN17. These two internal channels can be selected and converted 
+      The Temperature sensor is connected to channel ADCx_IN16 and the internal reference voltage
+      VREFINT is connected to ADCx_IN17. These two internal channels can be selected and converted
       as injected or regular channels.
     */
 
@@ -1490,7 +1516,7 @@ __STATIC_INLINE void init(void) {
     SPI1->CR1 = (
 
       #if defined USE_PLL && USE_PLL != 0
-        SPI_CR1_BR_0       |                                  /* Configure baudrate as HCLK / 4     */ 
+        SPI_CR1_BR_0       |                                  /* Configure baudrate as HCLK / 4     */
       #endif
 
       SPI_CR1_MSTR         |                                  /* Select Master mode                 */
@@ -1505,12 +1531,12 @@ __STATIC_INLINE void init(void) {
     #if TIM2_PSC != 0
       TIM2->PSC = TIM2_PSC;     /* 0x40000028: TIM2 prescaler register                              */
     #endif
-  
+
     #define TIM2_ARR 0          /* 0..0xFFFF - actual auto-reload Value                             */
     #if TIM2_ARR != 0
       TIM2->ARR = TIM2_ARR;     /* 0x4000002C: TIM2 auto-reload register                            */
     #endif
-  
+
     #define TIM2_CCR1 0x7FFF    /* 0..0xFFFF - Capture/Compare 1 Value                              */
     #if TIM2_CCR1 != 0
       TIM2->CCR1 = TIM2_CCR1;   /* 0x40000034: TIM capture/compare register 1                       */
@@ -1530,7 +1556,7 @@ __STATIC_INLINE void init(void) {
       TIM2->EGR = TIM2_EGR;  /* 0x40000014: TIM event generation register                           */
       TIM2->SR = 0;          /* Reset TIM2 status flags                                             */
     #endif
-  
+
     #define TIM2_DIER (   \\
       1 * TIM_DIER_UIE    |  /* (1 << 0)    Update interrupt enable                     0x00000001  */\\
       0 * TIM_DIER_CC1IE  |  /* (1 << 1)    Capture/Compare 1 interrupt enable          0x00000002  */\\
@@ -1551,7 +1577,7 @@ __STATIC_INLINE void init(void) {
     #if TIM2_DIER != 0
       TIM2->DIER = TIM2_DIER;/* 0x4000000C: TIM DMA/interrupt enable register                       */
     #endif
-  
+
     #define TIM2_CCMR1 (     \\
       0 * TIM_CCMR1_CC1S     |  /* (3 << 0)    CC1S[1:0] bits (Capture/Compare 1 Sel.)  0x00000003  */\\
       0 * TIM_CCMR1_CC1S_0   |  /* (1 << 0)      0x00000001                                         */\\
@@ -1593,7 +1619,7 @@ __STATIC_INLINE void init(void) {
     #if TIM2_CCMR1 != 0
       TIM2->CCMR1 = TIM2_CCMR1; /* 0x40000018: TIM2 capt/comp mode register 1                       */
     #endif
-  
+
     #define TIM2_CCER (      \\
       1 * TIM_CCER_CC1E      |  /* (1 << 0)   Capture/Compare 1 output enable           0x00000001  */\\
       0 * TIM_CCER_CC1P      |  /* (1 << 1)   Capture/Compare 1 output Polarity         0x00000002  */\\
@@ -1610,7 +1636,7 @@ __STATIC_INLINE void init(void) {
     #if TIM2_CCER != 0
       TIM2->CCER = TIM2_CCER;   /* 0x40000020: TIM capture/compare enable register                  */
     #endif
-  
+
     NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn);                                /* Enable TIM2 Interrupt              */
@@ -1658,7 +1684,7 @@ __STATIC_INLINE void init(void) {
     #if USE_LSE
       /* 3. */
                                                                                                     /*
-      Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to 
+      Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to
             get a signal period of 1 second.
                                                                                                     */
       RTC->PRLH = 0;
@@ -1686,7 +1712,7 @@ __STATIC_INLINE void init(void) {
     );
 
     /* 4. The write operation is only executed when the CNF bit is reset by software after has been set. */
-    RTC->CRL = 0;  
+    RTC->CRL = 0;
 
     /* 5. */
     while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
@@ -1737,9 +1763,9 @@ __STATIC_INLINE void init(void) {
       uputc(*c++);
     }
   }
-  
+
   #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
-  
+
   __STATIC_INLINE void uput_x(const uint8_t c) {
     /*** Convert a nibble to HEX and send it via UART ***/
     uputc(HEX(c));
@@ -1750,10 +1776,10 @@ __STATIC_INLINE void init(void) {
     uput_x(c >> 4);
     uput_x(c & 0x0F);
   }
-  
+
   #define uprintf(...) do{char _[160]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
 #else
-  #define uprintf(...) 
+  #define uprintf(...)
 #endif
 
 #if I2C_EN
@@ -1772,101 +1798,101 @@ __STATIC_INLINE void init(void) {
   __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
     unsigned t_out = I2C_TIMEOUT;
     (void) SysTick->CTRL;
-  
+
     while((I2C1->SR1 & bitFlag) == 0) {
       t_out -= GET_TICK();
       if (t_out == 0) {
         i2c_status |= I2C_ERR_TIMEOUT;
         return ERROR;
       }
-  
+
       unsigned e_status = I2C1->SR1 & I2C_ERROR;
       if (e_status) {
         i2c_status = (unsigned short)e_status;
         return ERROR;
       }
     }
-  
+
     return SUCCESS;
   }
-  
-  
+
+
   __STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-  
+
     I2C1->DR = (unsigned) addr << 1;
     if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-  
+
     (void) I2C1->SR2;
-  
+
     for(unsigned i = 0; i < len; i++) {
       if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
       I2C1->DR = data[i];
     }
-  
+
     if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-  
+
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
   }
-  
-  
+
+
   __STATIC_INLINE ErrorStatus i2c_read(const char addr, volatile char *data, unsigned len) {
-  
+
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-  
+
     I2C1->DR = (char)(addr << 1) + 1;
     if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
     if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
-  
+
     (void) I2C1->SR2;
-  
+
     for(unsigned i = 0; i < len; i++) {
       if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
       if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
       data[i] = (char) I2C1->DR;
     }
-  
+
     if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
-  
+
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
   }
-  
+
   __STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-  
+
     I2C1->DR = (unsigned) addr << 1;                      /* send slave address         */
     if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-  
+
     (void) I2C1->SR2;                                     /* dummy read status register */
     if (i2c_check(I2C_SR1_TXE) == ERROR) return ERROR;
-  
+
     I2C1->DR = reg;                                       /* send register number       */
     if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
-  
+
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate RE-START          */
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
-  
+
     I2C1->DR = (char)(addr << 1) + 1;                     /* send slave addr + read req */
     if (i2c_check(I2C_SR1_ADDR) == ERROR) return ERROR;
-  
+
     if (len == 1) I2C1->CR1 = I2C_CR1_PE;                 /* reset ACK bit              */
-  
+
     (void) I2C1->SR2;                                     /* dummy read status register */
-  
+
     for(unsigned i = 0; i < len; i++) {
       if (i == len - 1) I2C1->CR1 = I2C_CR1_PE;           /* reset ACK bit              */
       if (i2c_check(I2C_SR1_RXNE) == ERROR) return ERROR;
       data[i] = (char) I2C1->DR;                          /* store received data        */
     }
-  
+
     if (i2c_check(I2C_SR1_BTF) == ERROR) return ERROR;
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;  /* generate STOP              */
-  
+
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
   }
 #endif
@@ -1951,8 +1977,8 @@ int main(void) {
 
     #if RTC_EN
       i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %04X",
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :  
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" : 
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
     #endif
 
@@ -1971,6 +1997,10 @@ int main(void) {
       i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
     #endif
 
+    #if RNG_EN
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %08X", rnd());
+    #endif
+
     #if USART_EN
       z.pbuf[i++] = '\n';
       z.pbuf[i] = 0;
@@ -1983,7 +2013,7 @@ int main(void) {
       #if ADC_EN
         adc_data = (adc_data << 1) | adc_get_random_bit();
       #endif
-      
+
       #if RTC_EN
         if (rtc_flag & RTC_CRL_SECF) {
           rtc_flag &= ~RTC_CRL_SECF;
@@ -2088,7 +2118,7 @@ void __attribute__((noreturn)) HardFault_Handler(void) {
   }
 }
 
-static unsigned rnext = 1;
+static unsigned rnext;
 
 int rnd(void) {
   rnext = rnext * 1103515245 + 12345;
@@ -2201,10 +2231,10 @@ vpath %.s \$(sort \$(dir \$(ASM)))
 
 \$(BUILD_DIR)/%.hex: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
 	\$(HEX) \$< \$@
-	
+
 \$(BUILD_DIR)/%.bin: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
 	\$(BIN) \$< \$@
-	
+
 \$(BUILD_DIR):
 	mkdir \$@
 
@@ -2216,7 +2246,7 @@ debug: all
 gccversion :
 	@\$(CC) --version
 
-# Program the device.  
+# Program the device.
 program: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(STLINK) \$(STLINK_FLAGS)
 
