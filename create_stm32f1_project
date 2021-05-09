@@ -1311,7 +1311,7 @@ cat <<MAIN_H >main.h
 
 __STATIC_INLINE void init(void) {
 
-  CLOCK_ENABLE(AHB, CRC_EN * AHB_ENR(CRC));                   /* Enable clock for CRC peripheral    */
+  CLOCK_ENABLE(AHB, (CRC_EN | RNG_EN) * AHB_ENR(CRC));        /* Enable clock for CRC peripheral    */
 
   CLOCK_ENABLE(APB1,
     TIM2_EN *  APB1_ENR(TIM2)    |                            /* Enable clock for TIM2 peripheral   */
@@ -1425,23 +1425,28 @@ __STATIC_INLINE void init(void) {
   #endif
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
-  SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
-                  SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
 
   #if RNG_EN
-    unsigned entropy = 0;
-    for(int i = 0; i < 1000; i++) {
-      RCC->CSR = RCC_CSR_LSION;                                 /* Enable LSI oscillator              */
+    SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
+                    SysTick_CTRL_CLKSOURCE_Msk |
+                    SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
+
+    for(int i = 0; i < 12000; i++) {
+      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
       while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
-      entropy = (entropy ^ SysTick->VAL) << 1;
-      RCC->CSR = 0;                                             /* Disable LSI oscillator             */
+      CRC->DR = SysTick->VAL;
+      RCC->CSR = 0;                                           /* Disable LSI oscillator             */
       while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
+      CRC->DR = SysTick->VAL;
     }
 
     extern void srnd(unsigned);
-    srnd(entropy);
+    srnd(CRC->DR);
 
   #endif
+
+  SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
+                  SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
 
   #if RTC_EN
     PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
