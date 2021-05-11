@@ -969,6 +969,10 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
+
+__STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
+
+
 #define WAIT_FOR_FLAG(REG, FLAG, TIMEOUT) do {                                  \\
           unsigned timeout = SysTick->CTRL >> (SysTick_CTRL_COUNTFLAG_Pos + 1); \\
           while(((REG) & (FLAG)) != (FLAG)) {                                   \\
