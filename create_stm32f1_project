@@ -989,19 +989,22 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define HSE_EN                        0
 #endif
 
+#if defined(USE_LSE) && (USE_LSE != 0)
+  #define LSE_EN                        1
+#else
+  #define LSE_EN                        0
+#endif
+
 #if defined(USE_RTC) && (USE_RTC != 0)
   #define RTC_EN                        1
 
   __STATIC_INLINE unsigned rtc_read_counter(void) {
-    unsigned a, b, c, d;
+    unsigned a = RTC->CNTH, b = RTC->CNTL, c = RTC->CNTH;
 
-    do {
-      a = RTC->CNTH;
+    if (a != c) {
+      a = c;
       b = RTC->CNTL;
-      c = RTC->CNTH;
-      d = RTC->CNTL;
-    } while((a != c) || (b != d));
-
+    }
     a = (a << 16U) | b;
     return a;
   }
@@ -1009,28 +1012,28 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   void rtc_set_alarm(uint32_t alarm_time) {
 
     #if 0
-    while((RTC->CRL & RTC_CRL_SECF) != RTC_CRL_SECF)  {
-        /* JUST WAIT */
-    }
-    RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
+      while((RTC->CRL & RTC_CRL_SECF) != RTC_CRL_SECF)  {
+          /* JUST WAIT */
+      }
+      RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
 
-    uint32_t timeout = 1000;
-    while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
-      /* just wait for RTOFF  */
-      timeout -= GET_TICK();
-      if (timeout == 0) return;
-    }
+      uint32_t timeout = 1000;
+      while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
+        /* just wait for RTOFF  */
+        timeout -= GET_TICK();
+        if (timeout == 0) return;
+      }
 
-    uint32_t apb1enr_flags = 0;
-    if ((RCC->APB1ENR & RCC_APB1ENR_BKPEN) != RCC_APB1ENR_BKPEN) {
-      RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
-      apb1enr_flags |= RCC_APB1ENR_BKPEN;
-    }
+      uint32_t apb1enr_flags = 0;
+      if ((RCC->APB1ENR & RCC_APB1ENR_BKPEN) != RCC_APB1ENR_BKPEN) {
+        RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
+        apb1enr_flags |= RCC_APB1ENR_BKPEN;
+      }
 
-    if ((RCC->APB1ENR & RCC_APB1ENR_PWREN) != RCC_APB1ENR_PWREN) {
-      RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-      apb1enr_flags |= RCC_APB1ENR_PWREN;
-    }
+      if ((RCC->APB1ENR & RCC_APB1ENR_PWREN) != RCC_APB1ENR_PWREN) {
+        RCC->APB1ENR |= RCC_APB1ENR_PWREN;
+        apb1enr_flags |= RCC_APB1ENR_PWREN;
+      }
     #endif
 
 
@@ -1041,9 +1044,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     // }
 
     #if 0
-    while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
-        /* JUST WAIT */
-    }
+      while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
+          /* JUST WAIT */
+      }
     #endif
 
     PWR->CR |= PWR_CR_DBP;                                  /* Disable Backup Domain Protection     */
@@ -1083,19 +1086,16 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       if (timeout == 0) return;
     }
 
-    PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
+    /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
+    #if USE_LSE || !USE_HSE
+      PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
+    #endif
+
     RCC->APB1ENR &= ~(RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
   }
 
-
 #else
   #define RTC_EN                        0
-#endif
-
-#if defined(USE_LSE) && (USE_LSE != 0)
-  #define LSE_EN                        1
-#else
-  #define LSE_EN                        0
 #endif
 
 #if defined(USE_SWD) && (USE_SWD != 0)
@@ -1429,49 +1429,33 @@ __STATIC_INLINE void init(void) {
   #endif
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
+  
+  #if RTC_EN
+    unsigned is_rtc_enabled = ((RCC->BDCR & RCC_BDCR_RTCEN) == RCC_BDCR_RTCEN);
+  #endif
 
   #if RNG_EN
+    
+    extern void srnd(unsigned);
+    
     SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
                     SysTick_CTRL_CLKSOURCE_Msk |
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
-
-    for(int i = 0; i < 12000; i++) {
-      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
-      while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
-      CRC->DR = SysTick->VAL;
-      RCC->CSR = 0;                                           /* Disable LSI oscillator             */
-      while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
-      CRC->DR = SysTick->VAL;
-    }
-
-    extern void srnd(unsigned);
-    srnd(CRC->DR);
-
+    #if !RTC_EN
+      for(int i = 0; i < 12000; i++) {
+        RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+        while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
+        CRC->DR = SysTick->VAL;
+        RCC->CSR = 0;                                           /* Disable LSI oscillator             */
+        while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
+        CRC->DR = SysTick->VAL;
+      }
+      srnd(CRC->DR);
+    #endif
   #endif
 
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
                   SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
-
-  #if RTC_EN
-    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
-
-    #if !LSE_EN && !HSE_EN
-      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
-    #endif
-
-    RCC->BDCR = (
-      #if LSE_EN
-        RCC_BDCR_LSEON           |                            /* Enable LSE oscillator              */
-        RCC_BDCR_RTCSEL_LSE      |                            /* LSE used as RTC clock              */
-      #elif HSE_EN
-        RCC_BDCR_RTCSEL_HSE      |                            /* HSE / 128 used as RTC clock        */
-      #else
-        RCC_BDCR_RTCSEL_LSI      |                            /* LSI used as RTC clock              */
-      #endif
-
-      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
-    );
-  #endif
 
   #if USART_EN
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
@@ -1670,6 +1654,25 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if USE_RTC
+
+    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
+    
+    #if !LSE_EN && !HSE_EN
+      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+    #endif
+    
+    RCC->BDCR = (
+      #if LSE_EN
+        RCC_BDCR_LSEON           |                            /* Enable LSE oscillator              */
+        RCC_BDCR_RTCSEL_LSE      |                            /* LSE used as RTC clock              */
+      #elif HSE_EN
+        RCC_BDCR_RTCSEL_HSE      |                            /* HSE / 128 used as RTC clock        */
+      #else
+        RCC_BDCR_RTCSEL_LSI      |                            /* LSI used as RTC clock              */
+      #endif
+    
+      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
+    );
                                                                                                     /*
       Configuration procedure
       =======================
@@ -1706,14 +1709,17 @@ __STATIC_INLINE void init(void) {
       RTC->PRLL = 0x9CC0; // 0x9C3F
     #endif
 
-    #define RTC_CNT 1620191105       /* Epoch timestamp: 1620191105 = Wed, 05 May 2021 05:05:05 GMT */
+    if (!is_rtc_enabled) {
+      #define RTC_CNT 1620191105     /* Epoch timestamp: 1620191105 = Wed, 05 May 2021 05:05:05 GMT */
 
-    RTC->CNTH = RTC_CNT >> 16;                                /* Set RTC Counter MS word            */
-    RTC->CNTL = RTC_CNT & 0xFFFF;                             /* Set RTC Counter LS word            */
+      RTC->CNTH = RTC_CNT >> 16;                              /* Set RTC Counter MS word            */
+      RTC->CNTL = RTC_CNT & 0xFFFF;                           /* Set RTC Counter LS word            */
+    }
+    
+    unsigned rtc_data = rtc_read_counter() + 25000;
 
-    #define ALR_OFFS 25000
-    RTC->ALRH = (RTC_CNT + ALR_OFFS) >> 16;                   /* Set RTC Alarm Register MS word     */
-    RTC->ALRL = (RTC_CNT + ALR_OFFS) & 0xFFFF;                /* Set RTC Alarm Register LS word     */
+    RTC->ALRH = rtc_data >> 16;                               /* Set RTC Alarm Register MS word     */
+    RTC->ALRL = rtc_data & 0xFFFF;                            /* Set RTC Alarm Register LS word     */
 
     RTC->CRH = (
       RTC_CRH_ALRIE   |                                       /* Enable RTC Alarm interrupt         */
@@ -1731,6 +1737,11 @@ __STATIC_INLINE void init(void) {
     /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
     #if USE_LSE || !USE_HSE
       PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
+    #endif
+    
+    #if RNG_EN    
+      unsigned zx = rtc_read_counter();
+      srnd(zx);
     #endif
 
     NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
@@ -2054,16 +2065,16 @@ void SysTick_Handler(void) {
     btn[1][CURRENT] |= (READ_PIN(B, 1) == 0);
 
     if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
-    	key_state |= (1 << 0);
+        key_state |= (1 << 0);
     }
     if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
-    	key_state |= (1 << 1);
+        key_state |= (1 << 1);
     }
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
-    	key_state |= (1 << 16);
+        key_state |= (1 << 16);
     }
     if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
-    	key_state |= (1 << 17);
+        key_state |= (1 << 17);
     }
     btn[0][PREVIOUS] = btn[0][CURRENT];
     btn[1][PREVIOUS] = btn[1][CURRENT];
