@@ -1105,7 +1105,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #if defined(USE_ADC) && (USE_ADC != 0)
+
   #define ADC_EN                        1
+
   #define ADC_CHANNEL_0                 0x00000000U
   #define ADC_CHANNEL_1                 (                                                                        ADC_CR1_AWDCH_0)
   #define ADC_CHANNEL_2                 (                                                      ADC_CR1_AWDCH_1                  )
@@ -1507,7 +1509,8 @@ __STATIC_INLINE void init(void) {
     SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
                     SysTick_CTRL_CLKSOURCE_Msk |
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
-    #if !RTC_EN
+
+    #if !RTC_EN && !ADC_EN
       for(int i = 0; i < 12000; i++) {
         RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
         while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
@@ -1528,18 +1531,18 @@ __STATIC_INLINE void init(void) {
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
   #endif
 
-  #if USE_ADC
-    ADC1->CR2 = ADC_CR2_ADON                                  /* ADC enable                         */
-              | ADC_CR2_TSVREFE;                              /* ADC internal path to VrefInt and   */
-                                                              /*          temperature sensor enable */
+  #if ADC_EN
+    ADC1->CR2 = ADC_CR2_ADON;                                 /* ADC enable                         */
 
     DELAY_MS(2);                                              /* Before starting a calibration,
                                                                  the ADC must have been in power-on
                                                                  state for at least two ADC clock
                                                                  cycles.                            */
 
-    ADC1->CR2 |= ADC_CR2_CAL;                                 /* Start ADC1 calibration             */
-
+    ADC1->CR2 = ADC_CR2_ADON                                  /* Keep ADC enabled                   */
+              | ADC_CR2_CAL                                   /* Start ADC1 calibration             */
+              | ADC_CR2_TSVREFE;                              /* ADC internal path to VrefInt and   */
+                                                              /*          temperature sensor enable */
     while (ADC1->CR2 & ADC_CR2_CAL) {
       /* Wait until ADC calibration completes */
     }
@@ -1554,8 +1557,20 @@ __STATIC_INLINE void init(void) {
     ADC1->SQR3 = ADC_SQR3(1, 16);
     ADC1->SQR1 = ADC_SQR1_LEN(1);
 
-    ADC1->CR2 |= ADC_CR2_CONT;
-    ADC1->CR2 |= ADC_CR2_ADON;
+    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_CONT | ADC_CR2_TSVREFE; /* Enable continuous conversion mode
+
+      If any other bit in this register apart from ADON is changed at the same time,
+      then conversion is not triggered. This is to prevent triggering an erroneous conversion.      */
+
+    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_CONT | ADC_CR2_TSVREFE; /* Start continuous conversion       */
+
+    #if RNG_EN
+      unsigned rbits = 0;
+      for(unsigned i = 0; i < 32; i++) {
+        rbits = (rbits << 1) | adc_get_random_bit();
+      }
+      srnd(rbits);
+    #endif
 
     #if 0
       /* ADC1 interrupt Init */
@@ -1805,7 +1820,7 @@ __STATIC_INLINE void init(void) {
       PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
     #endif
     
-    #if RNG_EN    
+    #if RNG_EN && !ADC_EN
       unsigned zx = rtc_read_counter();
       srnd(zx);
     #endif
@@ -2084,7 +2099,7 @@ int main(void) {
     #endif
 
     #if RNG_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %08X", rnd());
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %04X", rnd());
     #endif
 
     #if USART_EN
