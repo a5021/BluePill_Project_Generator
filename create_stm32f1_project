@@ -1395,15 +1395,15 @@ __STATIC_INLINE void init(void) {
     CONFIGURE_CLOCK(APB2);
   #else
     #if AHB_CONFIG
-      RCC->AHBENR = AHB_CONFIG;
+      RCC->AHBENR = AHB_CONFIG;                               /* Gate AHB clock if required         */
     #endif
 
     #if APB1_CONFIG
-      RCC->APB1ENR = APB1_CONFIG;
+      RCC->APB1ENR = APB1_CONFIG;                             /* Gate APB1 clock if required        */
     #endif
 
     #if APB2_CONFIG
-      RCC->APB2ENR = APB2_CONFIG;
+      RCC->APB2ENR = APB2_CONFIG;                             /* Gate APB2 clock if required        */
     #endif
   #endif
 
@@ -1415,23 +1415,23 @@ __STATIC_INLINE void init(void) {
     CONFIGURE_PORT(C);
   #else
     #if PORT_A_CONFIG
-      *(__IO uint64_t*) GPIOA_BASE = PORT_A_CONFIG;
+      *(__IO uint64_t*) GPIOA_BASE = PORT_A_CONFIG;           /* Init GPIOA if CONFIG is not empty  */
       #if PORT_A_STATE
-        GPIOA->BSRR = PORT_A_STATE;
+        GPIOA->BSRR = PORT_A_STATE;                           /* Set GPIOA pins state if required   */
       #endif
     #endif
 
     #if PORT_B_CONFIG
-      *(__IO uint64_t*) GPIOB_BASE = PORT_B_CONFIG;
+      *(__IO uint64_t*) GPIOB_BASE = PORT_B_CONFIG;           /* Init GPIOB if CONFIG is not empty  */
       #if PORT_B_STATE
-        GPIOB->BSRR = PORT_B_STATE;
+        GPIOB->BSRR = PORT_B_STATE;                           /* Set GPIOB pins state if required   */
       #endif
     #endif
 
     #if PORT_C_CONFIG
-      *(__IO uint64_t*) GPIOC_BASE = PORT_C_CONFIG;
+      *(__IO uint64_t*) GPIOC_BASE = PORT_C_CONFIG;           /* Init GPIOC if CONFIG is not empty  */
       #if PORT_C_STATE
-        GPIOC->BSRR = PORT_C_STATE;
+        GPIOC->BSRR = PORT_C_STATE;                           /* Set GPIOC pins state if required   */
       #endif
     #endif
   #endif
