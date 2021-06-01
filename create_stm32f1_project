@@ -1412,6 +1412,76 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return !FLASH_ERROR;                                      /* Return success                     */
   }
 
+  #define OB_RDP_LEVEL_0            ((uint8_t)0xA5)
+  #define OB_RDP_LEVEL_1            ((uint8_t)0x00)
+
+  __STATIC_INLINE void lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
+
+    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+
+    FLASH->KEYR = FLASH_KEY1;                                 /* Perform FLASH unlock sequence      */
+    FLASH->KEYR = FLASH_KEY2;
+
+    FLASH->OPTKEYR = FLASH_OPTKEY1;                           /* Perform OPT BYTE unlock sequence   */
+    FLASH->OPTKEYR = FLASH_OPTKEY2;
+
+    FLASH->CR |= FLASH_CR_OPTER;                              /* Enable OPT BYTE erasing operation  */
+    FLASH->CR |= FLASH_CR_STRT;                               /* Start erasing..                    */
+
+    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+
+    FLASH->CR &= ~FLASH_CR_OPTER;                             /* Disable OPT BYTE erase operation   */
+    FLASH->CR |= FLASH_CR_OPTPG;                              /* Enable OPT BYTE programming op.    */
+
+    if (ud_0 != NULL) {                                       /* if user byte #0 is passed          */
+      OB->Data0 = *ud_0;                                      /* write it to OPT BYTE               */
+      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* wait until write op completes      */
+      FLASH->SR |= FLASH_SR_EOP;                              /* clear OPERATION COMPLETE flag      */
+    }
+
+    if (ud_1 != NULL) {                                       /* if user byte #0 is passed          */
+      OB->Data1 = *ud_1;                                      /* write it to OPT BYTE               */
+      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* wait until write op completes      */
+      FLASH->SR |= FLASH_SR_EOP;                              /* clear OPERATION COMPLETE flag      */
+    }
+                                                                                                    /*
+      For high-density devices, one bit of the user option bytes WRPx is used to protect
+      2 pages of 2 Kbytes in main memory block. However, the bit 7 of WRP3 write protects
+      pages 62 to 255.–0: Write protection active–1: Write protection not activeIn total,
+      four user option bytes are used to protect the 512-Kbyte main Flash memory.
+
+          WRP0: Write-protects pages 0 to 15.
+          WRP1: Write-protects pages 16 to 31.
+          WRP2: Write-protects pages 32 to 47.
+          WRP3: bits 0-6 write-protect pages 48 to 61
+                bit 7 write-protects pages 62 to 255
+                                                                                                    */
+    OB->WRP0 = (uint16_t)0x00;                                /* write-protect pages 0 to 15        */
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    OB->WRP1 = (uint16_t)0x00;                                /* write-protect pages 16 to 31       */
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    OB->WRP2 = (uint16_t)0x00;                                /* write-protect pages 32 to 47       */
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    OB->WRP3 = (uint16_t)0x80;                                /* write-protect pages 48 to 61       */
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    OB->RDP = OB_RDP_LEVEL_1;                                 /* Enable read out protection         */
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    FLASH->CR &= ~FLASH_CR_OPTPG;                             /* Disable OPT BYTE programming op.   */
+    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+
+    NVIC_SystemReset();                                       /* Reboot                             */
+  }
+
 #else
   #define FLASH_EN                      0
 #endif
