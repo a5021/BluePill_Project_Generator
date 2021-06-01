@@ -897,6 +897,7 @@ cat <<MAIN_H >main.h
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_RNG                       1  /* Add random numbers generation code       */
+  #define USE_EXTI                      1  /* Use external interrupt                   */
   #define USE_FLASH                     1  /* Add feature to write data to flash       */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
@@ -1106,7 +1107,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #if defined(USE_ADC) && (USE_ADC != 0)
+
   #define ADC_EN                        1
+
   #define ADC_CHANNEL_0                 0x00000000U
   #define ADC_CHANNEL_1                 (                                                                        ADC_CR1_AWDCH_0)
   #define ADC_CHANNEL_2                 (                                                      ADC_CR1_AWDCH_1                  )
@@ -1309,6 +1312,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define RNG_EN                        0
 #endif
 
+#if defined(USE_EXTI) && (USE_EXTI != 0)
+  #define EXTI_EN                       1
+#else
+  #define EXTI_EN                       0
+#endif
+
+=======
 #if defined(USE_FLASH) && (USE_FLASH != 0)
 
   #define FLASH_EN                      1
@@ -1407,66 +1417,136 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
-#define AHB_ENR(PER)              RCC_AHBENR_  ## PER ## EN
-#define APB1_ENR(PER)             RCC_APB1ENR_ ## PER ## EN
-#define APB2_ENR(PER)             RCC_APB2ENR_ ## PER ## EN
 
 __STATIC_INLINE void init(void) {
 
-  CLOCK_ENABLE(AHB, (CRC_EN | RNG_EN) * AHB_ENR(CRC));        /* Enable clock for CRC peripheral    */
+  #define PORT_A_CONFIG (                         \\
+    SPI_EN   * PIN_CFG(4,  O_10MHZ)               |           /* PA4:  SPI1 CS, output, 10MHz       */\\
+    SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ)        |           /* PA5:  SPI1 CLK, alternate, 50MHz   */\\
+    SPI_EN   * PIN_CFG(6,  I_PULL)                |           /* PA6:  SPI1 MISO, input, pull-down  */\\
+    SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ)        |           /* PA7:  SPI1 MOSI, alternate, 50MHz  */\\
+    EXTI_EN  * PIN_CFG(8,  I_PULL)                |           /* PA8:  EXTI Line, input, pull-up    */\\
+    USART_EN * PIN_CFG(9,  O_AF + O_10MHZ)        |           /* PA9:  USART1 TX, alternate, 10MHz  */\\
+    USART_EN * PIN_CFG(10, I_PULL)                |           /* PA10: USART1 RX, input, pull-down  */\\
+    SWD_EN   * PIN_CFG(13, I_PULL)                |           /* PA13: SWDIO, input, pull-up        */\\
+    SWD_EN   * PIN_CFG(14, I_PULL)                |           /* PA14: SWCLK, input, pull-down      */\\
+    TIM2_EN  * PIN_CFG(15, O_AF + O_10MHZ)                    /* PA15: TIM2 CH2, alternate, 10MHz   */\\
+  )
 
-  CLOCK_ENABLE(APB1,
-    TIM2_EN *  APB1_ENR(TIM2)    |                            /* Enable clock for TIM2 peripheral   */
-    I2C_EN  *  APB1_ENR(I2C1)    |                            /* Enable clock for I2C1 peripheral   */
-    RTC_EN  *  APB1_ENR(BKP)     |                            /* Enable clock for Backup interface  */
-    RTC_EN  *  APB1_ENR(PWR)                                  /* Enable clock for Power interface   */
-  );
+  #define PORT_A_STATE (                          \\
+    SPI_EN   * PULL_UP(4)                         |           /* Pull-up SPI1 CS pin                */\\
+    SPI_EN   * PULL_DOWN(6)                       |           /* Pull-down SPI1 MISO pin            */\\
+    EXTI_EN  * PULL_UP(8)                         |           /* Pull-up EXTI pin                   */\\
+    USART_EN * PULL_DOWN(10)                      |           /* Pull-down USART1 RX pin            */\\
+    SWD_EN   * PULL_UP(13)                        |           /* Pull-up SWDIO pin                  */\\
+    SWD_EN   * PULL_DOWN(14)                                  /* Pull-down SWCLK pin                */\\
+  )
 
-  CLOCK_ENABLE(APB2,
-    USART_EN * APB2_ENR(USART1)  |                            /* Enable clock for USART1            */
-    USART_EN * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
-    TIM2_EN  * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
-    SPI_EN   * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
-    SWD_EN   * APB2_ENR(IOPA)    |                            /* Enable clock for GPIOA             */
-    SPI_EN   * APB2_ENR(SPI1)    |                            /* Enable clock for SPI1              */
-    I2C_EN   * APB2_ENR(IOPB)    |                            /* Enable clock for GPIOB             */
-    BTN_EN   * APB2_ENR(IOPB)    |                            /* Enable clock for GPIOB             */
-    ADC_EN   * APB2_ENR(ADC1)    |                            /* Enable clock for ADC1              */
-               APB2_ENR(IOPC)    |                            /* Enable clock for GPIOC             */
-               APB2_ENR(AFIO)                                 /* Enable clock for AFIO              */
-  );
+  #define IOPA_EN (PORT_A_CONFIG != 0)
 
-  PORT_CONFIG(B,
-    BTN_EN   * PIN_CFG(0,  I_PULL)                |           /* PB0:  input, pull-up               */
-    BTN_EN   * PIN_CFG(1,  I_PULL)                |           /* PB1:  input, pull-up               */
-    I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |           /* PB6:  I2C1 SCL, altern, open drain */
-    I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)             /* PB7:  I2C1 SDA, altern, open drain */
-    ,
-    BTN_EN   * PULL_UP(0)                         |           /* Pull-up PB0 pin                    */
-    BTN_EN   * PULL_UP(1)                                     /* Pull-up PB1 pin                    */
-  );
+  #define PORT_B_CONFIG (                         \\
+    BTN_EN   * PIN_CFG(0,  I_PULL)                |           /* PB0:  input, pull-up               */\\
+    BTN_EN   * PIN_CFG(1,  I_PULL)                |           /* PB1:  input, pull-up               */\\
+    I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |           /* PB6:  I2C1 SCL, altern, open drain */\\
+    I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)             /* PB7:  I2C1 SDA, altern, open drain */\\
+  )
 
-  PORT_CONFIG(C, PIN_CFG(13, O_2MHZ), PIN_HIGH(13));          /* PC13: output, push-pull, 2Mhz      */
-                                                              /* Set PC13 pin HIGH (LED off)        */
-  PORT_CONFIG(A,
-    ( /* ****** Configure mode for pins selected ************************************************** */
-      SPI_EN   * PIN_CFG(4,  O_10MHZ)        |                /* PA4:  SPI1 CS, output, 10MHz       */
-      SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ) |                /* PA5:  SPI1 CLK, alternate, 50MHz   */
-      SPI_EN   * PIN_CFG(6,  I_PULL)         |                /* PA6:  SPI1 MISO, input, pull-down  */
-      SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ) |                /* PA7:  SPI1 MOSI, alternate, 50MHz  */
-      USART_EN * PIN_CFG(9,  O_AF + O_10MHZ) |                /* PA9:  USART1 TX, alternate, 10MHz  */
-      USART_EN * PIN_CFG(10, I_PULL)         |                /* PA10: USART1 RX, input, pull-down  */
-      SWD_EN   * PIN_CFG(13, I_PULL)         |                /* PA13: SWDIO, input, pull-up        */
-      SWD_EN   * PIN_CFG(14, I_PULL)         |                /* PA14: SWCLK, input, pull-down      */
-      TIM2_EN  * PIN_CFG(15, O_AF + O_10MHZ)                  /* PA15: TIM2 CH2, alternate, 10MHz   */
-    ), ( /* *** Configure state for pins selected ************************************************* */
-      SPI_EN   * PULL_UP(4)                  |                /* Pull-up SPI1 CS pin                */
-      SPI_EN   * PULL_DOWN(6)                |                /* Pull-down SPI1 MISO pin            */
-      USART_EN * PULL_DOWN(10)               |                /* Pull-down USART1 RX pin            */
-      SWD_EN   * PULL_UP(13)                 |                /* Pull-up SWDIO pin                  */
-      SWD_EN   * PULL_DOWN(14)                                /* Pull-down SWCLK pin                */
-    ) /* ****************************************************************************************** */
-  );
+  #define PORT_B_STATE (                          \\
+    BTN_EN   * PULL_UP(0)                         |           /* Pull-up PB0 pin                    */\\
+    BTN_EN   * PULL_UP(1)                                     /* Pull-up PB1 pin                    */\\
+  )
+
+  #define IOPB_EN (PORT_B_CONFIG != 0)
+
+  #define PORT_C_CONFIG PIN_CFG(13, O_2MHZ)                   /* PC13: output, push-pull, 2Mhz      */
+  #define PORT_C_STATE PIN_HIGH(13)                           /* Set PC13 pin HIGH (LED off)        */
+  #define IOPC_EN (PORT_C_CONFIG != 0)
+
+  #define GATE_CLOCK(BUS, PER)      RCC_ ## BUS ## ENR_ ## PER ## EN
+
+  #define AHB_CONFIG (                            \\
+    0        * GATE_CLOCK(AHB, DMA1)              |           /* Enable clock for DMA1              */\\
+    0        * GATE_CLOCK(AHB, SRAM)              |           /* Enable clock for SRAM while Sleep  */\\
+    0        * GATE_CLOCK(AHB, FLITF)             |           /* Enable clock for FLITF while Sleep */\\
+    CRC_EN   * GATE_CLOCK(AHB, CRC)               |           /* Enable clock for CRC               */\\
+    RNG_EN   * GATE_CLOCK(AHB, CRC)                           /* Enable clock for CRC               */\\
+  )
+
+  #define APB1_CONFIG (                           \\
+    0        * GATE_CLOCK(APB1, TIM3)             |           /* Enable clock for Timer 3           */\\
+    0        * GATE_CLOCK(APB1, TIM4)             |           /* Enable clock for Timer 4           */\\
+    0        * GATE_CLOCK(APB1, WWDG)             |           /* Enable clock for Window Watchdog   */\\
+    0        * GATE_CLOCK(APB1, CAN1)             |           /* Enable clock for CAN 1             */\\
+    0        * GATE_CLOCK(APB1, SPI2)             |           /* Enable clock for SPI 2             */\\
+    0        * GATE_CLOCK(APB1, USART2)           |           /* Enable clock for USART 2           */\\
+    0        * GATE_CLOCK(APB1, USART3)           |           /* Enable clock for USART 3           */\\
+    0        * GATE_CLOCK(APB1, I2C2)             |           /* Enable clock for I2C 2             */\\
+    TIM2_EN  * GATE_CLOCK(APB1, TIM2)             |           /* Enable clock for Timer 2           */\\
+    I2C_EN   * GATE_CLOCK(APB1, I2C1)             |           /* Enable clock for I2C 1             */\\
+    RTC_EN   * GATE_CLOCK(APB1, BKP)              |           /* Enable clock for Backup interface  */\\
+    RTC_EN   * GATE_CLOCK(APB1, PWR)                          /* Enable clock for Power interface   */\\
+  )
+
+  #define APB2_CONFIG (                           \\
+    0        * GATE_CLOCK(APB2, TIM1)             |           /* Enable clock for Timer 1           */\\
+    0        * GATE_CLOCK(APB2, ADC2)             |           /* Enable clock for ADC 1             */\\
+    USART_EN * GATE_CLOCK(APB2, USART1)           |           /* Enable clock for USART 1           */\\
+    SPI_EN   * GATE_CLOCK(APB2, SPI1)             |           /* Enable clock for SPI 1             */\\
+    ADC_EN   * GATE_CLOCK(APB2, ADC1)             |           /* Enable clock for ADC 1             */\\
+    IOPA_EN  * GATE_CLOCK(APB2, IOPA)             |           /* Enable clock for I/O port A        */\\
+    IOPB_EN  * GATE_CLOCK(APB2, IOPB)             |           /* Enable clock for I/O port B        */\\
+    IOPC_EN  * GATE_CLOCK(APB2, IOPC)             |           /* Enable clock for I/O port C        */\\
+               GATE_CLOCK(APB2, AFIO)                         /* Enable clock for Alt. Function I/O */\\
+  )
+
+  #if 0
+    #define CONFIGURE_CLOCK(BUS)         if(BUS ## _CONFIG) RCC->BUS##ENR = BUS ## _CONFIG; else (void)0
+
+    CONFIGURE_CLOCK(AHB);
+    CONFIGURE_CLOCK(APB1);
+    CONFIGURE_CLOCK(APB2);
+  #else
+    #if AHB_CONFIG
+      RCC->AHBENR = AHB_CONFIG;                               /* Gate AHB clock if required         */
+    #endif
+
+    #if APB1_CONFIG
+      RCC->APB1ENR = APB1_CONFIG;                             /* Gate APB1 clock if required        */
+    #endif
+
+    #if APB2_CONFIG
+      RCC->APB2ENR = APB2_CONFIG;                             /* Gate APB2 clock if required        */
+    #endif
+  #endif
+
+  #if 0
+    #define CONFIGURE_PORT(PORT_NAME) PORT_CONFIG(PORT_NAME, PORT_ ## PORT_NAME ## _CONFIG, PORT_ ## PORT_NAME ## _STATE);
+
+    CONFIGURE_PORT(A);
+    CONFIGURE_PORT(B);
+    CONFIGURE_PORT(C);
+  #else
+    #if PORT_A_CONFIG
+      *(__IO uint64_t*) GPIOA_BASE = PORT_A_CONFIG;           /* Init GPIOA if CONFIG is not empty  */
+      #if PORT_A_STATE
+        GPIOA->BSRR = PORT_A_STATE;                           /* Set GPIOA pins state if required   */
+      #endif
+    #endif
+
+    #if PORT_B_CONFIG
+      *(__IO uint64_t*) GPIOB_BASE = PORT_B_CONFIG;           /* Init GPIOB if CONFIG is not empty  */
+      #if PORT_B_STATE
+        GPIOB->BSRR = PORT_B_STATE;                           /* Set GPIOB pins state if required   */
+      #endif
+    #endif
+
+    #if PORT_C_CONFIG
+      *(__IO uint64_t*) GPIOC_BASE = PORT_C_CONFIG;           /* Init GPIOC if CONFIG is not empty  */
+      #if PORT_C_STATE
+        GPIOC->BSRR = PORT_C_STATE;                           /* Set GPIOC pins state if required   */
+      #endif
+    #endif
+  #endif
 
   AFIO->MAPR = (
     #if SWD_EN
@@ -1539,7 +1619,8 @@ __STATIC_INLINE void init(void) {
     SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
                     SysTick_CTRL_CLKSOURCE_Msk |
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
-    #if !RTC_EN
+
+    #if !RTC_EN && !ADC_EN
       for(int i = 0; i < 12000; i++) {
         RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
         while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
@@ -1560,18 +1641,18 @@ __STATIC_INLINE void init(void) {
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
   #endif
 
-  #if USE_ADC
-    ADC1->CR2 = ADC_CR2_ADON                                  /* ADC enable                         */
-              | ADC_CR2_TSVREFE;                              /* ADC internal path to VrefInt and   */
-                                                              /*          temperature sensor enable */
+  #if ADC_EN
+    ADC1->CR2 = ADC_CR2_ADON;                                 /* ADC enable                         */
 
     DELAY_MS(2);                                              /* Before starting a calibration,
                                                                  the ADC must have been in power-on
                                                                  state for at least two ADC clock
                                                                  cycles.                            */
 
-    ADC1->CR2 |= ADC_CR2_CAL;                                 /* Start ADC1 calibration             */
-
+    ADC1->CR2 = ADC_CR2_ADON                                  /* Keep ADC enabled                   */
+              | ADC_CR2_CAL                                   /* Start ADC1 calibration             */
+              | ADC_CR2_TSVREFE;                              /* ADC internal path to VrefInt and   */
+                                                              /*          temperature sensor enable */
     while (ADC1->CR2 & ADC_CR2_CAL) {
       /* Wait until ADC calibration completes */
     }
@@ -1586,8 +1667,20 @@ __STATIC_INLINE void init(void) {
     ADC1->SQR3 = ADC_SQR3(1, 16);
     ADC1->SQR1 = ADC_SQR1_LEN(1);
 
-    ADC1->CR2 |= ADC_CR2_CONT;
-    ADC1->CR2 |= ADC_CR2_ADON;
+    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_CONT | ADC_CR2_TSVREFE; /* Enable continuous conversion mode
+
+      If any other bit in this register apart from ADON is changed at the same time,
+      then conversion is not triggered. This is to prevent triggering an erroneous conversion.      */
+
+    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_CONT | ADC_CR2_TSVREFE; /* Start continuous conversion       */
+
+    #if RNG_EN
+      unsigned rbits = 0;
+      for(unsigned i = 0; i < 32; i++) {
+        rbits = (rbits << 1) | adc_get_random_bit();
+      }
+      srnd(rbits);
+    #endif
 
     #if 0
       /* ADC1 interrupt Init */
@@ -1837,7 +1930,7 @@ __STATIC_INLINE void init(void) {
       PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
     #endif
 
-    #if RNG_EN
+    #if RNG_EN && !ADC_EN
       unsigned zx = rtc_read_counter();
       srnd(zx);
     #endif
@@ -2116,7 +2209,7 @@ int main(void) {
     #endif
 
     #if RNG_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %08X", rnd());
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %04X", rnd());
     #endif
 
     #if USART_EN
