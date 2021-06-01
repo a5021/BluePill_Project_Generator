@@ -898,6 +898,7 @@ cat <<MAIN_H >main.h
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_RNG                       1  /* Add random numbers generation code       */
   #define USE_EXTI                      1  /* Use external interrupt                   */
+  #define USE_FLASH                     1  /* Add feature to write data to flash       */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
@@ -1317,6 +1318,105 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define EXTI_EN                       0
 #endif
 
+=======
+#if defined(USE_FLASH) && (USE_FLASH != 0)
+
+  #define FLASH_EN                      1
+
+  #define FLASH_DATA_ADDR               0x0801FC00
+  #define FLASH_PAGE_SIZE               0x00000400
+
+  #define FLASH_ERROR                   0x01
+  #define FLASH_ERROR_ERASE             0x02
+  #define FLASH_ERROR_WRITE             0x04
+  #define FLASH_ERROR_WRITE_PROT        0x08
+  #define FLASH_ERROR_UNKNOWN           0x10
+
+  #define FLASH_ERR                     (FLASH_SR_PGERR | FLASH_SR_WRPRTERR)
+
+  __STATIC_INLINE unsigned write2flash(uint16_t src[], uint16_t len) {
+    unsigned status = 0;
+
+    /* Note: execution time of the function is about 81 ms @ 72 MHz                                 */
+                                                              /*
+    1) UNLOCK THE FLASH
+    ========================================================= */
+
+    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+
+    if ((FLASH->CR & FLASH_CR_LOCK) != 0) {                   /* Check the Flash is locked          */
+      FLASH->KEYR = FLASH_KEY1;                               /* Perform unlock sequence            */
+      FLASH->KEYR = FLASH_KEY2;
+    }
+                                                              /*
+    2) ERASE THE DATA AREA
+    ========================================================= */
+
+    FLASH->CR |= FLASH_CR_PER;                                /* Enable page erasing mode           */
+    FLASH->AR = FLASH_DATA_ADDR;                              /* Set page address                   */
+    FLASH->CR |= FLASH_CR_STRT;                               /* Start the erasing                  */
+
+    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* Wait till page be erased           */
+    FLASH->CR &= ~FLASH_CR_PER;                               /* Reset page erasing flag            */
+    FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
+
+    if ((FLASH->SR & FLASH_ERR) != 0) {
+      if ((FLASH->SR & FLASH_SR_WRPRTERR) != 0) {             /* Check Write protection error       */
+        status = FLASH_ERROR_WRITE_PROT;                      /* Report the error                   */
+        FLASH->SR |= FLASH_SR_WRPRTERR;                       /* Clear the error flag               */
+      } else {
+        status = FLASH_ERROR_WRITE;                           /* Report the error                   */
+        FLASH->SR |= FLASH_SR_PGERR;                          /* Clear the error flag               */
+      }
+      return status;                                          /* Break flashing                     */
+    }
+                                                              /*
+    3) CHECK THE DATA AREA CLEARED
+    ========================================================= */
+
+    for(int *i = (int *)FLASH_DATA_ADDR; i < (int *)(FLASH_DATA_ADDR + FLASH_PAGE_SIZE); i++) {
+      if (*i != -1L) {                                        /* If page not clean                  */
+        return  FLASH_ERROR_ERASE;                            /* Report the error                   */
+      }
+    }
+                                                              /*
+    4) WRITE DATA TO THE FLASH
+    ========================================================= */
+
+    __IO uint16_t* p = (__IO uint16_t*) FLASH_DATA_ADDR;
+
+    FLASH->CR |= FLASH_CR_PG;                                 /* Enable programming mode            */
+    for (unsigned i = 0; i < len / 2; i++) {                  /* Start writing cycle                */
+
+      *p = src[i];                                            /* Write 16 bits data                 */
+
+      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* Wait till the operation completes  */
+      FLASH->SR |= FLASH_SR_EOP;                              /* clear OPERATION COMPLETE flag      */
+
+      if ((FLASH->SR & FLASH_ERR) != 0) {
+        if ((FLASH->SR & FLASH_SR_WRPRTERR) != 0) {           /* Check for write protection error   */
+          status = FLASH_ERROR_WRITE_PROT;                    /* Report the error                   */
+          FLASH->SR |= FLASH_SR_WRPRTERR;                     /* Clear the error flag               */
+        } else {
+          status = FLASH_ERROR_WRITE;                         /* Report the error                   */
+          FLASH->SR |= FLASH_SR_PGERR;                        /* Clear the error flag               */
+        }
+        FLASH->CR &= ~FLASH_CR_PG;                            /* Disable programming                */
+        return status;                                        /* Break flashing                     */
+      }
+
+      p++;                                                    /* Next address to write data to      */
+    }
+
+    FLASH->CR &= ~FLASH_CR_PG;                                /* Disable programming                */
+    return !FLASH_ERROR;                                      /* Return success                     */
+  }
+
+#else
+  #define FLASH_EN                      0
+#endif
+
+#define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
 
 __STATIC_INLINE void init(void) {
 
@@ -1507,15 +1607,15 @@ __STATIC_INLINE void init(void) {
   #endif
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
-  
+
   #if RTC_EN
     unsigned is_rtc_enabled = ((RCC->BDCR & RCC_BDCR_RTCEN) == RCC_BDCR_RTCEN);
   #endif
 
   #if RNG_EN
-    
+
     extern void srnd(unsigned);
-    
+
     SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
                     SysTick_CTRL_CLKSOURCE_Msk |
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
@@ -1747,11 +1847,11 @@ __STATIC_INLINE void init(void) {
   #if USE_RTC
 
     PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
-    
+
     #if !LSE_EN && !HSE_EN
       RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
     #endif
-    
+
     RCC->BDCR = (
       #if LSE_EN
         RCC_BDCR_LSEON           |                            /* Enable LSE oscillator              */
@@ -1761,7 +1861,7 @@ __STATIC_INLINE void init(void) {
       #else
         RCC_BDCR_RTCSEL_LSI      |                            /* LSI used as RTC clock              */
       #endif
-    
+
       RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
     );
                                                                                                     /*
@@ -1806,7 +1906,7 @@ __STATIC_INLINE void init(void) {
       RTC->CNTH = RTC_CNT >> 16;                              /* Set RTC Counter MS word            */
       RTC->CNTL = RTC_CNT & 0xFFFF;                           /* Set RTC Counter LS word            */
     }
-    
+
     unsigned rtc_data = rtc_read_counter() + 25000;
 
     RTC->ALRH = rtc_data >> 16;                               /* Set RTC Alarm Register MS word     */
@@ -1829,7 +1929,7 @@ __STATIC_INLINE void init(void) {
     #if USE_LSE || !USE_HSE
       PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
     #endif
-    
+
     #if RNG_EN && !ADC_EN
       unsigned zx = rtc_read_counter();
       srnd(zx);
