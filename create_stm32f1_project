@@ -897,6 +897,7 @@ cat <<MAIN_H >main.h
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_RNG                       1  /* Add random numbers generation code       */
+  #define USE_EXTI                      1  /* Use external interrupt                   */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
@@ -1310,6 +1311,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define RNG_EN                        0
 #endif
 
+#if defined(USE_EXTI) && (USE_EXTI != 0)
+  #define EXTI_EN                       1
+#else
+  #define EXTI_EN                       0
+#endif
+
+
 __STATIC_INLINE void init(void) {
 
   #define PORT_A_CONFIG (                         \\
@@ -1317,6 +1325,7 @@ __STATIC_INLINE void init(void) {
     SPI_EN   * PIN_CFG(5,  O_AF + O_50MHZ)        |           /* PA5:  SPI1 CLK, alternate, 50MHz   */\\
     SPI_EN   * PIN_CFG(6,  I_PULL)                |           /* PA6:  SPI1 MISO, input, pull-down  */\\
     SPI_EN   * PIN_CFG(7,  O_AF + O_50MHZ)        |           /* PA7:  SPI1 MOSI, alternate, 50MHz  */\\
+    EXTI_EN  * PIN_CFG(8,  I_PULL)                |           /* PA8:  EXTI Line, input, pull-up    */\\
     USART_EN * PIN_CFG(9,  O_AF + O_10MHZ)        |           /* PA9:  USART1 TX, alternate, 10MHz  */\\
     USART_EN * PIN_CFG(10, I_PULL)                |           /* PA10: USART1 RX, input, pull-down  */\\
     SWD_EN   * PIN_CFG(13, I_PULL)                |           /* PA13: SWDIO, input, pull-up        */\\
@@ -1327,6 +1336,7 @@ __STATIC_INLINE void init(void) {
   #define PORT_A_STATE (                          \\
     SPI_EN   * PULL_UP(4)                         |           /* Pull-up SPI1 CS pin                */\\
     SPI_EN   * PULL_DOWN(6)                       |           /* Pull-down SPI1 MISO pin            */\\
+    EXTI_EN  * PULL_UP(8)                         |           /* Pull-up EXTI pin                   */\\
     USART_EN * PULL_DOWN(10)                      |           /* Pull-down USART1 RX pin            */\\
     SWD_EN   * PULL_UP(13)                        |           /* Pull-up SWDIO pin                  */\\
     SWD_EN   * PULL_DOWN(14)                                  /* Pull-down SWCLK pin                */\\
