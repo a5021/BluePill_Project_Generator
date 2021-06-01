@@ -26,7 +26,7 @@ If it is nessesary to rebuild sources with debug information supplied just run m
 
 It is possible to compile firmware with macros predefined. It can be done with Makefile variable named EXT. For instance run
 
-  `make EXT="-DUSE_PLL=1 -DUSE_HSE=1"` or  `make EXT="-DUSE_PLL -DUSE_HSE"`
+  `make EXT="-DUSE_PLL=1 -DUSE_HSE=1"`  or  `make EXT="-DUSE_PLL -DUSE_HSE"`
   
 to build firmware with HSE generator switched ON and PLL selected as system clock. The list of macros can be found at the top of main.h
 

@@ -2517,6 +2517,19 @@ int main(void) {
 
   init();
 
+  unsigned *x = (unsigned *)0x40000000;
+  for (unsigned i = 0; i < 0x2000; i++) {
+    CRC->DR = *x++;
+  }
+
+  x = (unsigned *)0x40010000;
+  for (unsigned i = 0; i < 0x1000; i++) {
+    CRC->DR = *x++;
+  }
+
+  uprintf("0x%08X\n", CRC->DR);
+
+
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN
   for(int i = 0; i <= INT32_MAX;) {
     union {
