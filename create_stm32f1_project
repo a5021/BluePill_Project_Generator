@@ -40,7 +40,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
       cd MDK-ARM
       $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
       def_set1="<Define>STM32F103xB,"
-      def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0, USE_FLASH=0, USE_EXTI=0, USE_RNG=0</Define>"
+      def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0, USE_FLASH=0, USE_IWDG=0, USE_EXTI=0, USE_RNG=0</Define>"
       cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
@@ -897,6 +897,7 @@ cat <<MAIN_H >main.h
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_RNG                       1  /* Add random numbers generation code       */
+  #define USE_IWDG                      1  /* Enable hardware watchdog                 */
   #define USE_EXTI                      1  /* Use external interrupt                   */
   #define USE_FLASH                     1  /* Add feature to write data to flash       */
   #define USE_SWD                       1  /* Use SWD pins for debugging               */
@@ -1958,251 +1959,289 @@ __STATIC_INLINE void init(void) {
 
   #endif /* USE_RTC */
 
+  #if USE_IWDG
+
+    #define IWDG_EN 1
+
+    #if RTC_EN && !LSE_EN && !HSE_EN
+      /* */
+    #else
+      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+    #endif
+
+    RCC->CSR = RCC_CSR_LSION;                 /*  Enable Internal Low Speed oscillator              */
+    while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) {
+      /* wait until LSI oscillations become stable */
+    }
+    IWDG->KR = 0x5555;
+                                                                                                    /*
+      Min/max IWDG timeout period (in ms) at 40 kHz (LSI)(1)
+    =======================================================================
+      Prescaler      PR[2:0] bits       Min timeout         Max timeout
+       divider                        RL[11:0]= 0x000     RL[11:0]= 0xFFF
+
+          /4              0                 0.1                409.6
+          /8              1                 0.2                819.2
+         /16              2                 0.4               1638.4
+         /32              3                 0.8               3276.8
+         /64              4                 1.6               6553.6
+        /128              5                 3.2              13107.2
+        /256              6 (or 7)          6.4              26214.4
+    =======================================================================                         */
+
+    IWDG->PR = 2;
+    IWDG->RLR = 0xFFF;
+
+    IWDG->KR = 0xCCCC;                                        /*  Start the watchdog                */
+  #else
+    #define IWDG_EN 0
+  #endif /* USE_IWDG */
+
   #if EXTI_EN
-    #define INIT_AFIO_EXTICR_0   (          \
-      0 * AFIO_EXTICR1_EXTI0                | /*  0x0000000F EXTI 0 configuration                                                                                   */\
-      0 * AFIO_EXTICR1_EXTI1                | /*  0x000000F0 EXTI 1 configuration                                                                                   */\
-      0 * AFIO_EXTICR1_EXTI2                | /*  0x00000F00 EXTI 2 configuration                                                                                   */\
-      0 * AFIO_EXTICR1_EXTI3                | /*  0x0000F000 EXTI 3 configuration                                                                                   */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR1_EXTI0_PA             | /*  0x00000000 PA[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PB             | /*  0x00000001 PB[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PC             | /*  0x00000002 PC[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PD             | /*  0x00000003 PD[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PE             | /*  0x00000004 PE[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PF             | /*  0x00000005 PF[0] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI0_PG             | /*  0x00000006 PG[0] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR1_EXTI1_PA             | /*  0x00000000 PA[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PB             | /*  0x00000010 PB[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PC             | /*  0x00000020 PC[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PD             | /*  0x00000030 PD[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PE             | /*  0x00000040 PE[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PF             | /*  0x00000050 PF[1] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI1_PG             | /*  0x00000060 PG[1] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR1_EXTI2_PA             | /*  0x00000000 PA[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PB             | /*  0x00000100 PB[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PC             | /*  0x00000200 PC[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PD             | /*  0x00000300 PD[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PE             | /*  0x00000400 PE[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PF             | /*  0x00000500 PF[2] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI2_PG             | /*  0x00000600 PG[2] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR1_EXTI3_PA             | /*  0x00000000 PA[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PB             | /*  0x00001000 PB[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PC             | /*  0x00002000 PC[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PD             | /*  0x00003000 PD[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PE             | /*  0x00004000 PE[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PF             | /*  0x00005000 PF[3] pin                                                                                              */\
-      0 * AFIO_EXTICR1_EXTI3_PG               /*  0x00006000 PG[3] pin                                                                                              */\
+    #define INIT_AFIO_EXTICR_0   (     \\
+      0 * AFIO_EXTICR1_EXTI0           | /*  0x0000000F EXTI 0 configuration                        */\\
+      0 * AFIO_EXTICR1_EXTI1           | /*  0x000000F0 EXTI 1 configuration                        */\\
+      0 * AFIO_EXTICR1_EXTI2           | /*  0x00000F00 EXTI 2 configuration                        */\\
+      0 * AFIO_EXTICR1_EXTI3           | /*  0x0000F000 EXTI 3 configuration                        */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR1_EXTI0_PA        | /*  0x00000000 PA[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PB        | /*  0x00000001 PB[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PC        | /*  0x00000002 PC[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PD        | /*  0x00000003 PD[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PE        | /*  0x00000004 PE[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PF        | /*  0x00000005 PF[0] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI0_PG        | /*  0x00000006 PG[0] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR1_EXTI1_PA        | /*  0x00000000 PA[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PB        | /*  0x00000010 PB[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PC        | /*  0x00000020 PC[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PD        | /*  0x00000030 PD[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PE        | /*  0x00000040 PE[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PF        | /*  0x00000050 PF[1] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI1_PG        | /*  0x00000060 PG[1] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR1_EXTI2_PA        | /*  0x00000000 PA[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PB        | /*  0x00000100 PB[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PC        | /*  0x00000200 PC[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PD        | /*  0x00000300 PD[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PE        | /*  0x00000400 PE[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PF        | /*  0x00000500 PF[2] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI2_PG        | /*  0x00000600 PG[2] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR1_EXTI3_PA        | /*  0x00000000 PA[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PB        | /*  0x00001000 PB[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PC        | /*  0x00002000 PC[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PD        | /*  0x00003000 PD[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PE        | /*  0x00004000 PE[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PF        | /*  0x00005000 PF[3] pin                                   */\\
+      0 * AFIO_EXTICR1_EXTI3_PG          /*  0x00006000 PG[3] pin                                   */\\
     )
     #if INIT_AFIO_EXTICR_0
       AFIO->EXTICR[0] = INIT_AFIO_EXTICR_0;
     #endif
     #undef INIT_AFIO_EXTICR_0
 
-    #define INIT_AFIO_EXTICR_1   (          \
-      0 * AFIO_EXTICR2_EXTI4                | /*  0x0000000F EXTI 4 configuration                                                                                   */\
-      0 * AFIO_EXTICR2_EXTI5                | /*  0x000000F0 EXTI 5 configuration                                                                                   */\
-      0 * AFIO_EXTICR2_EXTI6                | /*  0x00000F00 EXTI 6 configuration                                                                                   */\
-      0 * AFIO_EXTICR2_EXTI7                | /*  0x0000F000 EXTI 7 configuration                                                                                   */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR2_EXTI4_PA             | /*  0x00000000 PA[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PB             | /*  0x00000001 PB[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PC             | /*  0x00000002 PC[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PD             | /*  0x00000003 PD[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PE             | /*  0x00000004 PE[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PF             | /*  0x00000005 PF[4] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI4_PG             | /*  0x00000006 PG[4] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR2_EXTI5_PA             | /*  0x00000000 PA[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PB             | /*  0x00000010 PB[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PC             | /*  0x00000020 PC[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PD             | /*  0x00000030 PD[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PE             | /*  0x00000040 PE[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PF             | /*  0x00000050 PF[5] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI5_PG             | /*  0x00000060 PG[5] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR2_EXTI6_PA             | /*  0x00000000 PA[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PB             | /*  0x00000100 PB[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PC             | /*  0x00000200 PC[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PD             | /*  0x00000300 PD[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PE             | /*  0x00000400 PE[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PF             | /*  0x00000500 PF[6] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI6_PG             | /*  0x00000600 PG[6] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR2_EXTI7_PA             | /*  0x00000000 PA[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PB             | /*  0x00001000 PB[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PC             | /*  0x00002000 PC[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PD             | /*  0x00003000 PD[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PE             | /*  0x00004000 PE[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PF             | /*  0x00005000 PF[7] pin                                                                                              */\
-      0 * AFIO_EXTICR2_EXTI7_PG               /*  0x00006000 PG[7] pin                                                                                              */\
+    #define INIT_AFIO_EXTICR_1   (     \\
+      0 * AFIO_EXTICR2_EXTI4           | /*  0x0000000F EXTI 4 configuration                        */\\
+      0 * AFIO_EXTICR2_EXTI5           | /*  0x000000F0 EXTI 5 configuration                        */\\
+      0 * AFIO_EXTICR2_EXTI6           | /*  0x00000F00 EXTI 6 configuration                        */\\
+      0 * AFIO_EXTICR2_EXTI7           | /*  0x0000F000 EXTI 7 configuration                        */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR2_EXTI4_PA        | /*  0x00000000 PA[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PB        | /*  0x00000001 PB[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PC        | /*  0x00000002 PC[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PD        | /*  0x00000003 PD[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PE        | /*  0x00000004 PE[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PF        | /*  0x00000005 PF[4] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI4_PG        | /*  0x00000006 PG[4] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR2_EXTI5_PA        | /*  0x00000000 PA[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PB        | /*  0x00000010 PB[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PC        | /*  0x00000020 PC[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PD        | /*  0x00000030 PD[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PE        | /*  0x00000040 PE[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PF        | /*  0x00000050 PF[5] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI5_PG        | /*  0x00000060 PG[5] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR2_EXTI6_PA        | /*  0x00000000 PA[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PB        | /*  0x00000100 PB[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PC        | /*  0x00000200 PC[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PD        | /*  0x00000300 PD[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PE        | /*  0x00000400 PE[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PF        | /*  0x00000500 PF[6] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI6_PG        | /*  0x00000600 PG[6] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR2_EXTI7_PA        | /*  0x00000000 PA[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PB        | /*  0x00001000 PB[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PC        | /*  0x00002000 PC[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PD        | /*  0x00003000 PD[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PE        | /*  0x00004000 PE[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PF        | /*  0x00005000 PF[7] pin                                   */\\
+      0 * AFIO_EXTICR2_EXTI7_PG          /*  0x00006000 PG[7] pin                                   */\\
     )
     #if INIT_AFIO_EXTICR_1
       AFIO->EXTICR[1] = INIT_AFIO_EXTICR_1;
     #endif
     #undef INIT_AFIO_EXTICR_1
     
-    #define INIT_AFIO_EXTICR_2   (          \
-      0 * AFIO_EXTICR3_EXTI8                | /*  0x0000000F EXTI 8 configuration                                                                                   */\
-      0 * AFIO_EXTICR3_EXTI9                | /*  0x000000F0 EXTI 9 configuration                                                                                   */\
-      0 * AFIO_EXTICR3_EXTI10               | /*  0x00000F00 EXTI 10 configuration                                                                                  */\
-      0 * AFIO_EXTICR3_EXTI11               | /*  0x0000F000 EXTI 11 configuration                                                                                  */\
-                                                                                                                                                                      \
-      1 * AFIO_EXTICR3_EXTI8_PA             | /*  0x00000000 PA[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PB             | /*  0x00000001 PB[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PC             | /*  0x00000002 PC[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PD             | /*  0x00000003 PD[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PE             | /*  0x00000004 PE[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PF             | /*  0x00000005 PF[8] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI8_PG             | /*  0x00000006 PG[8] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR3_EXTI9_PA             | /*  0x00000000 PA[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PB             | /*  0x00000010 PB[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PC             | /*  0x00000020 PC[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PD             | /*  0x00000030 PD[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PE             | /*  0x00000040 PE[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PF             | /*  0x00000050 PF[9] pin                                                                                              */\
-      0 * AFIO_EXTICR3_EXTI9_PG             | /*  0x00000060 PG[9] pin                                                                                              */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR3_EXTI10_PA            | /*  0x00000000 PA[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PB            | /*  0x00000100 PB[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PC            | /*  0x00000200 PC[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PD            | /*  0x00000300 PD[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PE            | /*  0x00000400 PE[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PF            | /*  0x00000500 PF[10] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI10_PG            | /*  0x00000600 PG[10] pin                                                                                             */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR3_EXTI11_PA            | /*  0x00000000 PA[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PB            | /*  0x00001000 PB[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PC            | /*  0x00002000 PC[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PD            | /*  0x00003000 PD[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PE            | /*  0x00004000 PE[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PF            | /*  0x00005000 PF[11] pin                                                                                             */\
-      0 * AFIO_EXTICR3_EXTI11_PG              /*  0x00006000 PG[11] pin                                                                                             */\
+    #define INIT_AFIO_EXTICR_2   (     \\
+      0 * AFIO_EXTICR3_EXTI8           | /*  0x0000000F EXTI 8 configuration                        */\\
+      0 * AFIO_EXTICR3_EXTI9           | /*  0x000000F0 EXTI 9 configuration                        */\\
+      0 * AFIO_EXTICR3_EXTI10          | /*  0x00000F00 EXTI 10 configuration                       */\\
+      0 * AFIO_EXTICR3_EXTI11          | /*  0x0000F000 EXTI 11 configuration                       */\\
+                                                                                                      \\
+      1 * AFIO_EXTICR3_EXTI8_PA        | /*  0x00000000 PA[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PB        | /*  0x00000001 PB[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PC        | /*  0x00000002 PC[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PD        | /*  0x00000003 PD[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PE        | /*  0x00000004 PE[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PF        | /*  0x00000005 PF[8] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI8_PG        | /*  0x00000006 PG[8] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR3_EXTI9_PA        | /*  0x00000000 PA[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PB        | /*  0x00000010 PB[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PC        | /*  0x00000020 PC[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PD        | /*  0x00000030 PD[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PE        | /*  0x00000040 PE[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PF        | /*  0x00000050 PF[9] pin                                   */\\
+      0 * AFIO_EXTICR3_EXTI9_PG        | /*  0x00000060 PG[9] pin                                   */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR3_EXTI10_PA       | /*  0x00000000 PA[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PB       | /*  0x00000100 PB[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PC       | /*  0x00000200 PC[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PD       | /*  0x00000300 PD[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PE       | /*  0x00000400 PE[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PF       | /*  0x00000500 PF[10] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI10_PG       | /*  0x00000600 PG[10] pin                                  */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR3_EXTI11_PA       | /*  0x00000000 PA[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PB       | /*  0x00001000 PB[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PC       | /*  0x00002000 PC[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PD       | /*  0x00003000 PD[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PE       | /*  0x00004000 PE[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PF       | /*  0x00005000 PF[11] pin                                  */\\
+      0 * AFIO_EXTICR3_EXTI11_PG         /*  0x00006000 PG[11] pin                                  */\\
     )
     #if INIT_AFIO_EXTICR_2
       AFIO->EXTICR[2] = INIT_AFIO_EXTICR_2;
     #endif
     #undef INIT_AFIO_EXTICR_2
 
-    #define INIT_AFIO_EXTICR_3   (          \
-      0 * AFIO_EXTICR4_EXTI12               | /*  0x0000000F EXTI 12 configuration                                                                                  */\
-      0 * AFIO_EXTICR4_EXTI13               | /*  0x000000F0 EXTI 13 configuration                                                                                  */\
-      0 * AFIO_EXTICR4_EXTI14               | /*  0x00000F00 EXTI 14 configuration                                                                                  */\
-      0 * AFIO_EXTICR4_EXTI15               | /*  0x0000F000 EXTI 15 configuration                                                                                  */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR4_EXTI12_PA            | /*  0x00000000 PA[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PB            | /*  0x00000001 PB[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PC            | /*  0x00000002 PC[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PD            | /*  0x00000003 PD[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PE            | /*  0x00000004 PE[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PF            | /*  0x00000005 PF[12] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI12_PG            | /*  0x00000006 PG[12] pin                                                                                             */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR4_EXTI13_PA            | /*  0x00000000 PA[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PB            | /*  0x00000010 PB[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PC            | /*  0x00000020 PC[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PD            | /*  0x00000030 PD[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PE            | /*  0x00000040 PE[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PF            | /*  0x00000050 PF[13] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI13_PG            | /*  0x00000060 PG[13] pin                                                                                             */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR4_EXTI14_PA            | /*  0x00000000 PA[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PB            | /*  0x00000100 PB[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PC            | /*  0x00000200 PC[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PD            | /*  0x00000300 PD[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PE            | /*  0x00000400 PE[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PF            | /*  0x00000500 PF[14] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI14_PG            | /*  0x00000600 PG[14] pin                                                                                             */\
-                                                                                                                                                                      \
-      0 * AFIO_EXTICR4_EXTI15_PA            | /*  0x00000000 PA[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PB            | /*  0x00001000 PB[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PC            | /*  0x00002000 PC[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PD            | /*  0x00003000 PD[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PE            | /*  0x00004000 PE[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PF            | /*  0x00005000 PF[15] pin                                                                                             */\
-      0 * AFIO_EXTICR4_EXTI15_PG              /*  0x00006000 PG[15] pin                                                                                             */\
+    #define INIT_AFIO_EXTICR_3   (     \\
+      0 * AFIO_EXTICR4_EXTI12          | /*  0x0000000F EXTI 12 configuration                       */\\
+      0 * AFIO_EXTICR4_EXTI13          | /*  0x000000F0 EXTI 13 configuration                       */\\
+      0 * AFIO_EXTICR4_EXTI14          | /*  0x00000F00 EXTI 14 configuration                       */\\
+      0 * AFIO_EXTICR4_EXTI15          | /*  0x0000F000 EXTI 15 configuration                       */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR4_EXTI12_PA       | /*  0x00000000 PA[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PB       | /*  0x00000001 PB[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PC       | /*  0x00000002 PC[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PD       | /*  0x00000003 PD[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PE       | /*  0x00000004 PE[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PF       | /*  0x00000005 PF[12] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI12_PG       | /*  0x00000006 PG[12] pin                                  */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR4_EXTI13_PA       | /*  0x00000000 PA[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PB       | /*  0x00000010 PB[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PC       | /*  0x00000020 PC[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PD       | /*  0x00000030 PD[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PE       | /*  0x00000040 PE[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PF       | /*  0x00000050 PF[13] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI13_PG       | /*  0x00000060 PG[13] pin                                  */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR4_EXTI14_PA       | /*  0x00000000 PA[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PB       | /*  0x00000100 PB[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PC       | /*  0x00000200 PC[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PD       | /*  0x00000300 PD[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PE       | /*  0x00000400 PE[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PF       | /*  0x00000500 PF[14] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI14_PG       | /*  0x00000600 PG[14] pin                                  */\\
+                                                                                                      \\
+      0 * AFIO_EXTICR4_EXTI15_PA       | /*  0x00000000 PA[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PB       | /*  0x00001000 PB[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PC       | /*  0x00002000 PC[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PD       | /*  0x00003000 PD[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PE       | /*  0x00004000 PE[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PF       | /*  0x00005000 PF[15] pin                                  */\\
+      0 * AFIO_EXTICR4_EXTI15_PG         /*  0x00006000 PG[15] pin                                  */\\
     )
     #if INIT_AFIO_EXTICR_3
       AFIO->EXTICR[3] = INIT_AFIO_EXTICR_3;
     #endif
     #undef INIT_AFIO_EXTICR_3
 
-    #define INIT_EXTI_IMR        (          \
-      0 * EXTI_IMR_MR0                      | /*  0x00000001 Interrupt Mask on line 0                                                                               */\
-      0 * EXTI_IMR_MR1                      | /*  0x00000002 Interrupt Mask on line 1                                                                               */\
-      0 * EXTI_IMR_MR2                      | /*  0x00000004 Interrupt Mask on line 2                                                                               */\
-      0 * EXTI_IMR_MR3                      | /*  0x00000008 Interrupt Mask on line 3                                                                               */\
-      0 * EXTI_IMR_MR4                      | /*  0x00000010 Interrupt Mask on line 4                                                                               */\
-      0 * EXTI_IMR_MR5                      | /*  0x00000020 Interrupt Mask on line 5                                                                               */\
-      0 * EXTI_IMR_MR6                      | /*  0x00000040 Interrupt Mask on line 6                                                                               */\
-      0 * EXTI_IMR_MR7                      | /*  0x00000080 Interrupt Mask on line 7                                                                               */\
-      1 * EXTI_IMR_MR8                      | /*  0x00000100 Interrupt Mask on line 8                                                                               */\
-      0 * EXTI_IMR_MR9                      | /*  0x00000200 Interrupt Mask on line 9                                                                               */\
-      0 * EXTI_IMR_MR10                     | /*  0x00000400 Interrupt Mask on line 10                                                                              */\
-      0 * EXTI_IMR_MR11                     | /*  0x00000800 Interrupt Mask on line 11                                                                              */\
-      0 * EXTI_IMR_MR12                     | /*  0x00001000 Interrupt Mask on line 12                                                                              */\
-      0 * EXTI_IMR_MR13                     | /*  0x00002000 Interrupt Mask on line 13                                                                              */\
-      0 * EXTI_IMR_MR14                     | /*  0x00004000 Interrupt Mask on line 14                                                                              */\
-      0 * EXTI_IMR_MR15                     | /*  0x00008000 Interrupt Mask on line 15                                                                              */\
-      0 * EXTI_IMR_MR16                     | /*  0x00010000 Interrupt Mask on line 16                                                                              */\
-      0 * EXTI_IMR_MR17                     | /*  0x00020000 Interrupt Mask on line 17                                                                              */\
-      0 * EXTI_IMR_MR18                       /*  0x00040000 Interrupt Mask on line 18                                                                              */\
+    #define INIT_EXTI_IMR        (     \\
+      0 * EXTI_IMR_MR0                 | /*  0x00000001 Interrupt Mask on line 0                    */\\
+      0 * EXTI_IMR_MR1                 | /*  0x00000002 Interrupt Mask on line 1                    */\\
+      0 * EXTI_IMR_MR2                 | /*  0x00000004 Interrupt Mask on line 2                    */\\
+      0 * EXTI_IMR_MR3                 | /*  0x00000008 Interrupt Mask on line 3                    */\\
+      0 * EXTI_IMR_MR4                 | /*  0x00000010 Interrupt Mask on line 4                    */\\
+      0 * EXTI_IMR_MR5                 | /*  0x00000020 Interrupt Mask on line 5                    */\\
+      0 * EXTI_IMR_MR6                 | /*  0x00000040 Interrupt Mask on line 6                    */\\
+      0 * EXTI_IMR_MR7                 | /*  0x00000080 Interrupt Mask on line 7                    */\\
+      1 * EXTI_IMR_MR8                 | /*  0x00000100 Interrupt Mask on line 8                    */\\
+      0 * EXTI_IMR_MR9                 | /*  0x00000200 Interrupt Mask on line 9                    */\\
+      0 * EXTI_IMR_MR10                | /*  0x00000400 Interrupt Mask on line 10                   */\\
+      0 * EXTI_IMR_MR11                | /*  0x00000800 Interrupt Mask on line 11                   */\\
+      0 * EXTI_IMR_MR12                | /*  0x00001000 Interrupt Mask on line 12                   */\\
+      0 * EXTI_IMR_MR13                | /*  0x00002000 Interrupt Mask on line 13                   */\\
+      0 * EXTI_IMR_MR14                | /*  0x00004000 Interrupt Mask on line 14                   */\\
+      0 * EXTI_IMR_MR15                | /*  0x00008000 Interrupt Mask on line 15                   */\\
+      0 * EXTI_IMR_MR16                | /*  0x00010000 Interrupt Mask on line 16                   */\\
+      0 * EXTI_IMR_MR17                | /*  0x00020000 Interrupt Mask on line 17                   */\\
+      0 * EXTI_IMR_MR18                  /*  0x00040000 Interrupt Mask on line 18                   */\\
     )
     #if INIT_EXTI_IMR
       EXTI->IMR = INIT_EXTI_IMR;
     #endif
     #undef INIT_EXTI_IMR
 
-    #define INIT_EXTI_RTSR       (          \
-      0 * EXTI_RTSR_TR0                     | /*  0x00000001 Rising trigger event configuration bit of line 0                                                       */\
-      0 * EXTI_RTSR_TR1                     | /*  0x00000002 Rising trigger event configuration bit of line 1                                                       */\
-      0 * EXTI_RTSR_TR2                     | /*  0x00000004 Rising trigger event configuration bit of line 2                                                       */\
-      0 * EXTI_RTSR_TR3                     | /*  0x00000008 Rising trigger event configuration bit of line 3                                                       */\
-      0 * EXTI_RTSR_TR4                     | /*  0x00000010 Rising trigger event configuration bit of line 4                                                       */\
-      0 * EXTI_RTSR_TR5                     | /*  0x00000020 Rising trigger event configuration bit of line 5                                                       */\
-      0 * EXTI_RTSR_TR6                     | /*  0x00000040 Rising trigger event configuration bit of line 6                                                       */\
-      0 * EXTI_RTSR_TR7                     | /*  0x00000080 Rising trigger event configuration bit of line 7                                                       */\
-      0 * EXTI_RTSR_TR8                     | /*  0x00000100 Rising trigger event configuration bit of line 8                                                       */\
-      0 * EXTI_RTSR_TR9                     | /*  0x00000200 Rising trigger event configuration bit of line 9                                                       */\
-      0 * EXTI_RTSR_TR10                    | /*  0x00000400 Rising trigger event configuration bit of line 10                                                      */\
-      0 * EXTI_RTSR_TR11                    | /*  0x00000800 Rising trigger event configuration bit of line 11                                                      */\
-      0 * EXTI_RTSR_TR12                    | /*  0x00001000 Rising trigger event configuration bit of line 12                                                      */\
-      0 * EXTI_RTSR_TR13                    | /*  0x00002000 Rising trigger event configuration bit of line 13                                                      */\
-      0 * EXTI_RTSR_TR14                    | /*  0x00004000 Rising trigger event configuration bit of line 14                                                      */\
-      0 * EXTI_RTSR_TR15                    | /*  0x00008000 Rising trigger event configuration bit of line 15                                                      */\
-      0 * EXTI_RTSR_TR16                    | /*  0x00010000 Rising trigger event configuration bit of line 16                                                      */\
-      0 * EXTI_RTSR_TR17                    | /*  0x00020000 Rising trigger event configuration bit of line 17                                                      */\
-      0 * EXTI_RTSR_TR18                      /*  0x00040000 Rising trigger event configuration bit of line 18                                                      */\
+    #define INIT_EXTI_RTSR       (     \\
+      0 * EXTI_RTSR_TR0                | /*  0x00000001 Configure Rising edge trigger for line 0    */\\
+      0 * EXTI_RTSR_TR1                | /*  0x00000002 Configure Rising edge trigger for line 1    */\\
+      0 * EXTI_RTSR_TR2                | /*  0x00000004 Configure Rising edge trigger for line 2    */\\
+      0 * EXTI_RTSR_TR3                | /*  0x00000008 Configure Rising edge trigger for line 3    */\\
+      0 * EXTI_RTSR_TR4                | /*  0x00000010 Configure Rising edge trigger for line 4    */\\
+      0 * EXTI_RTSR_TR5                | /*  0x00000020 Configure Rising edge trigger for line 5    */\\
+      0 * EXTI_RTSR_TR6                | /*  0x00000040 Configure Rising edge trigger for line 6    */\\
+      0 * EXTI_RTSR_TR7                | /*  0x00000080 Configure Rising edge trigger for line 7    */\\
+      0 * EXTI_RTSR_TR8                | /*  0x00000100 Configure Rising edge trigger for line 8    */\\
+      0 * EXTI_RTSR_TR9                | /*  0x00000200 Configure Rising edge trigger for line 9    */\\
+      0 * EXTI_RTSR_TR10               | /*  0x00000400 Configure Rising edge trigger for line 10   */\\
+      0 * EXTI_RTSR_TR11               | /*  0x00000800 Configure Rising edge trigger for line 11   */\\
+      0 * EXTI_RTSR_TR12               | /*  0x00001000 Configure Rising edge trigger for line 12   */\\
+      0 * EXTI_RTSR_TR13               | /*  0x00002000 Configure Rising edge trigger for line 13   */\\
+      0 * EXTI_RTSR_TR14               | /*  0x00004000 Configure Rising edge trigger for line 14   */\\
+      0 * EXTI_RTSR_TR15               | /*  0x00008000 Configure Rising edge trigger for line 15   */\\
+      0 * EXTI_RTSR_TR16               | /*  0x00010000 Configure Rising edge trigger for line 16   */\\
+      0 * EXTI_RTSR_TR17               | /*  0x00020000 Configure Rising edge trigger for line 17   */\\
+      0 * EXTI_RTSR_TR18                 /*  0x00040000 Configure Rising edge trigger for line 18   */\\
     )
     #if INIT_EXTI_RTSR
       EXTI->RTSR = INIT_EXTI_RTSR;
     #endif
     #undef INIT_EXTI_RTSR
 
-    #define INIT_EXTI_FTSR       (          \
-      0 * EXTI_FTSR_TR0                     | /*  0x00000001 Falling trigger event configuration bit of line 0                                                      */\
-      0 * EXTI_FTSR_TR1                     | /*  0x00000002 Falling trigger event configuration bit of line 1                                                      */\
-      0 * EXTI_FTSR_TR2                     | /*  0x00000004 Falling trigger event configuration bit of line 2                                                      */\
-      0 * EXTI_FTSR_TR3                     | /*  0x00000008 Falling trigger event configuration bit of line 3                                                      */\
-      0 * EXTI_FTSR_TR4                     | /*  0x00000010 Falling trigger event configuration bit of line 4                                                      */\
-      0 * EXTI_FTSR_TR5                     | /*  0x00000020 Falling trigger event configuration bit of line 5                                                      */\
-      0 * EXTI_FTSR_TR6                     | /*  0x00000040 Falling trigger event configuration bit of line 6                                                      */\
-      0 * EXTI_FTSR_TR7                     | /*  0x00000080 Falling trigger event configuration bit of line 7                                                      */\
-      1 * EXTI_FTSR_TR8                     | /*  0x00000100 Falling trigger event configuration bit of line 8                                                      */\
-      0 * EXTI_FTSR_TR9                     | /*  0x00000200 Falling trigger event configuration bit of line 9                                                      */\
-      0 * EXTI_FTSR_TR10                    | /*  0x00000400 Falling trigger event configuration bit of line 10                                                     */\
-      0 * EXTI_FTSR_TR11                    | /*  0x00000800 Falling trigger event configuration bit of line 11                                                     */\
-      0 * EXTI_FTSR_TR12                    | /*  0x00001000 Falling trigger event configuration bit of line 12                                                     */\
-      0 * EXTI_FTSR_TR13                    | /*  0x00002000 Falling trigger event configuration bit of line 13                                                     */\
-      0 * EXTI_FTSR_TR14                    | /*  0x00004000 Falling trigger event configuration bit of line 14                                                     */\
-      0 * EXTI_FTSR_TR15                    | /*  0x00008000 Falling trigger event configuration bit of line 15                                                     */\
-      0 * EXTI_FTSR_TR16                    | /*  0x00010000 Falling trigger event configuration bit of line 16                                                     */\
-      0 * EXTI_FTSR_TR17                    | /*  0x00020000 Falling trigger event configuration bit of line 17                                                     */\
-      0 * EXTI_FTSR_TR18                      /*  0x00040000 Falling trigger event configuration bit of line 18                                                     */\
+    #define INIT_EXTI_FTSR       (     \\
+      0 * EXTI_FTSR_TR0                | /*  0x00000001 Configure Falling edge trigger for line 0   */\\
+      0 * EXTI_FTSR_TR1                | /*  0x00000002 Configure Falling edge trigger for line 1   */\\
+      0 * EXTI_FTSR_TR2                | /*  0x00000004 Configure Falling edge trigger for line 2   */\\
+      0 * EXTI_FTSR_TR3                | /*  0x00000008 Configure Falling edge trigger for line 3   */\\
+      0 * EXTI_FTSR_TR4                | /*  0x00000010 Configure Falling edge trigger for line 4   */\\
+      0 * EXTI_FTSR_TR5                | /*  0x00000020 Configure Falling edge trigger for line 5   */\\
+      0 * EXTI_FTSR_TR6                | /*  0x00000040 Configure Falling edge trigger for line 6   */\\
+      0 * EXTI_FTSR_TR7                | /*  0x00000080 Configure Falling edge trigger for line 7   */\\
+      1 * EXTI_FTSR_TR8                | /*  0x00000100 Configure Falling edge trigger for line 8   */\\
+      0 * EXTI_FTSR_TR9                | /*  0x00000200 Configure Falling edge trigger for line 9   */\\
+      0 * EXTI_FTSR_TR10               | /*  0x00000400 Configure Falling edge trigger for line 10  */\\
+      0 * EXTI_FTSR_TR11               | /*  0x00000800 Configure Falling edge trigger for line 11  */\\
+      0 * EXTI_FTSR_TR12               | /*  0x00001000 Configure Falling edge trigger for line 12  */\\
+      0 * EXTI_FTSR_TR13               | /*  0x00002000 Configure Falling edge trigger for line 13  */\\
+      0 * EXTI_FTSR_TR14               | /*  0x00004000 Configure Falling edge trigger for line 14  */\\
+      0 * EXTI_FTSR_TR15               | /*  0x00008000 Configure Falling edge trigger for line 15  */\\
+      0 * EXTI_FTSR_TR16               | /*  0x00010000 Configure Falling edge trigger for line 16  */\\
+      0 * EXTI_FTSR_TR17               | /*  0x00020000 Configure Falling edge trigger for line 17  */\\
+      0 * EXTI_FTSR_TR18                 /*  0x00040000 Configure Falling edge trigger for line 18  */\\
     )
     #if INIT_EXTI_FTSR
       EXTI->FTSR = INIT_EXTI_FTSR;
@@ -2251,14 +2290,14 @@ __STATIC_INLINE void init(void) {
 
 #if I2C_EN
 
-  #define I2C_TIMEOUT                   10
-  #define I2C_ERR_TIMEOUT               1
-  #define I2C_ERROR                     (                                                            \\
-                                          I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\\
-                                          I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\\
-                                          I2C_SR1_AF    |  /*  Acknowledge Failure  (0x00000400)   */\\
-                                          I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
-                                        )
+  #define I2C_TIMEOUT     10
+  #define I2C_ERR_TIMEOUT 1
+  #define I2C_ERROR       (                                                            \\
+                            I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\\
+                            I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\\
+                            I2C_SR1_AF    |  /*  Acknowledge Failure  (0x00000400)   */\\
+                            I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
+                          )
 
   extern unsigned short i2c_status;
 
@@ -2472,6 +2511,10 @@ int main(void) {
       z.pbuf[i++] = '\n';
       z.pbuf[i] = 0;
       uputs(z.pbuf);
+    #endif
+
+    #if IWDG_EN
+      IWDG->KR = 0xAAAA;
     #endif
 
     int j = 1000;
