@@ -1308,7 +1308,28 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #if defined(USE_RNG) && (USE_RNG != 0)
+
   #define RNG_EN                        1
+
+  __STATIC_INLINE unsigned prnd(void) {
+
+    unsigned *addr = (unsigned *) APB1PERIPH_BASE;
+    for (unsigned i = 0; i < 0x2000; i++) {
+      CRC->DR = *addr++;
+    }
+
+    addr = (unsigned *) APB2PERIPH_BASE;
+    for (unsigned i = 0; i < 0x1000; i++) {
+      CRC->DR = *addr++;
+    }
+
+    addr = (unsigned *) AHBPERIPH_BASE;
+    for (unsigned i = 0; i < 0x100; i++) {
+      CRC->DR = *addr++;
+    }
+
+    return CRC->DR;
+  }
 #else
   #define RNG_EN                        0
 #endif
@@ -1691,6 +1712,7 @@ __STATIC_INLINE void init(void) {
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
 
     #if !RTC_EN && !ADC_EN
+      #if 0
       for(int i = 0; i < 12000; i++) {
         RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
         while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
@@ -1699,6 +1721,9 @@ __STATIC_INLINE void init(void) {
         while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
         CRC->DR = SysTick->VAL;
       }
+      #else
+        prnd();
+      #endif
       srnd(CRC->DR);
     #endif
   #endif
@@ -2516,19 +2541,6 @@ void srnd(unsigned seed);  /* Seed pseudo-random number generator */
 int main(void) {
 
   init();
-
-  unsigned *x = (unsigned *)0x40000000;
-  for (unsigned i = 0; i < 0x2000; i++) {
-    CRC->DR = *x++;
-  }
-
-  x = (unsigned *)0x40010000;
-  for (unsigned i = 0; i < 0x1000; i++) {
-    CRC->DR = *x++;
-  }
-
-  uprintf("0x%08X\n", CRC->DR);
-
 
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN
   for(int i = 0; i <= INT32_MAX;) {
