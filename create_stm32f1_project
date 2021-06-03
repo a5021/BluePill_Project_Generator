@@ -1466,30 +1466,30 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       FLASH->SR |= FLASH_SR_EOP;                              /* clear OPERATION COMPLETE flag      */
     }
                                                                                                     /*
-      For high-density devices, one bit of the user option bytes WRPx is used to protect
-      2 pages of 2 Kbytes in main memory block. However, the bit 7 of WRP3 write protects
-      pages 62 to 255.–0: Write protection active–1: Write protection not activeIn total,
-      four user option bytes are used to protect the 512-Kbyte main Flash memory.
-
-          WRP0: Write-protects pages 0 to 15.
-          WRP1: Write-protects pages 16 to 31.
-          WRP2: Write-protects pages 32 to 47.
-          WRP3: bits 0-6 write-protect pages 48 to 61
-                bit 7 write-protects pages 62 to 255
+      For medium-density devices, one bit of the user option bytes WRPx is used to
+      protect 4 pages of 1 Kbyte in main memory block.
+        0: Write protection active
+        1: Write protection not active
+      In total, four user option bytes are used to protect the 128-Kbyte main Flash
+      memory.
+      WRP0: Write-protects pages 0 to 31
+      WRP1: Write-protects pages 32 to 63
+      WRP2: Write-protects pages 64 to 95
+      WRP3: Write-protects pages 96 to 127
                                                                                                     */
-    OB->WRP0 = (uint16_t)0x00;                                /* write-protect pages 0 to 15        */
+    OB->WRP0 = (uint16_t)0x00;                                /* write-protect pages 0 to 31        */
     while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
     FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
 
-    OB->WRP1 = (uint16_t)0x00;                                /* write-protect pages 16 to 31       */
+    OB->WRP1 = (uint16_t)0x00;                                /* write-protect pages 32 to 63       */
     while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
     FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
 
-    OB->WRP2 = (uint16_t)0x00;                                /* write-protect pages 32 to 47       */
+    OB->WRP2 = (uint16_t)0x00;                                /* write-protect pages 64 to 95       */
     while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
     FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
 
-    OB->WRP3 = (uint16_t)0x80;                                /* write-protect pages 48 to 61       */
+    OB->WRP3 = (uint16_t)0x80;                                /* write-protect pages 96 to 127      */
     while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
     FLASH->SR |= FLASH_SR_EOP;                                /* clear OPERATION COMPLETE flag      */
 
@@ -1507,7 +1507,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define FLASH_EN                      0
 #endif
 
-#define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
 
 __STATIC_INLINE void init(void) {
 
@@ -1591,6 +1590,7 @@ __STATIC_INLINE void init(void) {
   )
 
   #if 0
+    #define CLOCK_ENABLE(BUS, P_LIST) if(P_LIST) {RCC->BUS##ENR = (P_LIST);} else (void)0
     #define CONFIGURE_CLOCK(BUS)         if(BUS ## _CONFIG) RCC->BUS##ENR = BUS ## _CONFIG; else (void)0
 
     CONFIGURE_CLOCK(AHB);
@@ -2504,6 +2504,72 @@ __STATIC_INLINE void init(void) {
   }
 #endif
 
+#define MASK_TO_BIT31(A)            (A==0x80000000)? 31 : 0
+#define MASK_TO_BIT30(A)            (A==0x40000000)? 30 : MASK_TO_BIT31(A)
+#define MASK_TO_BIT29(A)            (A==0x20000000)? 29 : MASK_TO_BIT30(A)
+#define MASK_TO_BIT28(A)            (A==0x10000000)? 28 : MASK_TO_BIT29(A)
+#define MASK_TO_BIT27(A)            (A==0x08000000)? 27 : MASK_TO_BIT28(A)
+#define MASK_TO_BIT26(A)            (A==0x04000000)? 26 : MASK_TO_BIT27(A)
+#define MASK_TO_BIT25(A)            (A==0x02000000)? 25 : MASK_TO_BIT26(A)
+#define MASK_TO_BIT24(A)            (A==0x01000000)? 24 : MASK_TO_BIT25(A)
+#define MASK_TO_BIT23(A)            (A==0x00800000)? 23 : MASK_TO_BIT24(A)
+#define MASK_TO_BIT22(A)            (A==0x00400000)? 22 : MASK_TO_BIT23(A)
+#define MASK_TO_BIT21(A)            (A==0x00200000)? 21 : MASK_TO_BIT22(A)
+#define MASK_TO_BIT20(A)            (A==0x00100000)? 20 : MASK_TO_BIT21(A)
+#define MASK_TO_BIT19(A)            (A==0x00080000)? 19 : MASK_TO_BIT20(A)
+#define MASK_TO_BIT18(A)            (A==0x00040000)? 18 : MASK_TO_BIT19(A)
+#define MASK_TO_BIT17(A)            (A==0x00020000)? 17 : MASK_TO_BIT18(A)
+#define MASK_TO_BIT16(A)            (A==0x00010000)? 16 : MASK_TO_BIT17(A)
+#define MASK_TO_BIT15(A)            (A==0x00008000)? 15 : MASK_TO_BIT16(A)
+#define MASK_TO_BIT14(A)            (A==0x00004000)? 14 : MASK_TO_BIT15(A)
+#define MASK_TO_BIT13(A)            (A==0x00002000)? 13 : MASK_TO_BIT14(A)
+#define MASK_TO_BIT12(A)            (A==0x00001000)? 12 : MASK_TO_BIT13(A)
+#define MASK_TO_BIT11(A)            (A==0x00000800)? 11 : MASK_TO_BIT12(A)
+#define MASK_TO_BIT10(A)            (A==0x00000400)? 10 : MASK_TO_BIT11(A)
+#define MASK_TO_BIT09(A)            (A==0x00000200)? 9  : MASK_TO_BIT10(A)
+#define MASK_TO_BIT08(A)            (A==0x00000100)? 8  : MASK_TO_BIT09(A)
+#define MASK_TO_BIT07(A)            (A==0x00000080)? 7  : MASK_TO_BIT08(A)
+#define MASK_TO_BIT06(A)            (A==0x00000040)? 6  : MASK_TO_BIT07(A)
+#define MASK_TO_BIT05(A)            (A==0x00000020)? 5  : MASK_TO_BIT06(A)
+#define MASK_TO_BIT04(A)            (A==0x00000010)? 4  : MASK_TO_BIT05(A)
+#define MASK_TO_BIT03(A)            (A==0x00000008)? 3  : MASK_TO_BIT04(A)
+#define MASK_TO_BIT02(A)            (A==0x00000004)? 2  : MASK_TO_BIT03(A)
+#define MASK_TO_BIT01(A)            (A==0x00000002)? 1  : MASK_TO_BIT02(A)
+#define MASK_TO_BIT(A)              (A==0x00000001)? 0  : MASK_TO_BIT01(A)
+
+#if !defined(SET)
+  #define SET                       1
+  #define RESET                     0
+#endif
+
+#define BITBAND_PER(REG, BIT_MASK)  (*(volatile uint32_t*)(PERIPH_BB_BASE + 32 * ((uint32_t)(&(REG)) - PERIPH_BASE) + 4 * ((uint32_t)(MASK_TO_BIT(BIT_MASK)))))
+#define BITBAND_SRAM(RAM, BIT)      (*(volatile uint32_t*)(SRAM_BB_BASE + 32 * ((uint32_t)((void*)(RAM)) - SRAM_BASE) + 4 * ((uint32_t)(BIT))))
+
+#define BITBAND_RAM_SET(RAM, BIT)   (*(volatile uint32_t*)(SRAM_BB_BASE + 32 * ((uint32_t)((volatile void*)(RAM)) - SRAM_BASE) + 4 * ((uint32_t)(BIT)))) = 1
+#define BITBAND_RAM_RESET(RAM, BIT) (*(volatile uint32_t*)(SRAM_BB_BASE + 32 * ((uint32_t)((volatile void*)(RAM)) - SRAM_BASE) + 4 * ((uint32_t)(BIT)))) = 0
+
+#define BITBAND_REG_SET(REG, BIT)   (*(volatile uint32_t*)(PERIPH_BB_BASE +32 * ((uint32_t)(&(REG)) - PERIPH_BASE) + 4 * ((uint32_t)(BIT)))) = 1
+#define BITBAND_REG_RESET(REG, BIT) (*(volatile uint32_t*)(PERIPH_BB_BASE +32 * ((uint32_t)(&(REG)) - PERIPH_BASE) + 4 * ((uint32_t)(BIT)))) = 0
+
+// #define BITBAND_REG_SET(REG, BIT)   (*(volatile uint32_t*)(PERIPH_BB_BASE+32*((uint32_t)(&(REG))-PERIPH_BASE)+4*((uint32_t)(MASK_TO_BIT(BIT))))) = 1
+// #define BITBAND_REG_RESET(REG, BIT) (*(volatile uint32_t*)(PERIPH_BB_BASE+32*((uint32_t)(&(REG))-PERIPH_BASE)+4*((uint32_t)(MASK_TO_BIT(BIT))))) = 0
+
+/* Example1: BIT_BAND_PER(TIM1->SR, TIM_SR_UIF) = 0;  */
+/* Example2: BIT_BAND_SRAM(&a, 13) = 1;               */
+/* Example3: BIT_BAND_SRAM(&a, 13) ^= 1;              */
+
+__STATIC_FORCEINLINE unsigned int BBIO_RD(volatile uint32_t *addr, unsigned char bitnum) {
+  volatile unsigned int * bitptr;
+  bitptr = ((unsigned int *)( (((unsigned int)addr) - (0x40000000UL)) * 32 + bitnum * 4 + (0x42000000UL) ));
+  return *bitptr;
+}
+
+__STATIC_FORCEINLINE void BBIO_WR(volatile uint32_t *addr, unsigned char bitnum, unsigned int value) {
+  volatile unsigned int * bitptr;
+  bitptr = ((unsigned int *)( (((unsigned int)addr) - (0x40000000UL)) * 32 + bitnum * 4 + (0x42000000UL) ));
+  *bitptr = value;
+}
+
 #ifdef __cplusplus
 }
 #endif
@@ -2547,6 +2613,14 @@ void srnd(unsigned seed);  /* Seed pseudo-random number generator */
 int main(void) {
 
   init();
+
+  #if FLASH_EN
+    #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
+      if ((FLASH->OBR & FLASH_OBR_RDPRT) != FLASH_OBR_RDPRT) { /* Check RDP level status            */
+        lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
+      }
+    #endif
+  #endif
 
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN
   for(int i = 0; i <= INT32_MAX;) {
