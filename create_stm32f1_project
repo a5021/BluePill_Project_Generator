@@ -971,12 +971,19 @@ cat <<MAIN_H >main.h
 
 #define MASK2POS(BIT_MASK)              __builtin_ctz(BIT_MASK)
 
+#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * (uint32_t)BIT)
+
 #define BB_MGET(RAM, BIT)               *(volatile uint32_t*)(SRAM_BB_BASE + 32 * ((uint32_t)((volatile void*)(RAM)) - SRAM_BASE) + 4 * ((uint32_t)(BIT)))
 #define BB_MWRT(RAM, BIT, VAL)          BB_MGET(RAM, BIT) = VAL
 #define BB_MSET(RAM, BIT)               BB_MWRT(RAM, BIT, 1)
 #define BB_MRES(RAM, BIT)               BB_MWRT(RAM, BIT, 0)
 
-#define BB_RGET(REG, BIT)               *(volatile uint32_t*)(PERIPH_BB_BASE + 32 * ((uint32_t)(&(REG)) - PERIPH_BASE) + 4 * ((uint32_t)(BIT)))
+// #define BB_RGET(REG, BIT)               *(volatile uint32_t*)(PERIPH_BB_BASE + 32 * ((uint32_t)(&(REG)) - PERIPH_BASE) + 4 * ((uint32_t)(BIT)))
+
+#define WRITE_BIT(REG, BIT, VAL)        GET_BIT(PERIPH, REG, BIT) = VAL
+#define BSET_BIT(REG, BIT)              WRITE_BIT(REG, BIT, 1)
+#define BRESET_BIT(REG, BIT)            WRITE_BIT(REG, BIT, 0)
+
 #define BB_RWRT(REG, BIT, VAL)          BB_RGET(REG, BIT) = VAL
 #define BB_RSET(REG, BIT)               BB_RWRT(REG, BIT, 1)
 #define BB_RRES(REG, BIT)               BB_RWRT(REG, BIT, 0)
