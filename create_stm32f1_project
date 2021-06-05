@@ -971,7 +971,7 @@ cat <<MAIN_H >main.h
 
 #define MASK2POS(BIT_MASK)              __builtin_ctz(BIT_MASK)
 
-#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * (uint32_t)BIT)
+#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * MASK2POS(BIT))
 
 #define READ_MEM_BIT(REG, BIT)          GET_BIT(SRAM, REG, BIT)
 #define WRITE_MEM_BIT(REG, BIT, VAL)    READ_MEM_BIT(REG, BIT) = VAL
@@ -1163,7 +1163,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 
   unsigned adc_get_bit(void) {
-    while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) {
+    while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) {
     }
     return ADC1->DR & 1;
   }
@@ -1190,31 +1190,31 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
 
-      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
+      while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
       temp_data += ADC1->DR;
     }
 
-    CLEAR_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
+    CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     temp_data /= ADC_SAMPLE_COUNT;
-    while (ADC1->CR2 & ADC_CR2_ADON) { }
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 17);
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
     for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
 
-      while ((ADC1->SR & ADC_SR_EOC) != ADC_SR_EOC) { }
+      while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
       vcc_data += ADC1->DR;
     }
 
-    CLEAR_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
+    CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     vcc_data /= ADC_SAMPLE_COUNT;
-    while (ADC1->CR2 & ADC_CR2_ADON) { }
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 16);
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
     unsigned vcc = 1200UL * 4095UL / vcc_data;
     int temp = temp_data * vcc / 4095L;
@@ -1275,11 +1275,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define SPI_EN                        1
 
   __STATIC_INLINE char spi_xfer(char d) {
-    while((SPI1->SR & SPI_SR_TXE) != SPI_SR_TXE) {
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE)) {
       /* wait until spi transfer completes */
     }
     *((__IO char *)&SPI1->DR) = d;
-    while((SPI1->SR & SPI_SR_RXNE) != SPI_SR_RXNE) {
+    while(!READ_REG_BIT(SPI1->SR & SPI_SR_RXNE)) {
       /* wait until spi transfer completes */
     }
     return *(__IO char *)&SPI1->DR;
@@ -1381,9 +1381,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     1) UNLOCK THE FLASH
     ========================================================= */
 
-    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+    while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
 
-    if ((FLASH->CR & FLASH_CR_LOCK) != 0) {                   /* Check the Flash is locked          */
+    if (READ_REG_BIT(FLASH->CR, FLASH_CR_LOCK)) {             /* Check the Flash is locked          */
       FLASH->KEYR = FLASH_KEY1;                               /* Perform unlock sequence            */
       FLASH->KEYR = FLASH_KEY2;
     }
@@ -1391,21 +1391,21 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     2) ERASE THE DATA AREA
     ========================================================= */
 
-    SET_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_PER));           /* Enable page erasing mode           */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_PER);                     /* Enable page erasing mode           */
     FLASH->AR = FLASH_DATA_ADDR;                              /* Set page address                   */
-    SET_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_STRT));          /* Start the erasing                  */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_STRT);                    /* Start the erasing                  */
 
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* Wait till page be erased           */
-    CLEAR_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_PER));         /* Reset page erasing flag            */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR & FLASH_SR_EOP)) {/* */}   /* Wait till page be erased           */
+    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PER);                   /* Reset page erasing flag            */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
-    if ((FLASH->SR & FLASH_ERR) != 0) {
-      if ((FLASH->SR & FLASH_SR_WRPRTERR) != 0) {             /* Check Write protection error       */
+    if (READ_REG_BIT(FLASH->SR, FLASH_ERR)) {
+      if (READ_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR)) {       /* Check Write protection error       */
         status = FLASH_ERROR_WRITE_PROT;                      /* Report the error                   */
-        SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_WRPRTERR));  /* Clear the error flag               */
+        SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);            /* Clear the error flag               */
       } else {
         status = FLASH_ERROR_WRITE;                           /* Report the error                   */
-        SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_PGERR));     /* Clear the error flag               */
+        SET_REG_BIT(FLASH->SR, FLASH_SR_PGERR);               /* Clear the error flag               */
       }
       return status;                                          /* Break flashing                     */
     }
@@ -1424,30 +1424,30 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     __IO uint16_t* p = (__IO uint16_t*) FLASH_DATA_ADDR;
 
-    FLASH->CR |= FLASH_CR_PG;                                 /* Enable programming mode            */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_PG);                      /* Enable programming mode            */
     for (unsigned i = 0; i < len / 2; i++) {                  /* Start writing cycle                */
 
       *p = src[i];                                            /* Write 16 bits data                 */
 
-      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* Wait till the operation completes  */
-      FLASH->SR |= FLASH_SR_EOP;                              /* clear OPERATION COMPLETE flag      */
+      while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}  /* Wait till the operation completes  */
+      SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
 
-      if ((FLASH->SR & FLASH_ERR) != 0) {
-        if ((FLASH->SR & FLASH_SR_WRPRTERR) != 0) {           /* Check for write protection error   */
+      if (READ_REG_BIT(FLASH->SR, FLASH_ERR)) {
+        if (READ_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR)) {     /* Check for write protection error   */
           status = FLASH_ERROR_WRITE_PROT;                    /* Report the error                   */
-          SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_WRPRTERR));/* Clear the error flag               */
+          SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);           /* Clear the error flag               */
         } else {
           status = FLASH_ERROR_WRITE;                         /* Report the error                   */
-          SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_PGERR));   /* Clear the error flag               */
+          SET_REG_BIT(FLASH->SR, FLASH_SR_PGERR);             /* Clear the error flag               */
         }
-        CLEAR_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_PG));      /* Disable programming                */
+        CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PG);                /* Disable programming                */
         return status;                                        /* Break flashing                     */
       }
 
       p++;                                                    /* Next address to write data to      */
     }
 
-    CLEAR_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_PG));          /* Disable programming                */
+    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PG);                    /* Disable programming                */
     return !FLASH_ERROR;                                      /* Return success                     */
   }
 
@@ -1456,7 +1456,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE void __attribute__((noreturn)) lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
 
-    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+    while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
 
     FLASH->KEYR = FLASH_KEY1;                                 /* Perform FLASH unlock sequence      */
     FLASH->KEYR = FLASH_KEY2;
@@ -1464,24 +1464,24 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     FLASH->OPTKEYR = FLASH_OPTKEY1;                           /* Perform OPT BYTE unlock sequence   */
     FLASH->OPTKEYR = FLASH_OPTKEY2;
 
-    SET_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_OPTER));         /* Enable OPT BYTE erasing operation  */
-    SET_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_STRT));          /* Start erasing..                    */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_OPTER);                   /* Enable OPT BYTE erasing operation  */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_STRT);                    /* Start erasing..                    */
 
-    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+    while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
 
-    CLEAR_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_OPTER));       /* Disable OPT BYTE erase operation   */
-    SET_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_OPTPG));         /* Enable OPT BYTE programming op.    */
+    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_OPTER);                 /* Disable OPT BYTE erase operation   */
+    SET_REG_BIT(FLASH->CR, FLASH_CR_OPTPG);                   /* Enable OPT BYTE programming op.    */
 
     if (ud_0 != NULL) {                                       /* if user byte #0 is passed          */
       OB->Data0 = *ud_0;                                      /* write it to OPT BYTE               */
-      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* wait until write op completes      */
-      SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));         /* clear OPERATION COMPLETE flag      */
+      while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}  /* wait until write op completes      */
+      SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
     }
 
     if (ud_1 != NULL) {                                       /* if user byte #0 is passed          */
       OB->Data1 = *ud_1;                                      /* write it to OPT BYTE               */
-      while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}         /* wait until write op completes      */
-      SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));         /* clear OPERATION COMPLETE flag      */
+      while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}  /* wait until write op completes      */
+      SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
     }
                                                                                                     /*
       For medium-density devices, one bit of the user option bytes WRPx is used to
@@ -1496,27 +1496,27 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       WRP3: Write-protects pages 96 to 127
                                                                                                     */
     OB->WRP0 = (uint16_t)0x00;                                /* write-protect pages 0 to 31        */
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* wait until write op completes      */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
     OB->WRP1 = (uint16_t)0x00;                                /* write-protect pages 32 to 63       */
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* wait until write op completes      */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
     OB->WRP2 = (uint16_t)0x00;                                /* write-protect pages 64 to 95       */
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* wait until write op completes      */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
     OB->WRP3 = (uint16_t)0x80;                                /* write-protect pages 96 to 127      */
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* wait until write op completes      */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
     OB->RDP = OB_RDP_LEVEL_1;                                 /* Enable read out protection         */
-    while ((FLASH->SR & FLASH_SR_EOP) == 0) {/* */}           /* wait until write op completes      */
-    SET_REG_BIT(FLASH->SR, MASK2POS(FLASH_SR_EOP));           /* clear OPERATION COMPLETE flag      */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* wait until write op completes      */
+    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
-    CLEAR_REG_BIT(FLASH->CR, MASK2POS(FLASH_CR_OPTPG));       /* Disable OPT BYTE programming op.   */
-    while ((FLASH->SR & FLASH_SR_BSY) != 0) {/* */}           /* Wait till no operation is on going */
+    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_OPTPG);                 /* Disable OPT BYTE programming op.   */
+    while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
 
     NVIC_SystemReset();                                       /* Reboot                             */
   }
@@ -1649,8 +1649,8 @@ __STATIC_INLINE void init(void) {
   );
 
   #if HSE_EN
-    RCC->CR = RCC_CR_HSEON;                                   /* Switch HSE on                      */
-    while((RCC->CR & RCC_CR_HSERDY) == 0) {/* NO OP */}       /* Wait until HSE becomes ready       */
+    SET_REG_BIT(RCC->CR, RCC_CR_HSEON);                       /* Switch HSE on                      */
+    while(!READ_REG_BIT(RCC->CR, RCC_CR_HSERDY)) {/* */}      /* Wait until HSE becomes ready       */
 
     #if defined OVRCLK && OVRCLK != 0
       #define RCC_CFGR (                                      /* 112 MHz:                           */\\
@@ -1679,7 +1679,7 @@ __STATIC_INLINE void init(void) {
 
     RCC->CFGR = RCC_CFGR;                                     /* Configure PLL                      */
     RCC->CR = RCC_CR;                                         /* Switch PLL on                      */
-    while((RCC->CR & RCC_CR_PLLRDY) == 0) { /* NO OP */}      /* Wait until PLL becomes ready       */
+    while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) { /* */}     /* Wait until PLL becomes ready       */
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
     RCC->CFGR = (
       RCC_CFGR             |
@@ -1744,9 +1744,9 @@ __STATIC_INLINE void init(void) {
                                                                  state for at least two ADC clock
                                                                  cycles.                            */
 
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_CAL));            /* Start ADC1 calibration             */
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_CAL);                      /* Start ADC1 calibration             */
 
-    while (ADC1->CR2 & ADC_CR2_CAL) {
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_CAL)) {
       /* Wait until ADC calibration completes */
     }
 
@@ -1763,7 +1763,7 @@ __STATIC_INLINE void init(void) {
       If any other bit in this register apart from ADON is changed at the same time,
       then conversion is not triggered. This is to prevent triggering an erroneous conversion.      */
 
-    SET_REG_BIT(ADC1->CR2, MASK2POS(ADC_CR2_ADON));           /* Start continuous conversion        */
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);                     /* Start continuous conversion        */
 
     #if RNG_EN
       unsigned rbits = 0;
@@ -2047,9 +2047,9 @@ __STATIC_INLINE void init(void) {
     /* (17) Enable RTC_IRQn                              */
 
 
-    SET_REG_BIT(EXTI->IMR, MASK2POS(EXTI_IMR_MR17));    /* (13) */
-    SET_REG_BIT(EXTI->RTSR, MASK2POS(EXTI_RTSR_TR17));  /* (14) */
-    SET_REG_BIT(EXTI->PR, MASK2POS(EXTI_PR_PR17));
+    SET_REG_BIT(EXTI->IMR, EXTI_IMR_MR17);       /* (13) */
+    SET_REG_BIT(EXTI->RTSR, EXTI_RTSR_TR17);     /* (14) */
+    SET_REG_BIT(EXTI->PR, EXTI_PR_PR17);
 
     NVIC_SetPriority(RTC_Alarm_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
     NVIC_ClearPendingIRQ(RTC_Alarm_IRQn);
@@ -2068,7 +2068,7 @@ __STATIC_INLINE void init(void) {
     #endif
 
     RCC->CSR = RCC_CSR_LSION;                 /*  Enable Internal Low Speed oscillator              */
-    while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) {
+    while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {
       /* wait until LSI oscillations become stable */
     }
     IWDG->KR = 0x5555;
@@ -2546,7 +2546,7 @@ int main(void) {
 
   #if FLASH_EN
     #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
-      if ((FLASH->OBR & FLASH_OBR_RDPRT) != FLASH_OBR_RDPRT) { /* Check RDP level status            */
+      if (!READ_REG_BIT(FLASH->OBR, FLASH_OBR_RDPRT)) {        /* Check RDP level status            */
         lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
       }
     #endif
@@ -2632,7 +2632,7 @@ int main(void) {
       #if RTC_EN
         if (rtc_flag & RTC_CRL_SECF) {
           // rtc_flag &= ~RTC_CRL_SECF;
-          CLEAR_MEM_BIT(rtc_flag, MASK2POS(RTC_CRL_SECF));
+          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
           j = 0;
         }
       #else
@@ -2661,19 +2661,15 @@ void SysTick_Handler(void) {
     btn[1][CURRENT] |= (READ_PIN(B, 1) == 0);
 
     if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
-      // key_state |= (1 << 0);
       SET_MEM_BIT(key_state, 0);
     }
     if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
-      //key_state |= (1 << 1);
       SET_MEM_BIT(key_state, 1);
     }
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
-      // key_state |= (1 << 16);
       SET_MEM_BIT(key_state, 16);
     }
     if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
-      // key_state |= (1 << 17);
       SET_MEM_BIT(key_state, 17);
     }
     btn[0][PREVIOUS] = btn[0][CURRENT];
@@ -2684,18 +2680,14 @@ void SysTick_Handler(void) {
 #if RTC_EN
   void RTC_IRQHandler(void) {                   /* RTC global interrupt handler  */
 
-    if (RTC->CRL & RTC_CRL_ALRF) {
-      // RTC->CRL &= ~RTC_CRL_ALRF;
-      CLEAR_REG_BIT(RTC->CRL, MASK2POS(RTC_CRL_ALRF));
-      // rtc_flag |= RTC_CRL_ALRF;
-      SET_MEM_BIT(rtc_flag, MASK2POS(RTC_CRL_ALRF));
+    if (READ_REG_BIT(RTC->CRL, RTC_CRL_ALRF)) {
+      CLEAR_REG_BIT(RTC->CRL, RTC_CRL_ALRF);
+      SET_MEM_BIT(rtc_flag, RTC_CRL_ALRF);
     }
 
-    if (RTC->CRL & RTC_CRL_SECF) {
-      // RTC->CRL &= ~RTC_CRL_SECF;
-      CLEAR_REG_BIT(RTC->CRL, MASK2POS(RTC_CRL_SECF));
-      // rtc_flag |= RTC_CRL_SECF;
-      SET_MEM_BIT(rtc_flag, MASK2POS(RTC_CRL_SECF));
+    if (READ_REG_BIT(RTC->CRL, RTC_CRL_SECF)) {
+      CLEAR_REG_BIT(RTC->CRL, RTC_CRL_SECF);
+      SET_MEM_BIT(rtc_flag, RTC_CRL_SECF);
     }
 
   }
@@ -2711,26 +2703,16 @@ void SysTick_Handler(void) {
 
 #if TIM2_EN
   void TIM2_IRQHandler(void) {
-    //if (TIM2->SR & TIM_SR_UIF) {
-    if (READ_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_UIF))) {
-      // TIM2->SR &= ~TIM_SR_UIF;
-      CLEAR_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_UIF));
-    //} else if (TIM2->SR & TIM_SR_CC1IF) {
-    } else if (READ_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC1IF))) {
-      // TIM2->SR &= ~TIM_SR_CC1IF;
-      CLEAR_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC1IF));
-    //} else if (TIM2->SR & TIM_SR_CC1IF) {
-    } else if (READ_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC2IF))) {
-      // TIM2->SR &= ~TIM_SR_CC2IF;
-      CLEAR_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC2IF));
-    //} else if (TIM2->SR & TIM_SR_CC3IF) {
-    } else if (READ_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC3IF))) {
-      // TIM2->SR &= ~TIM_SR_CC3IF;
-      CLEAR_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC3IF));
-    // } else if (TIM2->SR & TIM_SR_CC4IF) {
-    } else if (READ_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC4IF))) {
-      // TIM2->SR &= ~TIM_SR_CC4IF;
-      CLEAR_REG_BIT(TIM2->SR, MASK2POS(TIM_SR_CC4IF));
+    if (READ_REG_BIT(TIM2->SR, TIM_SR_UIF)) {
+      CLEAR_REG_BIT(TIM2->SR, TIM_SR_UIF);
+    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC1IF)) {
+      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC1IF);
+    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC2IF)) {
+      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC2IF);
+    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC3IF)) {
+      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC3IF);
+    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC4IF)) {
+      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC4IF);
     }
     tim2_counter++;
   }
@@ -2744,7 +2726,7 @@ void SysTick_Handler(void) {
 
 #if USE_EXTI
   void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
-    if (EXTI->PR & EXTI_PR_PR8) {
+    if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR8)) {
       EXTI->PR = EXTI_PR_PR8;
     }
   }
