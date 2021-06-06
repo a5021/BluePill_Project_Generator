@@ -969,9 +969,7 @@ cat <<MAIN_H >main.h
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
-#define MASK2POS(BIT_MASK)              __builtin_ctz(BIT_MASK)
-
-#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * MASK2POS(BIT))
+#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * __builtin_ctz(BIT))
 
 #define READ_MEM_BIT(REG, BIT)          GET_BIT(SRAM, REG, BIT)
 #define WRITE_MEM_BIT(REG, BIT, VAL)    READ_MEM_BIT(REG, BIT) = VAL
@@ -1245,26 +1243,14 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define I2C_SPEED_STANDARD            100000
   #define I2C_SPEED_FAST                400000
 
-  #if 0
-    #define I2C_SPEED_MODE              I2C_SPEED_STANDARD
+  #if !0
+    #define I2C_CCR                     (((APB1_CLK / I2C_SPEED_STANDARD / 2) & I2C_CCR_CCR) < 4U) ? 4U : APB1_CLK / I2C_SPEED_STANDARD / 2
+    #define I2C_TRISE                   APB1_CLK / 1000000 + 1
   #else
-    #define I2C_SPEED_MODE              I2C_SPEED_FAST
+    #define I2C_CCR                     (((APB1_CLK / I2C_SPEED_FAST / 3) & I2C_CCR_CCR) == 0U) ? 1U : APB1_CLK / I2C_SPEED_FAST / 3
+    #define I2C_TRISE                   3 * APB1_CLK / 10000000 + 1
   #endif
 
-  #define I2C_DUTY_CYCLE_2              0x00000000U                      /* I2C fast mode Tlow/Thigh = 2        */
-  #define I2C_DUTY_CYCLE_16_9           I2C_CCR_DUTY                     /* I2C fast mode Tlow/Thigh = 16/9     */
-
-  #define I2C_CONFIGURE_CCR(APB1_CLOCK, I2C_SPEED)                       (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD)? \\
-                                                                         (I2C_CONFIGURE_CCR_STANDARD((APB1_CLOCK), (I2C_SPEED))) : \\
-                                                                         (I2C_CONFIGURE_CCR_FAST((APB1_CLOCK), (I2C_SPEED), (I2C_DUTY_CYCLE_2))))
-
-  #define I2C_CONFIGURE_CCR_STANDARD(APB1_CLOCK, I2C_SPEED)              (uint32_t)(((((APB1_CLOCK)/((I2C_SPEED) << 1U)) & I2C_CCR_CCR) < 4U) ? 4U:((APB1_CLOCK) / ((I2C_SPEED) << 1U)))
-
-  #define I2C_CONFIGURE_CCR_FAST(APB1_CLOCK, I2C_SPEED, I2C_DUTY_CYCLE)  (uint32_t)(((I2C_DUTY_CYCLE) == I2C_DUTY_CYCLE_2) ? \\
-                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 3U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 3U))) : \\
-                                                                         (((((APB1_CLOCK) / ((I2C_SPEED) * 25U)) & I2C_CCR_CCR) == 0U) ? 1U:((APB1_CLOCK) / ((I2C_SPEED) * 25U))))
-
-  #define I2C_RISE_TIME(APB1_CLOCK, I2C_SPEED)                           (uint32_t)(((I2C_SPEED) <= I2C_SPEED_STANDARD) ? ((APB1_CLOCK) / 1000000 + 1) : ((((APB1_CLOCK) / 1000000) * 300) / 1000) + 1)
 #else
   #define I2C_EN                        0
 #endif
@@ -1279,7 +1265,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       /* wait until spi transfer completes */
     }
     *((__IO char *)&SPI1->DR) = d;
-    while(!READ_REG_BIT(SPI1->SR & SPI_SR_RXNE)) {
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_RXNE)) {
       /* wait until spi transfer completes */
     }
     return *(__IO char *)&SPI1->DR;
@@ -1712,18 +1698,17 @@ __STATIC_INLINE void init(void) {
                     SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
 
     #if !RTC_EN && !ADC_EN
-      #if 0
-      for(int i = 0; i < 12000; i++) {
-        RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
-        while((RCC->CSR & RCC_CSR_LSIRDY) != RCC_CSR_LSIRDY) { }
-        CRC->DR = SysTick->VAL;
-        RCC->CSR = 0;                                           /* Disable LSI oscillator             */
-        while((RCC->CSR & RCC_CSR_LSIRDY) == RCC_CSR_LSIRDY) { }
-        CRC->DR = SysTick->VAL;
+      for(int i = 0; i < 10000; i++) {
+
+        SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
+        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSION)) { }     /* wait till oscillator switches on   */
+        CRC->DR = SysTick->VAL;                               /* process counter                    */
+
+        CLEAR_REG_BIT(RCC->CSR, RCC_CSR_LSION);               /* Disable LSI oscillator             */
+        while(READ_REG_BIT(RCC->CSR, RCC_CSR_LSION)) { }      /* wait till oscillator switches off  */
+        CRC->DR = SysTick->VAL;                               /* process counter                    */
       }
-      #else
-        prnd();
-      #endif
+      prnd();
       srnd(CRC->DR);
     #endif
   #endif
@@ -1781,8 +1766,14 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if I2C_EN
+    #if 0
     I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE);  /* Write CCR when I2C is disabled     */
     I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);    /* Maximum rise time in Fm/Sm mode    */
+    #else
+    I2C1->CCR = I2C_CCR;                                      /* Write CCR when I2C is disabled     */
+    I2C1->TRISE = I2C_TRISE;                                  /* Maximum rise time in Fm/Sm mode    */
+    #endif
+
     I2C1->CR2 = APB1_CLK / 1000000;                           /* Configure Peripheral Clock Freq.   */
     I2C1->CR1 = I2C_CR1_PE;                                   /* Enable I2C1 Peripheral             */
   #endif
@@ -2030,7 +2021,8 @@ __STATIC_INLINE void init(void) {
 
     #if RNG_EN && !ADC_EN
       unsigned zx = rtc_read_counter();
-      srnd(zx);
+      CRC->DR = rtc_read_counter();
+      srnd(prnd());
     #endif
 
     NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
@@ -2630,8 +2622,7 @@ int main(void) {
       #endif
 
       #if RTC_EN
-        if (rtc_flag & RTC_CRL_SECF) {
-          // rtc_flag &= ~RTC_CRL_SECF;
+        if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
           CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
           j = 0;
         }
@@ -2655,22 +2646,20 @@ void SysTick_Handler(void) {
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
     static unsigned btn[TOTAL][TOTAL];
 
-    btn[0][CURRENT] <<= 1;
-    btn[0][CURRENT] |= (READ_PIN(B, 0) == 0);
-    btn[1][CURRENT] <<= 1;
-    btn[1][CURRENT] |= (READ_PIN(B, 1) == 0);
+    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, (1 << 0));
+    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, (1 << 1));
 
     if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(key_state, 0);
+      SET_MEM_BIT(key_state, (1 << 0));
     }
     if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(key_state, 1);
+      SET_MEM_BIT(key_state, (1 << 1));
     }
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
-      SET_MEM_BIT(key_state, 16);
+      SET_MEM_BIT(key_state, (1 << 16));
     }
     if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
-      SET_MEM_BIT(key_state, 17);
+      SET_MEM_BIT(key_state, (1 << 17));
     }
     btn[0][PREVIOUS] = btn[0][CURRENT];
     btn[1][PREVIOUS] = btn[1][CURRENT];
