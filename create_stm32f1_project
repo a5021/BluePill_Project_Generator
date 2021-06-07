@@ -1685,19 +1685,15 @@ __STATIC_INLINE void init(void) {
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
 
-  #if RTC_EN
-    unsigned is_rtc_enabled = ((RCC->BDCR & RCC_BDCR_RTCEN) == RCC_BDCR_RTCEN);
-  #endif
-
   #if RNG_EN
 
     extern void srnd(unsigned);
 
-    SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |              /* Start SysTick timer (HCLK / 8)     */
-                    SysTick_CTRL_CLKSOURCE_Msk |
-                    SysTick_CTRL_TICKINT_Msk;                 /* Enable SysTick exception request   */
-
     #if !RTC_EN && !ADC_EN
+      SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |            /* Start SysTick timer (HCLK / 8)     */
+                      SysTick_CTRL_CLKSOURCE_Msk |
+                      SysTick_CTRL_TICKINT_Msk;               /* Enable SysTick exception request   */
+
       for(int i = 0; i < 10000; i++) {
 
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
@@ -1722,7 +1718,7 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if ADC_EN
-    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_TSVREFE | ADC_CR2_CONT;/* ADC enable, VrefInt enable         */
+    ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_TSVREFE | ADC_CR2_CONT;/* ADC enable, VrefInt enable, count  */
 
     DELAY_MS(2);                                              /* Before starting a calibration,
                                                                  the ADC must have been in power-on
@@ -1933,13 +1929,16 @@ __STATIC_INLINE void init(void) {
 
   #endif
 
-  #if USE_RTC
+  #if defined USE_RTC && USE_RTC != 0
 
-    PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
+    // PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
+    SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain write prot.  */
 
     #if !LSE_EN && !HSE_EN
-      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+      SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                   /* Enable LSI oscillator              */
     #endif
+
+    unsigned is_rtc_enabled = READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);
 
     RCC->BDCR = (
       #if LSE_EN
@@ -1966,12 +1965,12 @@ __STATIC_INLINE void init(void) {
       RTCCLK cycles to complete.                                                                    */
 
     /* 1. */
-    while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
+    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
       /* wait until the last write operation completes */
     }
 
     /* 2. */
-    RTC->CRL = RTC_CRL_CNF;
+    SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);
 
     #if USE_LSE
       /* 3. */
@@ -2007,20 +2006,23 @@ __STATIC_INLINE void init(void) {
     );
 
     /* 4. The write operation is only executed when the CNF bit is reset by software after has been set. */
-    RTC->CRL = 0;
+    // RTC->CRL = 0;
+    CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);
 
     /* 5. */
-    while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
+    // while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
+    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
       /* wait until the last write operation completes */
     }
 
     /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
     #if USE_LSE || !USE_HSE
-      PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
+      // PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
+      CLEAR_REG_BIT(PWR->CR, PWR_CR_DBP);                     /* Restore Backup Domain write prot.  */
     #endif
 
     #if RNG_EN && !ADC_EN
-      unsigned zx = rtc_read_counter();
+      // unsigned zx = rtc_read_counter();
       CRC->DR = rtc_read_counter();
       srnd(prnd());
     #endif
@@ -2056,10 +2058,10 @@ __STATIC_INLINE void init(void) {
     #if RTC_EN && !LSE_EN && !HSE_EN
       /* */
     #else
-      RCC->CSR = RCC_CSR_LSION;                               /* Enable LSI oscillator              */
+      SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                   /* Enable LSI oscillator              */
     #endif
 
-    RCC->CSR = RCC_CSR_LSION;                 /*  Enable Internal Low Speed oscillator              */
+    // RCC->CSR = RCC_CSR_LSION;                 /*  Enable Internal Low Speed oscillator              */
     while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {
       /* wait until LSI oscillations become stable */
     }
@@ -2348,7 +2350,7 @@ __STATIC_INLINE void init(void) {
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
     /*** Send char using USART1 ***/
-    while (!(USART1->SR & USART_SR_TXE)) {}                 /* Wait until TX register becomes empty */
+    while (!READ_REG_BIT(USART1->SR, USART_SR_TXE)) {}                 /* Wait until TX register becomes empty */
     USART1->DR = c;
   }
 
