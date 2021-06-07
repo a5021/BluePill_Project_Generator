@@ -1381,7 +1381,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     FLASH->AR = FLASH_DATA_ADDR;                              /* Set page address                   */
     SET_REG_BIT(FLASH->CR, FLASH_CR_STRT);                    /* Start the erasing                  */
 
-    while (!READ_REG_BIT(FLASH->SR & FLASH_SR_EOP)) {/* */}   /* Wait till page be erased           */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}   /* Wait till page be erased           */
     CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PER);                   /* Reset page erasing flag            */
     SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
@@ -1757,19 +1757,14 @@ __STATIC_INLINE void init(void) {
     #if 0
       /* ADC1 interrupt Init */
       NVIC_SetPriority(ADC1_2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+      NVIC_ClearPendingIRQ(ADC1_2_IRQn);
       NVIC_EnableIRQ(ADC1_2_IRQn);
     #endif
   #endif
 
   #if I2C_EN
-    #if 0
-    I2C1->CCR = I2C_CONFIGURE_CCR(APB1_CLK, I2C_SPEED_MODE);  /* Write CCR when I2C is disabled     */
-    I2C1->TRISE = I2C_RISE_TIME(APB1_CLK, I2C_SPEED_MODE);    /* Maximum rise time in Fm/Sm mode    */
-    #else
     I2C1->CCR = I2C_CCR;                                      /* Write CCR when I2C is disabled     */
     I2C1->TRISE = I2C_TRISE;                                  /* Maximum rise time in Fm/Sm mode    */
-    #endif
-
     I2C1->CR2 = APB1_CLK / 1000000;                           /* Configure Peripheral Clock Freq.   */
     I2C1->CR1 = I2C_CR1_PE;                                   /* Enable I2C1 Peripheral             */
   #endif
@@ -1931,7 +1926,6 @@ __STATIC_INLINE void init(void) {
 
   #if defined USE_RTC && USE_RTC != 0
 
-    // PWR->CR = PWR_CR_DBP;                                     /* Disable Backup Domain write prot.  */
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain write prot.  */
 
     #if !LSE_EN && !HSE_EN
@@ -2028,6 +2022,7 @@ __STATIC_INLINE void init(void) {
     #endif
 
     NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_ClearPendingIRQ(RTC_IRQn);
     NVIC_EnableIRQ(RTC_IRQn);
 
     /* EXTI line 17 is connected to the RTC Alarm event  */
@@ -2342,6 +2337,7 @@ __STATIC_INLINE void init(void) {
     #endif
 
     NVIC_SetPriority(EXTI9_5_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
     NVIC_EnableIRQ(EXTI9_5_IRQn);
   #endif
 
