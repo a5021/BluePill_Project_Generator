@@ -44,11 +44,8 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
       cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
-
   <SchemaVersion>2.1</SchemaVersion>
-
   <Header>### uVision Project, (C) Keil Software</Header>
-
   <Targets>
     <Target>
       <TargetName>Debug</TargetName>
@@ -853,13 +850,11 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
       </Groups>
     </Target>
   </Targets>
-
   <RTE>
     <apis/>
     <components/>
     <files/>
   </RTE>
-
 </Project>
 MDK_CONFIG
   cd ..
@@ -905,7 +900,7 @@ cat <<MAIN_H >main.h
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
 /* *********************************************************************************** */
-/* **********  or force using them while running make utility  *********************** */
+/* ****************  or use them while running make utility  ************************* */
 /* *********************************************************************************** */
 
 
@@ -1430,7 +1425,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
         CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PG);                /* Disable programming                */
         return status;                                        /* Break flashing                     */
       }
-
       p++;                                                    /* Next address to write data to      */
     }
 
@@ -1545,15 +1539,15 @@ __STATIC_INLINE void init(void) {
   #define IOPA_EN (PORT_A_CONFIG != 0)
 
   #define PORT_B_CONFIG (                         \\
-    BTN_EN   * PIN_CFG(0,  I_PULL)                |           /* PB0:  input, pull-up               */\\
-    BTN_EN   * PIN_CFG(1,  I_PULL)                |           /* PB1:  input, pull-up               */\\
+    BTN_EN   * PIN_CFG(0,  I_PULL)                |           /* PB0:  BUTTON 1, input, pull-up     */\\
+    BTN_EN   * PIN_CFG(1,  I_PULL)                |           /* PB1:  BUTTON 2, input, pull-up     */\\
     I2C_EN   * PIN_CFG(6,  O_AF + O_OD + O_10MHZ) |           /* PB6:  I2C1 SCL, altern, open drain */\\
     I2C_EN   * PIN_CFG(7,  O_AF + O_OD + O_10MHZ)             /* PB7:  I2C1 SDA, altern, open drain */\\
   )
 
   #define PORT_B_STATE (                          \\
-    BTN_EN   * PULL_UP(0)                         |           /* Pull-up PB0 pin                    */\\
-    BTN_EN   * PULL_UP(1)                                     /* Pull-up PB1 pin                    */\\
+    BTN_EN   * PULL_UP(0)                         |           /* Pull-up PB0 pin (BUTTON 1)         */\\
+    BTN_EN   * PULL_UP(1)                                     /* Pull-up PB1 pin (BUTTON 2)         */\\
   )
 
   #define IOPB_EN (PORT_B_CONFIG != 0)
@@ -2090,6 +2084,10 @@ __STATIC_INLINE void init(void) {
   #else
     #define IWDG_EN 0
   #endif /* USE_IWDG */
+
+  #if WWDG_EN
+
+  #endif
 
   #if EXTI_EN
 
@@ -2718,13 +2716,18 @@ void SysTick_Handler(void) {
   }
 #endif
 
-#if USE_EXTI
+#if EXTI_EN
   void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
     if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR8)) {
       EXTI->PR = EXTI_PR_PR8;
     }
   }
+#endif
 
+#if WWDG_EN
+  void WWDG_IRQHandler(void) {
+    /* =//=//=//=//=//=  */
+  }
 #endif
 
 void __attribute__((noreturn)) HardFault_Handler(void) {
