@@ -900,7 +900,7 @@ cat <<MAIN_H >main.h
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
 /* *********************************************************************************** */
-/* ****************  or use them while running make utility  ************************* */
+/* ******************  or use it as make utility options  **************************** */
 /* *********************************************************************************** */
 
 
@@ -1006,6 +1006,42 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define LSE_EN                        0
 #endif
 
+#if defined(USE_BTN) && (USE_BTN != 0)
+  #define BTN_EN                        1
+#else
+  #define BTN_EN                        0
+#endif
+
+#if defined(USE_TIM2) && (USE_TIM2 != 0)
+  #define TIM2_EN                       1
+#else
+  #define TIM2_EN                       0
+#endif
+
+#if defined(USE_EXTI) && (USE_EXTI != 0)
+  #define EXTI_EN                       1
+#else
+  #define EXTI_EN                       0
+#endif
+
+#if defined USE_IWDG && USE_IWDG != 0
+  #define IWDG_EN 1
+#else
+  #define IWDG_EN 0
+#endif
+
+#if defined USE_WWDG && USE_WWDG != 0
+  #define WWDG_EN 1
+#else
+  #define WWDG_EN 0
+#endif
+
+#if defined(USE_SWD) && (USE_SWD != 0)
+  #define SWD_EN                        1
+#else
+  #define SWD_EN                        0
+#endif
+
 #if defined(USE_RTC) && (USE_RTC != 0)
   #define RTC_EN                        1
 
@@ -1107,12 +1143,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 #else
   #define RTC_EN                        0
-#endif
-
-#if defined(USE_SWD) && (USE_SWD != 0)
-  #define SWD_EN                        1
-#else
-  #define SWD_EN                        0
 #endif
 
 #if defined(USE_ADC) && (USE_ADC != 0)
@@ -1228,12 +1258,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define USART_EN                      0
 #endif
 
-#if defined(USE_BTN) && (USE_BTN != 0)
-  #define BTN_EN                        1
-#else
-  #define BTN_EN                        0
-#endif
-
 #if defined(USE_I2C) && (USE_I2C != 0)
   #define I2C_EN                        1
   #define I2C_SPEED_STANDARD            100000
@@ -1250,7 +1274,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #else
   #define I2C_EN                        0
 #endif
-
 
 #if defined(USE_SPI) && (USE_SPI != 0)
 
@@ -1275,13 +1298,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 #else
   #define SPI_EN                        0
-#endif
-
-
-#if defined(USE_TIM2) && (USE_TIM2 != 0)
-  #define TIM2_EN                       1
-#else
-  #define TIM2_EN                       0
 #endif
 
 #if defined(USE_CRC) && (USE_CRC != 0)
@@ -1332,12 +1348,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 #else
   #define RNG_EN                        0
-#endif
-
-#if defined(USE_EXTI) && (USE_EXTI != 0)
-  #define EXTI_EN                       1
-#else
-  #define EXTI_EN                       0
 #endif
 
 #if defined(USE_FLASH) && (USE_FLASH != 0)
@@ -1503,12 +1513,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 #else
   #define FLASH_EN                      0
-#endif
-
-#if defined USE_WWDG && USE_WWDG != 0
-  #define WWDG_EN 1
-#else
-  #define WWDG_EN 0
 #endif
 
 
@@ -2001,23 +2005,19 @@ __STATIC_INLINE void init(void) {
     );
 
     /* 4. The write operation is only executed when the CNF bit is reset by software after has been set. */
-    // RTC->CRL = 0;
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);
 
     /* 5. */
-    // while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
     while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
       /* wait until the last write operation completes */
     }
 
     /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
     #if USE_LSE || !USE_HSE
-      // PWR->CR = 0;                                            /* Restore Backup Domain write prot.  */
       CLEAR_REG_BIT(PWR->CR, PWR_CR_DBP);                     /* Restore Backup Domain write prot.  */
     #endif
 
     #if RNG_EN && !ADC_EN
-      // unsigned zx = rtc_read_counter();
       CRC->DR = rtc_read_counter();
       srnd(prnd());
     #endif
@@ -2047,9 +2047,7 @@ __STATIC_INLINE void init(void) {
 
   #endif /* USE_RTC */
 
-  #if USE_IWDG
-
-    #define IWDG_EN 1
+  #if IWDG_EN
 
     #if RTC_EN && !LSE_EN && !HSE_EN
       /* */
@@ -2081,13 +2079,7 @@ __STATIC_INLINE void init(void) {
     IWDG->RLR = 0xFFF;
 
     IWDG->KR = 0xCCCC;                                        /*  Start the watchdog                */
-  #else
-    #define IWDG_EN 0
-  #endif /* USE_IWDG */
-
-  #if WWDG_EN
-
-  #endif
+  #endif /* IWDG_EN */
 
   #if EXTI_EN
 
@@ -2346,7 +2338,7 @@ __STATIC_INLINE void init(void) {
     NVIC_EnableIRQ(EXTI9_5_IRQn);
   #endif
 
-}
+}  /* void init(void) */
 
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
@@ -2530,10 +2522,10 @@ cat <<MAIN_C >main.c
   static unsigned adc_data;
 #endif
 
-
-int rnd(void);             /* Get pseudo-random number            */
-void srnd(unsigned seed);  /* Seed pseudo-random number generator */
-
+#if RNG_EN
+  int rnd(void);             /* Get pseudo-random number            */
+  void srnd(unsigned seed);  /* Seed pseudo-random number generator */
+#endif
 
 int main(void) {
 
@@ -2547,15 +2539,21 @@ int main(void) {
     #endif
   #endif
 
-#if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN
+#if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
   for(int i = 0; i <= INT32_MAX;) {
     union {
       char pbuf[160];
       unsigned ubuf[sizeof(160/sizeof(unsigned))];
     } z;
-    i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
+    #if RNG_EN
+      i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
+    #else
+      static char loop_counter;
+      i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", ++loop_counter);
+    #endif
 #else
   for(;;) {
+    #define VOID_LOOP
 #endif
 
     #if I2C_EN
@@ -2617,22 +2615,30 @@ int main(void) {
       IWDG->KR = 0xAAAA;
     #endif
 
-    int j = 1000;
-    do {
+    #if !defined VOID_LOOP
+      int j = 1000;
+      do {
 
-      #if ADC_EN
-        adc_data = (adc_data << 1) | adc_get_random_bit();
-      #endif
+        #if ADC_EN
+          adc_data = (adc_data << 1) | adc_get_random_bit();
+        #endif
 
-      #if RTC_EN
-        if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
-          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
-          j = 0;
+        #if RTC_EN
+          if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
+            CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
+            j = 0;
+          }
+        #else
+          j -= GET_TICK();
+        #endif
+      } while(j);
+    #else
+      #ifdef WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < 100) {
+          /* RESET WWDG */
         }
-      #else
-        j -= GET_TICK();
       #endif
-    } while(j);
+    #endif
   }
 
   return 0;
@@ -2730,26 +2736,30 @@ void SysTick_Handler(void) {
   }
 #endif
 
-void __attribute__((noreturn)) HardFault_Handler(void) {
-  for(;;) {
-    SW_PIN(C, 13, DOWN);
-    DELAY_MS(60);
-    SW_PIN(C, 13, UP);
-    DELAY_MS(60);
+#if !defined NO_HF_IRQ
+  void __attribute__((noreturn)) HardFault_Handler(void) {
+    for(;;) {
+      SW_PIN(C, 13, DOWN);
+      DELAY_MS(60);
+      SW_PIN(C, 13, UP);
+      DELAY_MS(60);
+    }
   }
-}
+#endif
 
-static unsigned rnext;
+#if RNG_EN
+  static unsigned rnext;
 
-int rnd(void) {
-  rnext = rnext * 1103515245 + 12345;
-  return rnext / 65536 % 32768;
-}
+  int rnd(void) {
+    rnext = rnext * 1103515245 + 12345;
+    return rnext / 65536 % 32768;
+  }
 
 
-void srnd(unsigned seed) {
-  rnext = seed;
-}
+  void srnd(unsigned seed) {
+    rnext = seed;
+  }
+#endif
 
 MAIN_C
 
