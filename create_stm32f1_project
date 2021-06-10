@@ -900,9 +900,8 @@ cat <<MAIN_H >main.h
   #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
 #endif                                     /*                                          */
 /* *********************************************************************************** */
-/* ******************  or use it as make utility options  **************************** */
+/* **********  or use it as command line parameters for make utility  **************** */
 /* *********************************************************************************** */
-
 
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
 
@@ -1000,25 +999,31 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define HSE_EN                        0
 #endif
 
-#if defined(USE_LSE) && (USE_LSE != 0)
+#if defined USE_PLL && USE_PLL != 0
+  #define PLL_EN                        1
+#else
+  #define PLL_EN                        0
+#endif
+
+#if defined USE_LSE && USE_LSE != 0
   #define LSE_EN                        1
 #else
   #define LSE_EN                        0
 #endif
 
-#if defined(USE_BTN) && (USE_BTN != 0)
+#if defined USE_BTN && USE_BTN != 0
   #define BTN_EN                        1
 #else
   #define BTN_EN                        0
 #endif
 
-#if defined(USE_TIM2) && (USE_TIM2 != 0)
+#if defined USE_TIM2 && USE_TIM2 != 0
   #define TIM2_EN                       1
 #else
   #define TIM2_EN                       0
 #endif
 
-#if defined(USE_EXTI) && (USE_EXTI != 0)
+#if defined USE_EXTI && USE_EXTI != 0
   #define EXTI_EN                       1
 #else
   #define EXTI_EN                       0
@@ -1036,13 +1041,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define WWDG_EN 0
 #endif
 
-#if defined(USE_SWD) && (USE_SWD != 0)
+#if defined USE_SWD && USE_SWD != 0
   #define SWD_EN                        1
 #else
   #define SWD_EN                        0
 #endif
 
-#if defined(USE_RTC) && (USE_RTC != 0)
+#if defined USE_RTC && USE_RTC != 0
   #define RTC_EN                        1
 
   __STATIC_INLINE unsigned rtc_read_counter(void) {
@@ -1134,7 +1139,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     }
 
     /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
-    #if USE_LSE || !USE_HSE
+    #if LSE_EN || !HSE_EN
       PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
     #endif
 
@@ -1145,7 +1150,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define RTC_EN                        0
 #endif
 
-#if defined(USE_ADC) && (USE_ADC != 0)
+#if defined USE_ADC && USE_ADC != 0
 
   #define ADC_EN                        1
 
@@ -1186,14 +1191,14 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define ADC_SMPR2(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
 
 
-  unsigned adc_get_bit(void) {
+  __STATIC_INLINE unsigned adc_get_bit(void) {
     while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) {
     }
-    return ADC1->DR & 1;
+    return READ_REG_BIT(ADC1->DR, 1);
   }
 
 
-  unsigned adc_get_random_bit(void) {
+  __STATIC_INLINE unsigned adc_get_random_bit(void) {
     unsigned a;
     do {
       a = adc_get_bit();
@@ -1251,14 +1256,14 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define ADC_EN                        0
 #endif
 
-#if defined(USE_USART) && (USE_USART != 0)
+#if defined USE_USART && USE_USART != 0
   #define USART_EN                      1
   #define BAUDRATE 115200
 #else
   #define USART_EN                      0
 #endif
 
-#if defined(USE_I2C) && (USE_I2C != 0)
+#if defined USE_I2C && USE_I2C != 0
   #define I2C_EN                        1
   #define I2C_SPEED_STANDARD            100000
   #define I2C_SPEED_FAST                400000
@@ -1275,7 +1280,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define I2C_EN                        0
 #endif
 
-#if defined(USE_SPI) && (USE_SPI != 0)
+#if defined USE_SPI && USE_SPI != 0
 
   #define SPI_EN                        1
 
@@ -1300,7 +1305,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define SPI_EN                        0
 #endif
 
-#if defined(USE_CRC) && (USE_CRC != 0)
+#if defined USE_CRC && USE_CRC != 0
   #define CRC_EN                        1
   __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
 
@@ -1323,7 +1328,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define CRC_EN                        0
 #endif
 
-#if defined(USE_RNG) && (USE_RNG != 0)
+#if defined USE_RNG && USE_RNG != 0
 
   #define RNG_EN                        1
 
@@ -1350,7 +1355,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define RNG_EN                        0
 #endif
 
-#if defined(USE_FLASH) && (USE_FLASH != 0)
+#if defined USE_FLASH && USE_FLASH != 0
 
   #define FLASH_EN                      1
 
@@ -1666,7 +1671,7 @@ __STATIC_INLINE void init(void) {
     #define HCLK     64000000UL
   #endif
 
-  #if defined USE_PLL && USE_PLL != 0
+  #if PLL_EN
 
     RCC->CFGR = RCC_CFGR;                                     /* Configure PLL                      */
     RCC->CR = RCC_CR;                                         /* Switch PLL on                      */
@@ -1929,7 +1934,7 @@ __STATIC_INLINE void init(void) {
 
   #endif
 
-  #if defined USE_RTC && USE_RTC != 0
+  #if RTC_EN
 
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain write prot.  */
 
@@ -2013,7 +2018,7 @@ __STATIC_INLINE void init(void) {
     }
 
     /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
-    #if USE_LSE || !USE_HSE
+    #if LSE_EN || !HSE_EN
       CLEAR_REG_BIT(PWR->CR, PWR_CR_DBP);                     /* Restore Backup Domain write prot.  */
     #endif
 
@@ -2055,7 +2060,6 @@ __STATIC_INLINE void init(void) {
       SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                   /* Enable LSI oscillator              */
     #endif
 
-    // RCC->CSR = RCC_CSR_LSION;                 /*  Enable Internal Low Speed oscillator              */
     while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {
       /* wait until LSI oscillations become stable */
     }
@@ -2340,6 +2344,8 @@ __STATIC_INLINE void init(void) {
 
 }  /* void init(void) */
 
+#define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
+
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
     /*** Send char using USART1 ***/
@@ -2353,8 +2359,6 @@ __STATIC_INLINE void init(void) {
       uputc(*c++);
     }
   }
-
-  #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
 
   __STATIC_INLINE void uput_x(const uint8_t c) {
     /*** Convert a nibble to HEX and send it via UART ***/
