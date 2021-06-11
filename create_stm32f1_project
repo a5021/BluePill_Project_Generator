@@ -1050,6 +1050,62 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #if defined USE_RTC && USE_RTC != 0
   #define RTC_EN                        1
 
+  typedef struct{
+    uint16_t year;
+    uint8_t  month;
+    uint8_t  day;
+    uint8_t  wday;
+    uint8_t  hour;
+    uint8_t  minute;
+    uint8_t  second;
+  } time_struct_t;
+
+  /* http://we.easyelectronics.ru/Soft/funkcii-kalendarya-i-vremeni-na-odnom-registre.html */
+  #if 0
+    #define JD0 2451911
+  #else
+    /* #define JD0 2440587 */
+    #define JD0 2440588
+  #endif
+
+  __STATIC_INLINE unsigned time_to_unixtime(time_struct_t * t) {
+
+    uint8_t a = (14 - t->month) / 12;
+    uint16_t y = t->year + 4800 - a;
+    uint8_t m = t->month + (12 * a) - 3;
+    uint32_t counter = t->day;
+
+    counter += (153 * m + 2) / 5;
+    counter += 365 * y;
+    counter += y / 4;
+    counter -= y / 100;
+    counter += y / 400;
+    counter -= 32045;
+    counter -= JD0;
+    counter *= 86400;
+    counter += (t->hour * 3600);
+    counter += (t->minute * 60);
+    counter += (t->second);
+
+    return counter;
+  }
+
+  __STATIC_INLINE void unixtime_to_time(uint32_t utime, time_struct_t * t) {
+
+    uint32_t ace = (utime / 86400) + 32044 + JD0;
+    uint32_t b = (4 * ace + 3) / 146097;
+    ace = ace - ((146097 * b) / 4);
+    uint32_t d = (4 * ace + 3) / 1461;
+    ace = ace - ((1461 * d) / 4);
+    uint32_t m = (5 * ace + 2) / 153;
+    t->day = (uint8_t)(ace - ((153 * m + 2) / 5) + 1);
+    t->month = (uint8_t) (m + 3 - (12 * (m / 10)));
+    t->year = (uint16_t) (100 * b + d - 4800 + (m / 10));
+    t->hour = (utime / 3600) % 24;
+    t->minute = (utime / 60) % 60;
+    t->second = (utime % 60);
+  }
+
   __STATIC_INLINE unsigned rtc_read_counter(void) {
     unsigned a = RTC->CNTH, b = RTC->CNTL, c = RTC->CNTH;
 
