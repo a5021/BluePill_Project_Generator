@@ -1822,7 +1822,7 @@ __STATIC_INLINE void init(void) {
 
     #if 0
       /* ADC1 interrupt Init */
-      NVIC_SetPriority(ADC1_2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+      NVIC_SetPriority(ADC1_2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
       NVIC_ClearPendingIRQ(ADC1_2_IRQn);
       NVIC_EnableIRQ(ADC1_2_IRQn);
     #endif
@@ -1937,7 +1937,7 @@ __STATIC_INLINE void init(void) {
       0 * TIM_CCER_CC4P         /* (1 << 13)  Capture/Compare 4 output Polarity         0x00002000  */\\
     )
 
-    NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_SetPriority(TIM2_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
     NVIC_ClearPendingIRQ(TIM2_IRQn);
     NVIC_EnableIRQ(TIM2_IRQn);                                /* Enable TIM2 Interrupt              */
 
@@ -2083,7 +2083,7 @@ __STATIC_INLINE void init(void) {
       srnd(prnd());
     #endif
 
-    NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_SetPriority(RTC_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
     NVIC_ClearPendingIRQ(RTC_IRQn);
     NVIC_EnableIRQ(RTC_IRQn);
 
@@ -2102,7 +2102,7 @@ __STATIC_INLINE void init(void) {
     SET_REG_BIT(EXTI->RTSR, EXTI_RTSR_TR17);     /* (14) */
     SET_REG_BIT(EXTI->PR, EXTI_PR_PR17);
 
-    NVIC_SetPriority(RTC_Alarm_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_SetPriority(RTC_Alarm_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
     NVIC_ClearPendingIRQ(RTC_Alarm_IRQn);
     NVIC_EnableIRQ(RTC_Alarm_IRQn);                           /* Enable RTC Alarm EXTI Interrupt    */
 
@@ -2393,7 +2393,7 @@ __STATIC_INLINE void init(void) {
       EXTI->FTSR = INIT_EXTI_FTSR;
     #endif
 
-    NVIC_SetPriority(EXTI9_5_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(),0, 0));
+    NVIC_SetPriority(EXTI9_5_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
     NVIC_ClearPendingIRQ(EXTI9_5_IRQn);
     NVIC_EnableIRQ(EXTI9_5_IRQn);
   #endif
@@ -2567,7 +2567,13 @@ cat <<MAIN_C >main.c
 #endif
 
 #if BTN_EN
-  static volatile unsigned key_state;
+  enum {
+    button_1_pressed  = (1 << 0),
+    button_2_pressed  = (1 << 1),
+    button_1_released = (1 << 16),
+    button_2_released = (1 << 17)
+  };
+  static volatile unsigned button_state;
 #endif
 
 #if RTC_EN
@@ -2635,15 +2641,19 @@ int main(void) {
     #endif
 
     #if BTN_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; KEY: %s/%s", (key_state & (1 << 16)) ? "ON" : "OFF", (key_state & (2 << 16)) ? "ON" : "OFF");
-      key_state &= (unsigned)~((1 << 16) | (2 << 16));
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
+                                                                                      (button_state & button_2_released) ? "ON" : "OFF");
+      button_state &= (unsigned)~(button_1_released | button_2_released);
     #endif
 
     #if RTC_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %04X",
+      time_struct_t tm;
+      unixtime_to_time(rtc_read_counter(), &tm);
+      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u",
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK", rtc_read_counter());
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
+             tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second);
     #endif
 
     #if TIM2_EN
@@ -2715,20 +2725,20 @@ void SysTick_Handler(void) {
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
     static unsigned btn[TOTAL][TOTAL];
 
-    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, (1 << 0));
-    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, (1 << 1));
+    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, GPIO_IDR_IDR0);
+    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | !READ_REG_BIT(GPIOB->IDR, GPIO_IDR_IDR1);
 
     if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(key_state, (1 << 0));
+      SET_MEM_BIT(button_state, button_1_pressed);
     }
     if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(key_state, (1 << 1));
+      SET_MEM_BIT(button_state, button_2_pressed);
     }
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
-      SET_MEM_BIT(key_state, (1 << 16));
+      SET_MEM_BIT(button_state, button_1_released);
     }
     if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
-      SET_MEM_BIT(key_state, (1 << 17));
+      SET_MEM_BIT(button_state, button_2_released);
     }
     btn[0][PREVIOUS] = btn[0][CURRENT];
     btn[1][PREVIOUS] = btn[1][CURRENT];
