@@ -1030,15 +1030,17 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #if defined USE_IWDG && USE_IWDG != 0
-  #define IWDG_EN 1
+  #define IWDG_EN                       1
 #else
-  #define IWDG_EN 0
+  #define IWDG_EN                       0
 #endif
 
 #if defined USE_WWDG && USE_WWDG != 0
-  #define WWDG_EN 1
+  #define WWDG_EN                       1
+  #define WWDG_COUNTER                  0x7F
+  #define WWDG_WINDOW                   0x60
 #else
-  #define WWDG_EN 0
+  #define WWDG_EN                       0
 #endif
 
 #if defined USE_SWD && USE_SWD != 0
@@ -1277,6 +1279,14 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
       while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
       temp_data += ADC1->DR;
+
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+          /* RESET WWDG */
+          WWDG->CR = WWDG_COUNTER;
+        }
+      #endif
+
     }
 
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
@@ -1291,6 +1301,14 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
       while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
       vcc_data += ADC1->DR;
+
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+          /* RESET WWDG */
+          WWDG->CR = WWDG_COUNTER;
+        }
+      #endif
+
     }
 
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
@@ -1448,7 +1466,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     FLASH->AR = FLASH_DATA_ADDR;                              /* Set page address                   */
     SET_REG_BIT(FLASH->CR, FLASH_CR_STRT);                    /* Start the erasing                  */
 
-    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}   /* Wait till page be erased           */
+    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* Wait till page be erased           */
     CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PER);                   /* Reset page erasing flag            */
     SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
 
@@ -1488,7 +1506,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       if (READ_REG_BIT(FLASH->SR, FLASH_ERR)) {
         if (READ_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR)) {     /* Check for write protection error   */
           status = FLASH_ERROR_WRITE_PROT;                    /* Report the error                   */
-          SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);           /* Clear the error flag               */
+          SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);          /* Clear the error flag               */
         } else {
           status = FLASH_ERROR_WRITE;                         /* Report the error                   */
           SET_REG_BIT(FLASH->SR, FLASH_SR_PGERR);             /* Clear the error flag               */
@@ -2141,6 +2159,28 @@ __STATIC_INLINE void init(void) {
     IWDG->KR = 0xCCCC;                                        /*  Start the watchdog                */
   #endif /* IWDG_EN */
 
+  #if WWDG_EN
+
+    NVIC_SetPriority(WWDG_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+    NVIC_ClearPendingIRQ(WWDG_IRQn);
+    NVIC_EnableIRQ(WWDG_IRQn);
+
+    WWDG->CR = WWDG_CR_WDGA                                   /* When WDGA=1, WWDG reset is enabled */
+             | WWDG_COUNTER;                                  /* 7-bit counter (MSB to LSB).        */
+                                                              /* It is decremented every            */
+                                                              /* 4096 * 2 ^ WDGTB[1:0] PCLK1 cycles */
+                                                              /* A reset is produced when it rolls  */
+                                                              /* over from 0x40 to 0x3F             */
+                                                              /* (T6 becomes cleared)               */
+
+    WWDG->CFR = (
+      1 * WWDG_CFR_EWI        |                               /* Early wakeup interrupt             */
+      1 * WWDG_CFR_WDGTB_0    |                               /* Timer base bit 0                   */
+      1 * WWDG_CFR_WDGTB_1    |                               /* Timer base bit 1                   */
+      1 * WWDG_WINDOW                                         /* Watchdoeg Window                   */
+    );
+  #endif
+
   #if EXTI_EN
 
     #define INIT_AFIO_EXTICR_0   (     \\
@@ -2701,11 +2741,20 @@ int main(void) {
         #else
           j -= GET_TICK();
         #endif
+
+        #if WWDG_EN
+          if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+            /* RESET WWDG */
+            WWDG->CR = WWDG_COUNTER;
+          }
+        #endif
+
       } while(j);
     #else
-      #ifdef WWDG_EN
-        if ((WWDG->CR & WWDG_CR_T) < 100) {
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
           /* RESET WWDG */
+          WWDG->CR = WWDG_COUNTER;
         }
       #endif
     #endif
@@ -2802,7 +2851,8 @@ void SysTick_Handler(void) {
 
 #if WWDG_EN
   void WWDG_IRQHandler(void) {
-    /* =//=//=//=//=//=  */
+    WWDG->SR = 0;
+    WWDG->CR = 0x7F;
   }
 #endif
 
