@@ -1290,55 +1290,17 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       enum { ADC_SAMPLE_COUNT = 128 };
     #endif
 
-    unsigned vcc_data = 0, temp_data = 0;
-
-    #if 0
-      for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
-
-        while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
-        temp_data += ADC1->DR;
-
-        #if WWDG_EN
-          if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-            /* RESET WWDG */
-            WWDG->CR = WWDG_COUNTER;
-          }
-        #endif
-      }
-      CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
-      temp_data /= ADC_SAMPLE_COUNT;
-      while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
-    #else
-      temp_data = adc_get_average(ADC_SAMPLE_COUNT);
-      CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
-      while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
-    #endif
+    unsigned temp_data = adc_get_average(ADC_SAMPLE_COUNT);
+    CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 17);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
-    #if 0
-      for(unsigned i = 0; i < ADC_SAMPLE_COUNT; i++) {
-
-        while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) { }
-        vcc_data += ADC1->DR;
-
-        #if WWDG_EN
-          if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-            /* RESET WWDG */
-            WWDG->CR = WWDG_COUNTER;
-          }
-        #endif
-      }
-      CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
-      vcc_data /= ADC_SAMPLE_COUNT;
-      while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
-    #else
-      vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
-      CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
-      while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
-    #endif
+    unsigned vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
+    CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
     ADC1->SQR3 = ADC_SQR3(1, 16);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
