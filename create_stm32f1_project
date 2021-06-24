@@ -1110,7 +1110,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE unsigned rtc_read_counter(void) {
     unsigned a = RTC->CNTH, b = RTC->CNTL, c = RTC->CNTH;
-
     if (a != c) {
       a = c;
       b = RTC->CNTL;
@@ -1119,89 +1118,34 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return a;
   }
 
-  void rtc_set_alarm(uint32_t alarm_time) {
+  __STATIC_INLINE void rtc_set_alarm(unsigned alarm_time) {
 
-    #if 0
-      while((RTC->CRL & RTC_CRL_SECF) != RTC_CRL_SECF)  {
-          /* JUST WAIT */
-      }
-      RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
+    unsigned apb1enr = RCC->APB1ENR;
 
-      uint32_t timeout = 1000;
-      while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
-        /* just wait for RTOFF  */
-        timeout -= GET_TICK();
-        if (timeout == 0) return;
-      }
+    SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
+    SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
 
-      uint32_t apb1enr_flags = 0;
-      if ((RCC->APB1ENR & RCC_APB1ENR_BKPEN) != RCC_APB1ENR_BKPEN) {
-        RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
-        apb1enr_flags |= RCC_APB1ENR_BKPEN;
-      }
+    unsigned pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
 
-      if ((RCC->APB1ENR & RCC_APB1ENR_PWREN) != RCC_APB1ENR_PWREN) {
-        RCC->APB1ENR |= RCC_APB1ENR_PWREN;
-        apb1enr_flags |= RCC_APB1ENR_PWREN;
-      }
-    #endif
+    while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
 
+    SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
 
-    RCC->APB1ENR |= (RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
+    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC counter MSB word           */
+    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC counter LSB word        */
 
-    // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
-    //     /* JUST WAIT */
-    // }
+    SET_REG_BIT(RTC->CRH, RTC_CRH_ALRIE);                     /* Alarm interrupt enable             */
+    CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
+                                                              /* when the CNF bit is cleared; it    */
+                                                              /* takes at least three RTCCLK cycles */
+                                                              /* to complete.                       */
 
-    #if 0
-      while((RTC->CRL & RTC_CRL_RTOFF) != RTC_CRL_RTOFF) {
-          /* JUST WAIT */
-      }
-    #endif
+    while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
+    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RSF)) {  }
 
-    PWR->CR |= PWR_CR_DBP;                                  /* Disable Backup Domain Protection     */
-
-    uint32_t timeout = 1000;
-    while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
-      /* just wait for RTOFF  */
-      timeout -= GET_TICK();
-      if (timeout == 0) return;
-    }
-
-    RTC->CRL |= RTC_CRL_CNF;
-
-    alarm_time--;
-
-    RTC->ALRH = alarm_time >> 16;
-    RTC->ALRL = alarm_time;
-
-    RTC->CRL &= (uint16_t)~(RTC_CRL_ALRF | RTC_CRL_SECF);
-    RTC->CRH |= RTC_CRH_ALRIE;
-    RTC->CRL = ~RTC_CRL_CNF;
-
-    RTC->CRL &= (uint16_t)~RTC_CRL_RSF;
-    while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF) {}
-
-    // RCC->APB1ENR &= ~apb1enr_flags;
-
-    // while((RTC->CRL & RTC_CRL_RSF) != RTC_CRL_RSF)  {
-    //     /* JUST WAIT */
-    // }
-
-
-    timeout = 1000;
-    while ((RTC->CRL & RTC_CRL_RTOFF) == (uint32_t)RESET) {
-      /* just wait for RTOFF  */
-      timeout -= GET_TICK();
-      if (timeout == 0) return;
-    }
-
-    /* Note: If the HSE divided by 128 is used as the RTC clock, this bit must remain set to 1.     */
-    #if LSE_EN || !HSE_EN
-      PWR->CR &= ~PWR_CR_DBP;                                   /* Restore Backup Domain Protection   */
-    #endif
-
-    RCC->APB1ENR &= ~(RCC_APB1ENR_PWREN | RCC_APB1ENR_BKPEN);
+    WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
+    RCC->APB1ENR = apb1enr;
   }
 
 #else
@@ -1997,15 +1941,11 @@ __STATIC_INLINE void init(void) {
 
   #if IWDG_EN
 
-    #if RTC_EN && !LSE_EN && !HSE_EN
-      /* */
-    #else
-      SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                   /* Enable LSI oscillator              */
-    #endif
-
+    SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                     /* Enable LSI oscillator              */
     while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {
       /* wait until LSI oscillations become stable */
     }
+
     IWDG->KR = 0x5555;
                                                                                                     /*
       Min/max IWDG timeout period (in ms) at 40 kHz (LSI)(1)
@@ -2311,78 +2251,83 @@ __STATIC_INLINE void init(void) {
 
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain write prot.  */
 
-    #if !LSE_EN && !HSE_EN
-      SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                   /* Enable LSI oscillator              */
-    #endif
-
     unsigned is_rtc_enabled = READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);
 
-    RCC->BDCR = (
+    if (is_rtc_enabled == 0) {
+
       #if LSE_EN
-        RCC_BDCR_LSEON           |                            /* Enable LSE oscillator              */
-        RCC_BDCR_RTCSEL_LSE      |                            /* LSE used as RTC clock              */
+        SET_REG_BIT(RCC->BDCR, RCC_BDCR_LSEON);               /* Enable LSE oscillator              */
+        while(!READ_REG_BIT(RCC->BDCR, RCC_BDCR_LSERDY)) {  } /* Wait untill LSE becomes stable     */
+        SET_REG_BIT(RCC->BDCR, RCC_BDCR_RTCSEL_LSE);          /* Use LSE as RTC clock               */
       #elif HSE_EN
-        RCC_BDCR_RTCSEL_HSE      |                            /* HSE / 128 used as RTC clock        */
+        RCC->BDCR = RCC_BDCR_RTCSEL_HSE;                      /* Use (HSE / 128) as RTC clock       */
       #else
-        RCC_BDCR_RTCSEL_LSI      |                            /* LSI used as RTC clock              */
+        SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
+        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSE becomes stable     */
+        SET_REG_BIT(RCC->BDCR, RCC_BDCR_RTCSEL_LSI);          /* Use LSI as RTC clock               */
       #endif
 
-      RCC_BDCR_RTCEN                                          /* RTC clock enable                   */
-    );
+      SET_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);                 /* Enable RTC peripheral              */
                                                                                                     /*
-      Configuration procedure
-      =======================
-      1. Poll RTOFF, wait until its value goes to '1'
-      2. Set the CNF bit to enter configuration mode
-      3. Write to one or more RTC registers
-      4. Clear the CNF bit to exit configuration mode
-      5. Poll RTOFF, wait until its value goes to '1' to check the end of the write operation.
+        Configuration procedure
+        =======================
+        1. Poll RTOFF, wait until its value goes to '1'
+        2. Set the CNF bit to enter configuration mode
+        3. Write to one or more RTC registers
+        4. Clear the CNF bit to exit configuration mode
+        5. Poll RTOFF, wait until its value goes to '1' to check the end of the write operation.
 
-      The write operation only executes when the CNF bit is cleared; it takes at least three
-      RTCCLK cycles to complete.                                                                    */
+        The write operation only executes when the CNF bit is cleared; it takes at least three
+        RTCCLK cycles to complete.                                                                  */
 
-    /* 1. */
-    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
-      /* wait until the last write operation completes */
-    }
+      /* 1. */
+      while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
+        /* wait until the last write operation completes */
+      }
 
-    /* 2. */
-    SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);
+      /* 2. */
+      SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);
+      while(!READ_REG_BIT(RTC->CRL, RTC_CRL_CNF)) { }
 
-    #if USE_LSE
-      /* 3. */
+      #if LSE_EN
+        /* 3. */
                                                                                                     /*
-      Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to
-            get a signal period of 1 second.
+        Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to
+              get a signal period of 1 second.
                                                                                                     */
-      RTC->PRLH = 0;
-      RTC->PRLL = 0x7FFF;
-    #elif USE_HSE
-      RTC->PRLH = 0;
-      RTC->PRLL = 0xF423;
-    #else
-      RTC->PRLH = 0;
-      RTC->PRLL = 0x9CC0; // 0x9C3F
-    #endif
+        RTC->PRLH = 0;
+        RTC->PRLL = 0x7FFF;
+      #elif HSE_EN
+        RTC->PRLH = 0;
+        RTC->PRLL = 0xF423;
+      #else
+        RTC->PRLH = 0;
+        RTC->PRLL = 0x9CC0; // 0x9C3F
+      #endif
 
-    if (!is_rtc_enabled) {
-      #define RTC_CNT 1620191105     /* Epoch timestamp: 1620191105 = Wed, 05 May 2021 05:05:05 GMT */
+      #define RTC_CNT 1625641627     /* Epoch timestamp: 1625641627 = Wed, 07 Jul 2021 07:07:07 GMT */
 
       RTC->CNTH = RTC_CNT >> 16;                              /* Set RTC Counter MS word            */
       RTC->CNTL = RTC_CNT & 0xFFFF;                           /* Set RTC Counter LS word            */
+
+    } else {
+
+      #if !LSE_EN && !HSE_EN && !IWDG_EN
+
+        /* if LSI is used as RTC clock source the oscillator has to be started after system reset   */
+
+        SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
+        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSE becomes stable     */
+
+      #endif
     }
-
-    unsigned rtc_data = rtc_read_counter() + 180;
-
-    RTC->ALRH = rtc_data >> 16;                               /* Set RTC Alarm Register MS word     */
-    RTC->ALRL = rtc_data & 0xFFFF;                            /* Set RTC Alarm Register LS word     */
 
     RTC->CRH = (
       RTC_CRH_ALRIE   |                                       /* Enable RTC Alarm interrupt         */
       RTC_CRH_SECIE                                           /* Enable RTC Second interrupt        */
     );
 
-    /* 4. The write operation is only executed when the CNF bit is reset by software after has been set. */
+    /* 4. The write operation is executed when the CNF bit is reset by software after has been set. */
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);
 
     /* 5. */
@@ -2432,7 +2377,7 @@ __STATIC_INLINE void init(void) {
 #if USART_EN
   __STATIC_INLINE void uputc(char c) {
     /*** Send char using USART1 ***/
-    while (!READ_REG_BIT(USART1->SR, USART_SR_TXE)) {}                 /* Wait until TX register becomes empty */
+    while (!READ_REG_BIT(USART1->SR, USART_SR_TXE)) {}        /* Wait until TX reg becomes empty    */
     USART1->DR = c;
   }
 
@@ -2611,9 +2556,9 @@ cat <<MAIN_C >main.c
   static volatile unsigned tim2_counter;
 #endif
 
-#if ADC_EN
-  static unsigned adc_data;
-#endif
+// #if ADC_EN
+//   static unsigned adc_data;
+// #endif
 
 #if RNG_EN
   int rnd(void);             /* Get pseudo-random number            */
@@ -2632,12 +2577,40 @@ int main(void) {
     #endif
   #endif
 
+  #if RTC_EN
+    rtc_set_alarm(rtc_read_counter() + 30);
+  #endif
+
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
   for(int i = 0; i <= INT32_MAX;) {
     union {
       char pbuf[160];
       unsigned ubuf[sizeof(160/sizeof(unsigned))];
     } z;
+
+    int j = 1000;
+    do {
+
+      // #if ADC_EN
+      //   adc_data = (adc_data << 1) | adc_get_random_bit();
+      // #endif
+
+      #if RTC_EN
+        if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
+          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
+          j = 0;
+        }
+      #else
+        j -= GET_TICK();
+      #endif
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+          /* RESET WWDG */
+          WWDG->CR = WWDG_COUNTER;
+        }
+      #endif
+    } while(j);
+
     #if RNG_EN
       i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
     #else
@@ -2647,6 +2620,12 @@ int main(void) {
 #else
   for(;;) {
     #define VOID_LOOP
+    #if WWDG_EN
+      if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+        /* RESET WWDG */
+        WWDG->CR = WWDG_COUNTER;
+      }
+    #endif
 #endif
 
     #if I2C_EN
@@ -2675,7 +2654,8 @@ int main(void) {
 
     #if RTC_EN
       time_struct_t tm;
-      unixtime_to_time(rtc_read_counter(), &tm);
+      unsigned rtc_counter = rtc_read_counter();
+      unixtime_to_time(rtc_counter, &tm);
       char rtc_buf[10] = {0};
       if (READ_MEM_BIT(rtc_flag, EXTI_PR_PR17)) {
         CLEAR_MEM_BIT(rtc_flag, EXTI_PR_PR17);
@@ -2688,6 +2668,8 @@ int main(void) {
         } else {
           rtc_buf[0] = '/'; rtc_buf[1] = 'a';
         }
+        rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
+        // __NOP();
       }
       i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
@@ -2716,6 +2698,11 @@ int main(void) {
     #endif
 
     #if USART_EN
+      static unsigned just_started = 1;
+      if (just_started) {
+        just_started = 0;
+        uputs("===\n");
+      }
       z.pbuf[i++] = '\n';
       z.pbuf[i] = 0;
       uputs(z.pbuf);
@@ -2725,39 +2712,6 @@ int main(void) {
       IWDG->KR = 0xAAAA;
     #endif
 
-    #if !defined VOID_LOOP
-      int j = 1000;
-      do {
-
-        #if ADC_EN
-          adc_data = (adc_data << 1) | adc_get_random_bit();
-        #endif
-
-        #if RTC_EN
-          if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
-            CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
-            j = 0;
-          }
-        #else
-          j -= GET_TICK();
-        #endif
-
-        #if WWDG_EN
-          if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-            /* RESET WWDG */
-            WWDG->CR = WWDG_COUNTER;
-          }
-        #endif
-
-      } while(j);
-    #else
-      #if WWDG_EN
-        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          /* RESET WWDG */
-          WWDG->CR = WWDG_COUNTER;
-        }
-      #endif
-    #endif
   }
 
   return 0;
@@ -2812,8 +2766,8 @@ void SysTick_Handler(void) {
 
   void RTC_Alarm_IRQHandler(void) {             /* RTC alarm interrupt handler   */
 
-    if (EXTI->PR & EXTI_PR_PR17) {
-      EXTI->PR = EXTI_PR_PR17;
+    if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR17)) {
+      SET_REG_BIT(EXTI->PR, EXTI_PR_PR17);
       SET_MEM_BIT(rtc_flag, EXTI_PR_PR17);
     }
 
@@ -2846,7 +2800,7 @@ void SysTick_Handler(void) {
 #if EXTI_EN
   void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
     if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR8)) {
-      EXTI->PR = EXTI_PR_PR8;
+      SET_REG_BIT(EXTI->PR, EXTI_PR_PR8);
     }
   } /* EXTI9_5_IRQHandler() */
 #endif
