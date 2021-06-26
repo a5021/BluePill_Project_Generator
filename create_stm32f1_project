@@ -964,7 +964,7 @@ cat <<MAIN_H >main.h
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
-#define GET_BIT(AREA, ADDR, BIT)        *(volatile uint32_t*)(AREA ## _BB_BASE + 32 * ((uint32_t)&ADDR - AREA ## _BASE) + 4 * __builtin_ctz(BIT))
+#define GET_BIT(AREA, ADDR, BIT)        *(__IO unsigned *)(AREA ## _BB_BASE + 32 * ((unsigned)&ADDR - AREA ## _BASE) + 4 * __builtin_ctz(BIT))
 
 #define READ_MEM_BIT(REG, BIT)          GET_BIT(SRAM, REG, BIT)
 #define WRITE_MEM_BIT(REG, BIT, VAL)    READ_MEM_BIT(REG, BIT) = VAL
@@ -1062,13 +1062,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     uint8_t  second;
   } time_struct_t;
 
-  /* http://we.easyelectronics.ru/Soft/funkcii-kalendarya-i-vremeni-na-odnom-registre.html */
-  #if 0
-    #define JD0 2451911
-  #else
-    /* #define JD0 2440587 */
-    #define JD0 2440588
-  #endif
+  #define JD0 2440588
 
   __STATIC_INLINE unsigned time_to_unixtime(time_struct_t * t) {
 
@@ -1132,8 +1126,8 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
 
-    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC counter MSB word           */
-    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC counter LSB word        */
+    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC Alarm value MSB word       */
+    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC Alarm value LSB word    */
 
     SET_REG_BIT(RTC->CRH, RTC_CRH_ALRIE);                     /* Alarm interrupt enable             */
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
@@ -1147,6 +1141,36 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
     RCC->APB1ENR = apb1enr;
   }
+
+  __STATIC_INLINE void rtc_set_counter(unsigned counter) {
+
+    unsigned apb1enr = RCC->APB1ENR;
+
+    SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
+    SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
+
+    unsigned pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
+
+    while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
+
+    SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
+
+    RTC->CNTH = (unsigned short)(counter >> 16);              /* Set RTC counter MSB word           */
+    RTC->CNTL = (unsigned short)(counter & RTC_CNTL_RTC_CNT); /* Set RTC counter LSB word           */
+
+    CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
+                                                              /* when the CNF bit is cleared; it    */
+                                                              /* takes at least three RTCCLK cycles */
+                                                              /* to complete.                       */
+
+    while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
+    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RSF)) {  }
+
+    WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
+    RCC->APB1ENR = apb1enr;
+  }
+
 
 #else
   #define RTC_EN                        0
@@ -1968,28 +1992,6 @@ __STATIC_INLINE void init(void) {
     IWDG->KR = 0xCCCC;                                        /*  Start the watchdog                */
   #endif /* IWDG_EN */
 
-  #if WWDG_EN
-
-    NVIC_SetPriority(WWDG_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
-    NVIC_ClearPendingIRQ(WWDG_IRQn);
-    NVIC_EnableIRQ(WWDG_IRQn);
-
-    WWDG->CR = WWDG_CR_WDGA                                   /* When WDGA=1, WWDG reset is enabled */
-             | WWDG_COUNTER;                                  /* 7-bit counter (MSB to LSB).        */
-                                                              /* It is decremented every            */
-                                                              /* 4096 * 2 ^ WDGTB[1:0] PCLK1 cycles */
-                                                              /* A reset is produced when it rolls  */
-                                                              /* over from 0x40 to 0x3F             */
-                                                              /* (T6 becomes cleared)               */
-
-    WWDG->CFR = (
-      1 * WWDG_CFR_EWI        |                               /* Early wakeup interrupt             */
-      1 * WWDG_CFR_WDGTB_0    |                               /* Timer base bit 0                   */
-      1 * WWDG_CFR_WDGTB_1    |                               /* Timer base bit 1                   */
-      1 * WWDG_WINDOW                                         /* Watchdoeg Window                   */
-    );
-  #endif
-
   #if EXTI_EN
 
     #define INIT_AFIO_EXTICR_0   (     \\
@@ -2305,11 +2307,6 @@ __STATIC_INLINE void init(void) {
         RTC->PRLL = 0x9CC0; // 0x9C3F
       #endif
 
-      #define RTC_CNT 1625641627     /* Epoch timestamp: 1625641627 = Wed, 07 Jul 2021 07:07:07 GMT */
-
-      RTC->CNTH = RTC_CNT >> 16;                              /* Set RTC Counter MS word            */
-      RTC->CNTL = RTC_CNT & 0xFFFF;                           /* Set RTC Counter LS word            */
-
     } else {
 
       #if !LSE_EN && !HSE_EN && !IWDG_EN
@@ -2368,7 +2365,30 @@ __STATIC_INLINE void init(void) {
     NVIC_ClearPendingIRQ(RTC_Alarm_IRQn);
     NVIC_EnableIRQ(RTC_Alarm_IRQn);                           /* Enable RTC Alarm EXTI Interrupt    */
 
-  #endif /* USE_RTC */
+  #endif /* RTC_EN */
+
+  #if WWDG_EN
+
+    NVIC_SetPriority(WWDG_IRQn, NVIC_EncodePriority(NVIC_GetPriorityGrouping(), 0, 0));
+    NVIC_ClearPendingIRQ(WWDG_IRQn);
+    NVIC_EnableIRQ(WWDG_IRQn);
+
+    WWDG->CR = WWDG_CR_WDGA                                   /* When WDGA=1, WWDG reset is enabled */
+             | WWDG_COUNTER;                                  /* 7-bit counter (MSB to LSB).        */
+                                                              /* It is decremented every            */
+                                                              /* 4096 * 2 ^ WDGTB[1:0] PCLK1 cycles */
+                                                              /* A reset is produced when it rolls  */
+                                                              /* over from 0x40 to 0x3F             */
+                                                              /* (T6 becomes cleared)               */
+
+    WWDG->CFR = (
+      1 * WWDG_CFR_EWI        |                               /* Early wakeup interrupt             */
+      1 * WWDG_CFR_WDGTB_0    |                               /* Timer base bit 0                   */
+      1 * WWDG_CFR_WDGTB_1    |                               /* Timer base bit 1                   */
+      1 * WWDG_WINDOW                                         /* Watchdoeg Window                   */
+    );
+  #endif
+
 
 }  /* init() */
 
@@ -2567,6 +2587,10 @@ cat <<MAIN_C >main.c
 
 int main(void) {
 
+  #if RTC_EN
+    unsigned rtc_init_req = !READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);
+  #endif
+
   init();
 
   #if FLASH_EN
@@ -2578,6 +2602,9 @@ int main(void) {
   #endif
 
   #if RTC_EN
+    if (rtc_init_req) {
+      rtc_set_counter(1625641627);   /* Epoch timestamp: 1625641627 = Wed, 07 Jul 2021 07:07:07 GMT */
+    }
     rtc_set_alarm(rtc_read_counter() + 30);
   #endif
 
