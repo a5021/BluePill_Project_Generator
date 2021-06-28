@@ -1136,11 +1136,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
                                                               /* to complete.                       */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
-    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RSF)) {  }
 
     WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
     RCC->APB1ENR = apb1enr;
-  }
+  } /* rtc_set_alarm() */
 
   __STATIC_INLINE void rtc_set_counter(unsigned counter) {
 
@@ -1165,13 +1164,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
                                                               /* to complete.                       */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
-    while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RSF)) {  }
 
     WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
     RCC->APB1ENR = apb1enr;
-  }
-
-
+  } /* rtc_set_counter() */
 #else
   #define RTC_EN                        0
 #endif
