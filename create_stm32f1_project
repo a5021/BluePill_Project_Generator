@@ -2285,7 +2285,6 @@ __STATIC_INLINE void init(void) {
 
       /* 2. */
       SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);
-      while(!READ_REG_BIT(RTC->CRL, RTC_CRL_CNF)) { }
 
       #if LSE_EN
         /* 3. */
@@ -2293,13 +2292,10 @@ __STATIC_INLINE void init(void) {
         Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to
               get a signal period of 1 second.
                                                                                                     */
-        RTC->PRLH = 0;
         RTC->PRLL = 0x7FFF;
       #elif HSE_EN
-        RTC->PRLH = 0;
         RTC->PRLL = 0xF423;
       #else
-        RTC->PRLH = 0;
         RTC->PRLL = 0x9CC0; // 0x9C3F
       #endif
 
