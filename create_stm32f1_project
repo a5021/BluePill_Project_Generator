@@ -980,6 +980,26 @@ cat <<MAIN_H >main.h
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
 
 
+#define DEMCR_TRCENA    0x01000000
+
+/* Core Debug registers */
+#define DEMCR           (*((volatile uint32_t *)0xE000EDFC))
+#define DWT_CTRL        (*(volatile uint32_t *)0xe0001000)
+#define CYCCNTENA       (1<<0)
+#define DWT_CYCCNT      ((volatile uint32_t *)0xE0001004)
+#define CPU_CYCLES      *DWT_CYCCNT
+#define CLK_SPEED         168000000 // EXAMPLE for CortexM4, EDIT as needed
+
+#define STOPWATCH_START(VAR) do{ (VAR) = CPU_CYCLES;}while(0)
+#define STOPWATCH_STOP(VAR)  do{ (VAR) = CPU_CYCLES - (VAR);}while(0)
+
+__STATIC_INLINE void stopwatch_reset(void) {
+  DEMCR |= DEMCR_TRCENA; /* Enable DWT               */
+  *DWT_CYCCNT = 0;       /* Reset CPU cycle counter  */
+  DWT_CTRL |= CYCCNTENA; /* Enable CPU cycle counter */
+}
+
+
 __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
 
 
@@ -2278,25 +2298,18 @@ __STATIC_INLINE void init(void) {
         The write operation only executes when the CNF bit is cleared; it takes at least three
         RTCCLK cycles to complete.                                                                  */
 
-      /* 1. */
-      while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {
-        /* wait until the last write operation completes */
-      }
-
-      /* 2. */
-      SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);
-
-      #if LSE_EN
-        /* 3. */
+      while(!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) { }       /* 1. Wait till write op. completes   */
+      SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* 2. Enter configuration mode        */
+      #if LSE_EN                                              /* 3. Set RTC clock prescaler         */
                                                                                                     /*
-        Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this register to
-              get a signal period of 1 second.
+                  Note: If the input clock frequency (fRTCCLK) is 32.768 kHz, write 7FFFh in this
+                        register to get a signal period of 1 second.
                                                                                                     */
-        RTC->PRLL = 0x7FFF;
+        RTC->PRLL = 0x7FFF;                                   /* 32768 / (32767 + 1) = 1            */
       #elif HSE_EN
-        RTC->PRLL = 0xF423;
+        RTC->PRLL = 0xF423;                                   /* (HSE / 128) / (62499 + 1) = 1      */
       #else
-        RTC->PRLL = 0x9CC0; // 0x9C3F
+        RTC->PRLL = 0x9CC0; // 0x9C3F                         /* LSI / (39999 + 1) = 1              */
       #endif
 
     } else {
@@ -2306,7 +2319,7 @@ __STATIC_INLINE void init(void) {
         /* if LSI is used as RTC clock source the oscillator has to be started after system reset   */
 
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
-        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSE becomes stable     */
+        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSI becomes stable     */
 
       #endif
     }
