@@ -876,6 +876,10 @@ cat <<MAIN_H >main.h
 #endif
 
 
+#define NO  0
+#define YES (!NO)
+
+
 /* *********************************************************************************** */
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
@@ -905,10 +909,10 @@ cat <<MAIN_H >main.h
 
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
 
-#define PORT_CONFIG(PORT, CFG, STATE)   if (!0) {                                      \\
+#define PORT_CONFIG(PORT, CFG, STATE)   if (YES) {                                      \\
                                           if (CFG) { PORT_CFG(PORT, CFG); }            \\
                                           if (STATE) { GPIO##PORT->BSRR = (STATE); }   \\
-                                        } else (void) 0
+                                        } else (void) NO
 
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
                                                                                        /*
@@ -977,7 +981,7 @@ cat <<MAIN_H >main.h
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
-#define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(0)
+#define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(NO)
 
 
 #define DEMCR_TRCENA    0x01000000
@@ -988,7 +992,7 @@ cat <<MAIN_H >main.h
 #define CYCCNTENA       (1<<0)
 #define DWT_CYCCNT      ((volatile uint32_t *)0xE0001004)
 #define CPU_CYCLES      *DWT_CYCCNT
-#define CLK_SPEED         168000000 // EXAMPLE for CortexM4, EDIT as needed
+#define CLK_SPEED       8000000
 
 #define STOPWATCH_START(VAR) do{ (VAR) = CPU_CYCLES;}while(0)
 #define STOPWATCH_STOP(VAR)  do{ (VAR) = CPU_CYCLES - (VAR);}while(0)
@@ -1011,66 +1015,66 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
               return ERROR;                                                     \\
             }                                                                   \\
           }                                                                     \\
-        } while(0)
+        } while(NO)
 
 #if defined USE_HSE && USE_HSE != 0
-  #define HSE_EN                        1
+  #define HSE_EN                        YES
 #else
-  #define HSE_EN                        0
+  #define HSE_EN                        NO
 #endif
 
 #if defined USE_PLL && USE_PLL != 0
-  #define PLL_EN                        1
+  #define PLL_EN                        YES
 #else
-  #define PLL_EN                        0
+  #define PLL_EN                        NO
 #endif
 
 #if defined USE_LSE && USE_LSE != 0
-  #define LSE_EN                        1
+  #define LSE_EN                        YES
 #else
-  #define LSE_EN                        0
+  #define LSE_EN                        NO
 #endif
 
 #if defined USE_BTN && USE_BTN != 0
-  #define BTN_EN                        1
+  #define BTN_EN                        YES
 #else
-  #define BTN_EN                        0
+  #define BTN_EN                        NO
 #endif
 
 #if defined USE_TIM2 && USE_TIM2 != 0
-  #define TIM2_EN                       1
+  #define TIM2_EN                       YES
 #else
-  #define TIM2_EN                       0
+  #define TIM2_EN                       NO
 #endif
 
 #if defined USE_EXTI && USE_EXTI != 0
-  #define EXTI_EN                       1
+  #define EXTI_EN                       YES
 #else
-  #define EXTI_EN                       0
+  #define EXTI_EN                       NO
 #endif
 
 #if defined USE_IWDG && USE_IWDG != 0
-  #define IWDG_EN                       1
+  #define IWDG_EN                       YES
 #else
-  #define IWDG_EN                       0
+  #define IWDG_EN                       NO
 #endif
 
 #if defined USE_WWDG && USE_WWDG != 0
-  #define WWDG_EN                       1
+  #define WWDG_EN                       YES
   #define WWDG_COUNTER                  0x7F
   #define WWDG_WINDOW                   0x60
 #else
-  #define WWDG_EN                       0
+  #define WWDG_EN                       NO
 #endif
 
 #if defined USE_SWD && USE_SWD != 0
-  #define SWD_EN                        1
+  #define SWD_EN                        YES
 #else
-  #define SWD_EN                        0
+  #define SWD_EN                        NO
 #endif
 
 #if defined USE_RTC && USE_RTC != 0
-  #define RTC_EN                        1
+  #define RTC_EN                        YES
 
   typedef struct{
     uint16_t year;
@@ -1189,12 +1193,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     RCC->APB1ENR = apb1enr;
   } /* rtc_set_counter() */
 #else
-  #define RTC_EN                        0
+  #define RTC_EN                        NO
 #endif
 
 #if defined USE_ADC && USE_ADC != 0
 
-  #define ADC_EN                        1
+  #define ADC_EN                        YES
 
   #define ADC_CHANNEL_0                 0x00000000U
   #define ADC_CHANNEL_1                 (                                                                        ADC_CR1_AWDCH_0)
@@ -1298,18 +1302,18 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 #else
-  #define ADC_EN                        0
+  #define ADC_EN                        NO
 #endif
 
 #if defined USE_USART && USE_USART != 0
-  #define USART_EN                      1
+  #define USART_EN                      YES
   #define BAUDRATE 115200
 #else
-  #define USART_EN                      0
+  #define USART_EN                      NO
 #endif
 
 #if defined USE_I2C && USE_I2C != 0
-  #define I2C_EN                        1
+  #define I2C_EN                        YES
   #define I2C_SPEED_STANDARD            100000
   #define I2C_SPEED_FAST                400000
 
@@ -1322,12 +1326,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #endif
 
 #else
-  #define I2C_EN                        0
+  #define I2C_EN                        NO
 #endif
 
 #if defined USE_SPI && USE_SPI != 0
 
-  #define SPI_EN                        1
+  #define SPI_EN                        YES
 
   __STATIC_INLINE char spi_xfer(char d) {
     while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE)) {
@@ -1347,11 +1351,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define CS_HIGH()                     CS(1)
 
 #else
-  #define SPI_EN                        0
+  #define SPI_EN                        NO
 #endif
 
 #if defined USE_CRC && USE_CRC != 0
-  #define CRC_EN                        1
+  #define CRC_EN                        YES
   __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
 
     unsigned i;
@@ -1370,12 +1374,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return ~result;
   }
 #else
-  #define CRC_EN                        0
+  #define CRC_EN                        NO
 #endif
 
 #if defined USE_RNG && USE_RNG != 0
 
-  #define RNG_EN                        1
+  #define RNG_EN                        YES
 
   __STATIC_INLINE unsigned prnd(void) {
 
@@ -1397,12 +1401,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return CRC->DR;
   }
 #else
-  #define RNG_EN                        0
+  #define RNG_EN                        NO
 #endif
 
 #if defined USE_FLASH && USE_FLASH != 0
 
-  #define FLASH_EN                      1
+  #define FLASH_EN                      YES
 
   #define FLASH_DATA_ADDR               0x0801FC00
   #define FLASH_PAGE_SIZE               0x00000400
@@ -1416,9 +1420,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define FLASH_ERR                     (FLASH_SR_PGERR | FLASH_SR_WRPRTERR)
 
   __STATIC_INLINE unsigned write2flash(uint16_t src[], uint16_t len) {
+
     unsigned status = 0;
 
     /* Note: execution time of the function is about 81 ms @ 72 MHz                                 */
+
                                                               /*
     1) UNLOCK THE FLASH
     ========================================================= */
@@ -1562,7 +1568,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     NVIC_SystemReset();                                       /* Reboot                             */
   }
 #else
-  #define FLASH_EN                      0
+  #define FLASH_EN                      NO
 #endif
 
 
@@ -2461,7 +2467,8 @@ __STATIC_INLINE void init(void) {
     }
 
     return SUCCESS;
-  } /* i2c_check() */
+
+  }  /* i2c_check() */
 
 
   __STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
@@ -2482,7 +2489,8 @@ __STATIC_INLINE void init(void) {
 
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-  } /* i2c_write() */
+
+  }  /* i2c_write() */
 
 
   __STATIC_INLINE ErrorStatus i2c_read(const char addr, volatile char *data, unsigned len) {
@@ -2506,7 +2514,9 @@ __STATIC_INLINE void init(void) {
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;
 
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-  } /* i2c_read() */
+
+  }  /* i2c_read() */
+
 
   __STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
@@ -2541,7 +2551,9 @@ __STATIC_INLINE void init(void) {
     I2C1->CR1 = I2C_CR1_STOP | I2C_CR1_ACK | I2C_CR1_PE;  /* generate STOP              */
 
     return (ErrorStatus)(I2C1->SR1 & I2C_ERROR);
-  } /* i2c_read_reg() */
+
+  }  /* i2c_read_reg() */
+
 #endif
 
 #ifdef __cplusplus
