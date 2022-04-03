@@ -910,8 +910,8 @@ cat <<MAIN_H >main.h
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
 
 #define PORT_CONFIG(PORT, CFG, STATE)   if (YES) {                                      \\
-                                          if (CFG) { PORT_CFG(PORT, CFG); }            \\
-                                          if (STATE) { GPIO##PORT->BSRR = (STATE); }   \\
+                                          if (CFG) { PORT_CFG(PORT, CFG); }             \\
+                                          if (STATE) { GPIO##PORT->BSRR = (STATE); }    \\
                                         } else (void) NO
 
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
