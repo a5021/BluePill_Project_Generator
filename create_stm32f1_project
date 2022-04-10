@@ -2989,7 +2989,7 @@ vpath %.s \$(sort \$(dir \$(ASM)))
 \$(BUILD_DIR):
 	mkdir \$@
 
-debug: OPT = -Og -g -gdwarf
+debug: OPT = -Og -g3 -gdwarf
 debug: FLAG += -DUSE_SWD=1
 debug: all
 
