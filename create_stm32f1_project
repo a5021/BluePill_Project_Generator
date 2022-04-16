@@ -1261,8 +1261,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
       #if WWDG_EN
         if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          /* RESET WWDG */
-          WWDG->CR = WWDG_COUNTER;
+          WWDG->CR = WWDG_COUNTER; /* Reset WWDG */
         }
       #endif
     }
