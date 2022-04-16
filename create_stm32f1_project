@@ -1271,11 +1271,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE void get_adc_internals(short *t, unsigned short *v) {
 
-    #if PLL_EN
-      enum { ADC_SAMPLE_COUNT = 4096 };
-    #else
-      enum { ADC_SAMPLE_COUNT = 128 };
-    #endif
+    enum { ADC_SAMPLE_COUNT = 128 + (4096 - 128) * PLL_EN };
 
     unsigned temp_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
