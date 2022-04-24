@@ -2623,9 +2623,9 @@ int main(void) {
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
   for(int i = 0; i <= INT32_MAX;) {
     union {
-      char pbuf[160];
-      unsigned ubuf[sizeof(160/sizeof(unsigned))];
-    } z;
+      char c[UINT8_MAX + 1];
+      unsigned u[(UINT8_MAX + 1)/sizeof(unsigned)];
+    } buf;
 
     int j = 1000;
     do {
@@ -2644,25 +2644,23 @@ int main(void) {
       #endif
       #if WWDG_EN
         if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          /* RESET WWDG */
-          WWDG->CR = WWDG_COUNTER;
+          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
         }
       #endif
     } while(j);
 
     #if RNG_EN
-      i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", rnd() % UINT8_MAX);
+      i = snprintf(buf.c, sizeof(buf.c), "Test #0x%02X", rnd() % UINT8_MAX);
     #else
       static char loop_counter;
-      i = snprintf(z.pbuf, sizeof(z.pbuf), "Test #0x%02X", ++loop_counter);
+      i = snprintf(buf.c, sizeof(buf.c), "Test #0x%02X", ++loop_counter);
     #endif
 #else
   for(;;) {
     #define VOID_LOOP
     #if WWDG_EN
       if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-        /* RESET WWDG */
-        WWDG->CR = WWDG_COUNTER;
+        WWDG->CR = WWDG_COUNTER;  /* RESET WWDG */
       }
     #endif
 #endif
@@ -2671,9 +2669,9 @@ int main(void) {
       char x[0x13];
       i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
       if (i2c_status == 0) {
-        i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
       } else {
-        i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
       }
     #endif
 
@@ -2682,12 +2680,12 @@ int main(void) {
         spi_xfer(0x00);
         char y = spi_xfer(UINT8_MAX);
       CS_HIGH();
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; SPI: 0x%02X", y);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; SPI: 0x%02X", y);
     #endif
 
     #if BTN_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
-                                                                                      (button_state & button_2_released) ? "ON" : "OFF");
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
+                                                                                    (button_state & button_2_released) ? "ON" : "OFF");
       button_state &= (unsigned)~(button_1_released | button_2_released);
     #endif
 
@@ -2708,9 +2706,8 @@ int main(void) {
           rtc_buf[0] = '/'; rtc_buf[1] = 'a';
         }
         rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
-        // __NOP();
       }
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
              ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
@@ -2718,33 +2715,33 @@ int main(void) {
     #endif
 
     #if TIM2_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; TIM2: %08X", tim2_counter);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; TIM2: %08X", tim2_counter);
     #endif
 
     #if CRC_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; CRC: %08X", crc32_zlib(z.ubuf, sizeof(z.ubuf)));
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; CRC: %08X", crc32_zlib(buf.u, sizeof(buf.u)));
     #endif
 
     #if ADC_EN
       short t;
       unsigned short v;
       get_adc_internals(&t, &v);
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
     #endif
 
     #if RNG_EN
-      i += snprintf((char*)&z.pbuf[i], sizeof(z.pbuf) - (unsigned) i, "; RNG: %04X", rnd());
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %04X", rnd());
     #endif
 
     #if USART_EN
-      static unsigned just_started = 1;
-      if (just_started) {
-        just_started = 0;
+      static unsigned done;
+      if (!done) {
+        done = !0;
         uputs("===\n");
       }
-      z.pbuf[i++] = '\n';
-      z.pbuf[i] = 0;
-      uputs(z.pbuf);
+      buf.c[i++] = '\n';
+      buf.c[i] = 0;
+      uputs(buf.c);
     #endif
 
     #if IWDG_EN
@@ -2888,6 +2885,7 @@ BUILD_DIR = build
 
 SRC = main.c system_stm32f1xx.c
 ASM = startup_stm32f103xb.s
+LDS = STM32F103XB_FLASH.ld
 MCU = -mcpu=cortex-m3 -mthumb
 DEF = -DSTM32F103xB
 INC = -I.
@@ -2954,8 +2952,7 @@ else
 endif
 
 LIB = -lc -lm -lnosys
-LDSCRIPT = STM32F103XB_FLASH.ld
-LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDSCRIPT) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
+LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDS) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
 
 all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
 
