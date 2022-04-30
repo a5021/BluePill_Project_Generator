@@ -3,7 +3,7 @@
 if [ "$1" = "--help" ]
   then
       echo ""
-      echo "    STM32F1 Project Creator v0.02";
+      echo "    STM32F1 Project Creator v0.03";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
       echo
       echo "Usage:"
@@ -11,7 +11,7 @@ if [ "$1" = "--help" ]
       echo
       echo "Commands:"
       echo "        mdk  generate simple Keil MDK-ARM config"
-      echo "        pdf  fetch stm32f10x reference manual (rm0008)"
+      echo "        pdf  fetch stm32f10x datasheet and reference manual (rm0008)"
       exit
 fi
 
@@ -1076,7 +1076,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #if defined USE_RTC && USE_RTC != 0
   #define RTC_EN                        YES
 
-  typedef struct{
+  typedef struct {
     uint16_t year;
     uint8_t  month;
     uint8_t  day;
