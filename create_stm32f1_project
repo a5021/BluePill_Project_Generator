@@ -2883,6 +2883,12 @@ cat <<MAKEFILE >Makefile
 TARGET = project
 BUILD_DIR = build
 
+# ifeq (\$(MAKECMDGOALS), debug)
+#   BUILD_DIR = build-debug
+# else
+#   BUILD_DIR = build-release
+# endif
+
 SRC = main.c system_stm32f1xx.c
 ASM = startup_stm32f103xb.s
 LDS = STM32F103XB_FLASH.ld
@@ -2907,8 +2913,6 @@ BIN = \$(CP) -O binary -S
 
 FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11
 
-FLAG += -MMD -MP -MF"\$(@:%.o=%.d)"
-
 ifeq (\$(OS), Windows_NT)
 
     FLAG += -D WIN32
@@ -2930,26 +2934,28 @@ else
 
     UNAME_S := \$(shell uname -s)
     ifeq (\$(UNAME_S), Linux)
-        FLAGS += -D LINUX
+        FLAG += -D LINUX
     endif
     ifeq (\$(UNAME_S), Darwin)
-        FLAGS += -D OSX
+        FLAG += -D OSX
     endif
     UNAME_P := \$(shell uname -p)
     ifeq (\$(UNAME_P), x86_64)
-        FLAGS += -D AMD64
+        FLAG += -D AMD64
     endif
     ifneq (\$(filter %86, \$(UNAME_P)),)
-        FLAGS += -D IA32
+        FLAG += -D IA32
     endif
     ifneq (\$(filter arm%, \$(UNAME_P)),)
-        FLAGS += -D ARM
+        FLAG += -D ARM
     endif
 
     STLINK = st-flash
     STLINK_FLAGS = --reset --format ihex write \$(BUILD_DIR)/\$(TARGET).hex
 
 endif
+
+FLAG += -MMD -MP -MF"\$(@:%.o=%.d)"
 
 LIB = -lc -lm -lnosys
 LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDS) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
