@@ -984,23 +984,13 @@ cat <<MAIN_H >main.h
 #define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(NO)
 
 
-#define DEMCR_TRCENA    0x01000000
-
-/* Core Debug registers */
-#define DEMCR           (*((volatile uint32_t *)0xE000EDFC))
-#define DWT_CTRL        (*(volatile uint32_t *)0xe0001000)
-#define CYCCNTENA       (1<<0)
-#define DWT_CYCCNT      ((volatile uint32_t *)0xE0001004)
-#define CPU_CYCLES      *DWT_CYCCNT
-#define CLK_SPEED       8000000
-
-#define STOPWATCH_START(VAR) do{ (VAR) = CPU_CYCLES;}while(0)
-#define STOPWATCH_STOP(VAR)  do{ (VAR) = CPU_CYCLES - (VAR);}while(0)
+#define STOPWATCH_START(VAR) do{ (VAR) = DWT->CYCCNT;}while(0)
+#define STOPWATCH_STOP(VAR)  do{ (VAR) = DWT->CYCCNT - (VAR);}while(0)
 
 __STATIC_INLINE void stopwatch_reset(void) {
-  DEMCR |= DEMCR_TRCENA; /* Enable DWT               */
-  *DWT_CYCCNT = 0;       /* Reset CPU cycle counter  */
-  DWT_CTRL |= CYCCNTENA; /* Enable CPU cycle counter */
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; /* Enable DWT               */
+  DWT->CYCCNT = 0;                                /* Reset CPU cycle counter  */
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter */
 }
 
 
@@ -2883,11 +2873,13 @@ cat <<MAKEFILE >Makefile
 TARGET = project
 BUILD_DIR = build
 
-# ifeq (\$(MAKECMDGOALS), debug)
-#   BUILD_DIR = build-debug
-# else
-#   BUILD_DIR = build-release
-# endif
+ifeq(0, 1)
+  ifeq (\$(MAKECMDGOALS), debug)
+    BUILD_DIR = build-debug
+  else
+    BUILD_DIR = build-release
+  endif
+endif
 
 SRC = main.c system_stm32f1xx.c
 ASM = startup_stm32f103xb.s
@@ -2955,7 +2947,7 @@ else
 
 endif
 
-FLAG += -MMD -MP -MF"\$(@:%.o=%.d)"
+FLAG += -MMD -MP -MF \$(@:%.o=%.d)
 
 LIB = -lc -lm -lnosys
 LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDS) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
