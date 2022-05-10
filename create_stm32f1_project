@@ -981,16 +981,16 @@ cat <<MAIN_H >main.h
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
-#define DELAY_MS(MS)                    do {(void)SysTick->CTRL; for(unsigned _ = MS; _; _ -= GET_TICK()) {}}while(NO)
+#define DELAY_MS(MS)                    do { (void)SysTick->CTRL; for (unsigned _ = MS; _; _ -= GET_TICK()) {} } while(0)
 
 
-#define STOPWATCH_START(VAR) do{ (VAR) = DWT->CYCCNT;}while(0)
-#define STOPWATCH_STOP(VAR)  do{ (VAR) = DWT->CYCCNT - (VAR);}while(0)
+#define STOPWATCH_START(VAR)            do { (VAR) = DWT->CYCCNT; } while(0)
+#define STOPWATCH_STOP(VAR)             do { (VAR) = DWT->CYCCNT - (VAR); } while(0)
 
 __STATIC_INLINE void stopwatch_reset(void) {
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; /* Enable DWT               */
-  DWT->CYCCNT = 0;                                /* Reset CPU cycle counter  */
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter */
+  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; /* Enable Data Watchpoint and Trace */
+  DWT->CYCCNT = 0;                                /* Reset CPU cycle counter          */
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter         */
 }
 
 
