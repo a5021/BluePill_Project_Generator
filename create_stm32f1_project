@@ -2903,7 +2903,7 @@ SZ = \$(TOOLCHAIN)size
 HEX = \$(CP) -O ihex
 BIN = \$(CP) -O binary -S
 
-FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections -std=gnu11
+FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections
 
 ifeq (\$(OS), Windows_NT)
 
