@@ -1486,7 +1486,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define OB_RDP_LEVEL_0            ((uint8_t)0xA5)
   #define OB_RDP_LEVEL_1            ((uint8_t)0x00)
 
-  __STATIC_INLINE void __attribute__((noreturn)) lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
+  __STATIC_INLINE void __NO_RETURN lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
 
     while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
 
@@ -2839,7 +2839,7 @@ void SysTick_Handler(void) {
 #endif
 
 #if !defined NO_HF_IRQ
-  void __attribute__((noreturn)) HardFault_Handler(void) {
+  void __NO_RETURN HardFault_Handler(void) {
     for(;;) {
       SW_PIN(C, 13, DOWN);
       DELAY_MS(60);
@@ -2873,7 +2873,7 @@ cat <<MAKEFILE >Makefile
 TARGET = project
 BUILD_DIR = build
 
-ifeq(0, 1)
+ifeq (0, 1)
   ifeq (\$(MAKECMDGOALS), debug)
     BUILD_DIR = build-debug
   else
