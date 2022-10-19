@@ -2747,9 +2747,9 @@ int main(void) {
 
 void SysTick_Handler(void) {
   static unsigned t_cnt;
-  if (++t_cnt == 1000) { t_cnt = 0; }         /* Count to 1000 then reset */
-  GPIOC->BSRR = GPIO_BSRR_BR13 * ((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850));
-  GPIOC->BSRR = GPIO_BSRR_BS13 * ((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0));
+  if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
+  (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GPIOC->BSRR = GPIO_BSRR_BR13)) ||
+  (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GPIOC->BSRR = GPIO_BSRR_BS13));
 
   #if BTN_EN
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
@@ -2922,6 +2922,9 @@ ifeq (\$(OS), Windows_NT)
     STLINK = ST-LINK_CLI.exe
     STLINK_FLAGS = -c UR -V -P \$(BUILD_DIR)/\$(TARGET).hex -HardRst -Run
 
+    JLINK = JFlash.Exe
+    JLINK_FLAGS = -openprj./stm32f103cb.jflash -open\$(BUILD_DIR)/\$(TARGET).hex -auto -exit -jflashlog./jflash.log
+
 else
 
     UNAME_S := \$(shell uname -s)
@@ -2944,6 +2947,9 @@ else
 
     STLINK = st-flash
     STLINK_FLAGS = --reset --format ihex write \$(BUILD_DIR)/\$(TARGET).hex
+
+    JLINK = JFlashExe
+    JLINK_FLAGS = -openprj./stm32f103cb.jflash -open\$(BUILD_DIR)/\$(TARGET).hex -auto -exit -jflashlog./jflash.log
 
 endif
 
@@ -2987,9 +2993,14 @@ debug: all
 gccversion :
 	@\$(CC) --version
 
-# Program the device.
+# Program the device using st-link.
 program: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(STLINK) \$(STLINK_FLAGS)
+
+# Program the device using jlink.
+jprogram: \$(BUILD_DIR)/\$(TARGET).hex
+	\$(JLINK) \$(JLINK_FLAGS)
+
 
 clean:
 	rm -fR \$(BUILD_DIR)
@@ -3038,6 +3049,91 @@ void _SetupTarget(void) {
   }
 }
 DEBUG_JLINK
+
+cat << JFLASH_CONFIG >stm32f103cb.jflash
+  AppVersion = 76006
+  FileVersion = 2
+[GENERAL]
+  aATEModuleSel[24] = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  ConnectMode = 0
+  CurrentFile = "./build/project.hex"
+  DataFileSAddr = 0x00000000
+  GUIMode = 0
+  HostName = ""
+  TargetIF = 1
+  USBPort = 0
+  USBSerialNo = 0x00000000
+  UseATEModuleSelection = 0
+[JTAG]
+  IRLen = 0
+  MultipleTargets = 0
+  NumDevices = 0
+  Speed0 = 4000
+  Speed1 = 4000
+  TAP_Number = 0
+  UseAdaptive0 = 0
+  UseAdaptive1 = 0
+  UseMaxSpeed0 = 0
+  UseMaxSpeed1 = 0
+[CPU]
+  NumInitSteps = 1
+  InitStep0_Action = "Reset"
+  InitStep0_Value0 = 0x00000000
+  InitStep0_Value1 = 0x00000000
+  InitStep0_Comment = "Reset and halt target"
+  NumExitSteps = 0
+  UseScriptFile = 0
+  ScriptFile = ""
+  UseRAM = 1
+  RAMAddr = 0x20000000
+  RAMSize = 0x00005000
+  CheckCoreID = 1
+  CoreID = 0x3BA00477
+  CoreIDMask = 0x0F000FFF
+  UseAutoSpeed = 0x00000001
+  ClockSpeed = 0x00000000
+  EndianMode = 0
+  ChipName = "ST STM32F103CB (allow opt. bytes)"
+[FLASH]
+  aRangeSel[1] = 0-128
+  BankName = "Internal flash"
+  BankSelMode = 1
+  BaseAddr = 0x06000000
+  NumBanks = 1
+[PRODUCTION]
+  AutoPerformsDisconnect = 0
+  AutoPerformsErase = 1
+  AutoPerformsProgram = 1
+  AutoPerformsSecure = 0
+  AutoPerformsStartApp = 1
+  AutoPerformsUnsecure = 0
+  AutoPerformsVerify = 1
+  EnableFixedVTref = 0
+  EnableTargetPower = 0
+  EraseType = 1
+  FixedVTref = 0x00000CE4
+  MonitorVTref = 0
+  MonitorVTrefMax = 0x0000157C
+  MonitorVTrefMin = 0x000003E8
+  OverrideTimeouts = 0
+  ProgramSN = 0
+  SerialFile = ""
+  SNAddr = 0x00000000
+  SNInc = 0x00000001
+  SNLen = 0x00000004
+  SNListFile = ""
+  SNValue = 0x00000001
+  StartAppType = 1
+  TargetPowerDelay = 0x00000014
+  TimeoutErase = 0x00003A98
+  TimeoutProgram = 0x00002710
+  TimeoutVerify = 0x00002710
+  VerifyType = 1
+[PERFORMANCE]
+  DisableSkipBlankDataOnProgram = 0x00000000
+  PerfromBlankCheckPriorEraseChip = 0x00000001
+  PerfromBlankCheckPriorEraseSelectedSectors = 0x00000001
+JFLASH_CONFIG
 
 #
 # run 'make' utility
