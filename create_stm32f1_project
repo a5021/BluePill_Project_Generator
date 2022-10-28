@@ -1140,8 +1140,8 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
 
-    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC Alarm value MSB word       */
-    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC Alarm value LSB word    */
+    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC Alarm value MS half-word   */
+    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC Alarm value LS half-word*/
 
     SET_REG_BIT(RTC->CRH, RTC_CRH_ALRIE);                     /* Alarm interrupt enable             */
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
