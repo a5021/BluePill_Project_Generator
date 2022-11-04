@@ -875,15 +875,13 @@ cat <<MAIN_H >main.h
  extern C {
 #endif
 
-
 #define NO  0
 #define YES (!NO)
-
 
 /* *********************************************************************************** */
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
-#if 0                                      /*                                          */
+#if defined(USE_ALL)                       /*                                          */
   #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
   #define USE_PLL                       1  /* Use PLL as system clock source           */
   #define USE_LSE                       1  /* Use LSE as RTC clock source              */
@@ -1773,15 +1771,12 @@ __STATIC_INLINE void init(void) {
 
     SET_REG_BIT(ADC1->CR2, ADC_CR2_CAL);                      /* Start ADC1 calibration             */
 
-    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_CAL)) {
-      /* Wait until ADC calibration completes */
-    }
+    while (READ_REG_BIT(ADC1->CR2, ADC_CR2_CAL)) {   /* Wait until ADC calibration completes */   }
 
-    /*
+                                                                                                    /*
       The Temperature sensor is connected to channel ADCx_IN16 and the internal reference voltage
       VREFINT is connected to ADCx_IN17. These two internal channels can be selected and converted
-      as injected or regular channels.
-    */
+      as injected or regular channels.                                                              */
 
     ADC1->SMPR1 = ADC_SMPR1(16, 239) | ADC_SMPR1(17, 239);
     ADC1->SQR3 = ADC_SQR3(1, 16);
