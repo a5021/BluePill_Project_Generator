@@ -1317,13 +1317,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define SPI_EN                        YES
 
   __STATIC_INLINE char spi_xfer(char d) {
-    while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE)) {
-      /* wait until spi transfer completes */
-    }
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE))  { /* wait until TX becomes empty  */ }
     *((__IO char *)&SPI1->DR) = d;
-    while(!READ_REG_BIT(SPI1->SR, SPI_SR_RXNE)) {
-      /* wait until spi transfer completes */
-    }
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_RXNE)) { /* wait until receive completes */ }
     return *(__IO char *)&SPI1->DR;
   }
 
@@ -2386,13 +2382,13 @@ __STATIC_INLINE void init(void) {
 #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
 
 #if USART_EN
-  __STATIC_INLINE void uputc(char c) {
+  __STATIC_INLINE void uputc(const char c) {
     /*** Send char using USART1 ***/
     while (!READ_REG_BIT(USART1->SR, USART_SR_TXE)) {}        /* Wait until TX reg becomes empty    */
     USART1->DR = c;
   }
 
-  __STATIC_INLINE void uputs(char *c) {
+  __STATIC_INLINE void uputs(const char *c) {
     /*** Send string using UART ***/
     while(*c) {
       uputc(*c++);
@@ -2410,7 +2406,7 @@ __STATIC_INLINE void init(void) {
     uput_x(c & 0x0F);
   }
 
-  #define uprintf(...) do{char _[160]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
+  #define uprintf(...) do{char _[200]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
 #else
   #define uprintf(...)
 #endif
@@ -2536,6 +2532,63 @@ __STATIC_INLINE void init(void) {
 
 #endif
 
+static const char *build_msg  = "\\nThe firmware is built with following MACROs used:"
+#if defined(USE_HSE) && (USE_HSE != 0)
+  " USE_HSE"
+#endif
+#if defined(USE_PLL) && (USE_PLL != 0)
+  " USE_PLL"
+#endif
+#if defined(USE_LSE) && (USE_LSE != 0)
+  " USE_LSE"
+#endif
+#if defined(USE_ADC) && (USE_ADC!= 0)
+  " USE_ADC"
+#endif
+#if defined(USE_USART) && (USE_USART!= 0)
+  " USE_USART"
+#endif
+#if defined(USE_I2C) && (USE_I2C != 0)
+  " USE_I2C"
+#endif
+#if defined(USE_SPI) && (USE_SPI != 0)
+  " USE_SPI"
+#endif
+#if defined(USE_BTN) && (USE_BTN != 0)
+  " USE_BTN"
+#endif
+#if defined(USE_RTC) && (USE_RTC != 0)
+  " USE_RTC"
+#endif
+#if defined(USE_TIM2) && (USE_TIM2 != 0)
+  " USE_TIM2"
+#endif
+#if defined(USE_CRC) && (USE_CRC != 0)
+  " USE_CRC"
+#endif
+#if defined(USE_RNG) && (USE_RNG != 0)
+  " USE_RNG"
+#endif
+#if defined(USE_IWDG) && (USE_IWDG != 0)
+  " USE_IWDG"
+#endif
+#if defined(USE_WWDG) && (USE_WWDG != 0)
+  " USE_WWDG"
+#endif
+#if defined(USE_EXTI) && (USE_EXTI != 0)
+  " USE_EXTI"
+#endif
+#if defined(USE_FLASH) && (USE_FLASH != 0)
+  " USE_FLASH"
+#endif
+#if defined(USE_USE_SWD) && (USE_USE_SWD != 0)
+  " USE_SWD"
+#endif
+#if defined(USE_OVRCLK) && (USE_OVRCLK != 0)
+  " OVRCLK"
+#endif
+".\\n\\n";  
+
 #ifdef __cplusplus
 }
 #endif
@@ -2603,6 +2656,12 @@ int main(void) {
       rtc_set_counter(1625641627);   /* Epoch timestamp: 1625641627 = Wed, 07 Jul 2021 07:07:07 GMT */
     }
     rtc_set_alarm(rtc_read_counter() + 30);
+  #endif
+
+  #if USART_EN
+    uputs(build_msg);
+  #else
+    (void) build_msg;
   #endif
 
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
@@ -2719,11 +2778,13 @@ int main(void) {
     #endif
 
     #if USART_EN
+      #if 0
       static unsigned done;
       if (!done) {
         done = !0;
-        uputs("===\n");
+        uputs(build_msg);
       }
+      #endif
       buf.c[i++] = '\n';
       buf.c[i] = 0;
       uputs(buf.c);
@@ -3046,12 +3107,12 @@ void _SetupTarget(void) {
 DEBUG_JLINK
 
 cat << JFLASH_CONFIG >stm32f103cb.jflash
-  AppVersion = 76006
+  AppVersion = 70001
   FileVersion = 2
 [GENERAL]
-  aATEModuleSel[24] = 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  aATEModuleSel[10] = 0,0,0,0,0,0,0,0,0,0
   ConnectMode = 0
-  CurrentFile = "./build/project.hex"
+  CurrentFile = "build/project.hex"
   DataFileSAddr = 0x00000000
   GUIMode = 0
   HostName = ""
@@ -3118,7 +3179,7 @@ cat << JFLASH_CONFIG >stm32f103cb.jflash
   SNLen = 0x00000004
   SNListFile = ""
   SNValue = 0x00000001
-  StartAppType = 1
+  StartAppType = 0
   TargetPowerDelay = 0x00000014
   TimeoutErase = 0x00003A98
   TimeoutProgram = 0x00002710
@@ -3137,4 +3198,4 @@ JFLASH_CONFIG
 make
 
 echo
-echo "type \"make program\" to download the firmware into the chip."
+echo "type \"make program\" or \"make jprogram\" to download the firmware into the chip."
