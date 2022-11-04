@@ -1831,9 +1831,9 @@ __STATIC_INLINE void init(void) {
 
   #if TIM2_EN
 
-    #define TIM2_PSC 0          /* 0..0xFFFF - Prescaler Value                                      */
-    #define TIM2_ARR 0          /* 0..0xFFFF - actual auto-reload Value                             */
-    #define TIM2_CCR1 0x7FFF    /* 0..0xFFFF - Capture/Compare 1 Value                              */
+    #define TIM2_PSC 0       /* 0..0xFFFF - Prescaler Value                                         */
+    #define TIM2_ARR 0       /* 0..0xFFFF - actual auto-reload Value                                */
+    #define TIM2_CCR1 0x7FFF /* 0..0xFFFF - Capture/Compare 1 Value                                 */
 
     #define TIM2_EGR (    \\
       1 * TIM_EGR_UG      |  /* (1 << 0)    Update Generation                           0x00000001  */\\
