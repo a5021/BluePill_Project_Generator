@@ -2653,7 +2653,7 @@ int main(void) {
 
   #if RTC_EN
     if (rtc_init_req) {
-      rtc_set_counter(1625641627);   /* Epoch timestamp: 1625641627 = Wed, 07 Jul 2021 07:07:07 GMT */
+      rtc_set_counter(1645568542);     /* Epoch timestamp 1645568542: Tue, 22 Feb 2022 22:22:22 GMT */
     }
     rtc_set_alarm(rtc_read_counter() + 30);
   #endif
