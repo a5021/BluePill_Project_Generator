@@ -2637,10 +2637,6 @@ cat <<MAIN_C >main.c
 
 int main(void) {
 
-  #if RTC_EN
-    unsigned rtc_init_req = !READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);
-  #endif
-
   init();
 
   #if FLASH_EN
@@ -2652,7 +2648,7 @@ int main(void) {
   #endif
 
   #if RTC_EN
-    if (rtc_init_req) {
+    if (RTC->CNTL + RTC->CNTH == 0) {
       rtc_set_counter(1645568542);     /* Epoch timestamp 1645568542: Tue, 22 Feb 2022 22:22:22 GMT */
     }
     rtc_set_alarm(rtc_read_counter() + 30);
