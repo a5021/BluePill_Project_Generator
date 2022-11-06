@@ -892,6 +892,7 @@ cat <<MAIN_H >main.h
   #define USE_BTN                       1  /* Handle buttons connected to PB1 and PB2  */
   #define USE_RTC                       1  /* Configure and run RTC                    */
   #define USE_TIM2                      1  /* Configure and run TIM2                   */
+  #define USE_DMA                       1  /* Use DMA where it is possible             */
   #define USE_CRC                       1  /* Add CRC computation code                 */
   #define USE_RNG                       1  /* Add random numbers generation code       */
   #define USE_IWDG                      1  /* Enable independent hardware watchdog     */
@@ -1033,6 +1034,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define TIM2_EN                       YES
 #else
   #define TIM2_EN                       NO
+#endif
+
+#if defined USE_DMA && USE_DMA != 0
+  #define DMA_EN                        YES
+#else
+  #define DMA_EN                        NO
 #endif
 
 #if defined USE_EXTI && USE_EXTI != 0
@@ -1598,7 +1605,7 @@ __STATIC_INLINE void init(void) {
   #define GATE_CLOCK(BUS, PER)      RCC_ ## BUS ## ENR_ ## PER ## EN
 
   #define AHB_CONFIG (                            \\
-    0        * GATE_CLOCK(AHB, DMA1)              |           /* Enable clock for DMA1              */\\
+    DMA_EN   * GATE_CLOCK(AHB, DMA1)              |           /* Enable clock for DMA1              */\\
     0        * GATE_CLOCK(AHB, SRAM)              |           /* Enable clock for SRAM while Sleep  */\\
     0        * GATE_CLOCK(AHB, FLITF)             |           /* Enable clock for FLITF while Sleep */\\
     CRC_EN   * GATE_CLOCK(AHB, CRC)               |           /* Enable clock for CRC               */\\
@@ -1753,6 +1760,9 @@ __STATIC_INLINE void init(void) {
                   SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
 
   #if USART_EN
+    #if DMA_EN
+      USART1->CR3 = USART_CR3_DMAT;                           /* (1 << 7)   DMA Enable Transmitter  */
+    #endif
     USART1->BRR = (HCLK + BAUDRATE / 2) / BAUDRATE;           /* Configure USART baud rate          */
     USART1->CR1 = USART_CR1_TE | USART_CR1_RE | USART_CR1_UE; /* Enable USART peripheral            */
   #endif
@@ -1820,11 +1830,75 @@ __STATIC_INLINE void init(void) {
     );
   #endif
 
+  #if DMA_EN
+	  #define DMA1_Channel2_CMAR 1
+	  #define DMA1_Channel2_CPAR 1
+
+    extern volatile unsigned blink_pattern[30];
+
+	  #define DMA1_Channel2_CNDTR (\\
+	    30                                          /* (0xFFFF << 0)   Number of data to Transfer     */\\
+	  )
+
+	  #define DMA1_Channel2_CCR (\\
+	    1 * DMA_CCR_EN      |  /* (1 << 0)           Channel enable                       0x00000001  */\\
+	    0 * DMA_CCR_TCIE    |  /* (1 << 1)           Transfer complete interrupt enable   0x00000002  */\\
+	    0 * DMA_CCR_HTIE    |  /* (1 << 2)           Half Transfer interrupt enable       0x00000004  */\\
+	    0 * DMA_CCR_TEIE    |  /* (1 << 3)           Transfer error interrupt enable      0x00000008  */\\
+	    1 * DMA_CCR_DIR     |  /* (1 << 4)           Data transfer direction              0x00000010  */\\
+	    1 * DMA_CCR_CIRC    |  /* (1 << 5)           Circular mode                        0x00000020  */\\
+	    0 * DMA_CCR_PINC    |  /* (1 << 6)           Peripheral increment mode            0x00000040  */\\
+	    1 * DMA_CCR_MINC    |  /* (1 << 7)           Memory increment mode                0x00000080  */\\
+	    0 * DMA_CCR_PSIZE   |  /* (3 << 8)           PSIZE[1:0] bits (Peripheral size)    0x00000300  */\\
+	    0 * DMA_CCR_PSIZE_0 |  /* (1 << 8)             0x00000100                                     */\\
+	    1 * DMA_CCR_PSIZE_1 |  /* (2 << 8)             0x00000200                                     */\\
+	    0 * DMA_CCR_MSIZE   |  /* (3 << 10)          MSIZE[1:0] bits (Memory size)        0x00000C00  */\\
+	    0 * DMA_CCR_MSIZE_0 |  /* (1 << 10)            0x00000400                                     */\\
+	    1 * DMA_CCR_MSIZE_1 |  /* (2 << 10)            0x00000800                                     */\\
+	    0 * DMA_CCR_PL      |  /* (3 << 12)          PL[1:0] bits(Channel Priority level) 0x00003000  */\\
+	    0 * DMA_CCR_PL_0    |  /* (1 << 12)            0x00001000                                     */\\
+	    0 * DMA_CCR_PL_1    |  /* (2 << 12)            0x00002000                                     */\\
+	    0 * DMA_CCR_MEM2MEM    /* (1 << 14)          Memory to memory mode                0x00004000  */\\
+	  )
+	
+    #define DMA1_Channel4_CCR (\
+      1 * DMA_CCR_EN      |  /* (1 << 0)           Channel enable                       0x00000001  */\
+      0 * DMA_CCR_TCIE    |  /* (1 << 1)           Transfer complete interrupt enable   0x00000002  */\
+      0 * DMA_CCR_HTIE    |  /* (1 << 2)           Half Transfer interrupt enable       0x00000004  */\
+      0 * DMA_CCR_TEIE    |  /* (1 << 3)           Transfer error interrupt enable      0x00000008  */\
+      1 * DMA_CCR_DIR     |  /* (1 << 4)           Data transfer direction              0x00000010  */\
+      0 * DMA_CCR_CIRC    |  /* (1 << 5)           Circular mode                        0x00000020  */\
+      0 * DMA_CCR_PINC    |  /* (1 << 6)           Peripheral increment mode            0x00000040  */\
+      1 * DMA_CCR_MINC    |  /* (1 << 7)           Memory increment mode                0x00000080  */\
+      0 * DMA_CCR_PSIZE   |  /* (3 << 8)           PSIZE[1:0] bits (Peripheral size)    0x00000300  */\
+      0 * DMA_CCR_PSIZE_0 |  /* (1 << 8)             0x00000100                                     */\
+      0 * DMA_CCR_PSIZE_1 |  /* (2 << 8)             0x00000200                                     */\
+      0 * DMA_CCR_MSIZE   |  /* (3 << 10)          MSIZE[1:0] bits (Memory size)        0x00000C00  */\
+      0 * DMA_CCR_MSIZE_0 |  /* (1 << 10)            0x00000400                                     */\
+      0 * DMA_CCR_MSIZE_1 |  /* (2 << 10)            0x00000800                                     */\
+      0 * DMA_CCR_PL      |  /* (3 << 12)          PL[1:0] bits(Channel Priority level) 0x00003000  */\
+      0 * DMA_CCR_PL_0    |  /* (1 << 12)            0x00001000                                     */\
+      0 * DMA_CCR_PL_1    |  /* (2 << 12)            0x00002000                                     */\
+      0 * DMA_CCR_MEM2MEM    /* (1 << 14)          Memory to memory mode                0x00004000  */\
+    )
+
+    DMA1_Channel2->CMAR  = (unsigned)&blink_pattern;                 /* 0x40020028:                 */
+    DMA1_Channel2->CNDTR = sizeof(blink_pattern) / sizeof(unsigned); /* 0x40020020:                 */
+    DMA1_Channel2->CPAR  = (unsigned)&GPIOC->BSRR;                   /* 0x40020024:                 */
+    DMA1_Channel2->CCR   = DMA1_Channel2_CCR;                        /* 0x4002001C:                 */
+
+    DMA1_Channel4->CPAR  = (unsigned)&USART1->DR;                    /* 0x4002004C:                 */
+	
+  #endif
+
+
   #if TIM2_EN
 
-    #define TIM2_PSC 0       /* 0..0xFFFF - Prescaler Value                                         */
-    #define TIM2_ARR 0       /* 0..0xFFFF - actual auto-reload Value                                */
-    #define TIM2_CCR1 0x7FFF /* 0..0xFFFF - Capture/Compare 1 Value                                 */
+    #define DM DMA_EN
+
+    #define TIM2_PSC (HCLK / 10000 - 1)  /* 0..0xFFFF - Prescaler Value                             */
+    #define TIM2_ARR (300 - 1)           /* 0..0xFFFF - actual auto-reload Value                    */
+    #define TIM2_CCR1 (TIM2_ARR / 2 - 1) /* 0..0xFFFF - Capture/Compare 1 Value                     */
 
     #define TIM2_EGR (    \\
       1 * TIM_EGR_UG      |  /* (1 << 0)    Update Generation                           0x00000001  */\\
@@ -1839,6 +1913,7 @@ __STATIC_INLINE void init(void) {
 
     #define TIM2_DIER (   \\
       1 * TIM_DIER_UIE    |  /* (1 << 0)    Update interrupt enable                     0x00000001  */\\
+                                                                                                      \\
       0 * TIM_DIER_CC1IE  |  /* (1 << 1)    Capture/Compare 1 interrupt enable          0x00000002  */\\
       0 * TIM_DIER_CC2IE  |  /* (1 << 2)    Capture/Compare 2 interrupt enable          0x00000004  */\\
       0 * TIM_DIER_CC3IE  |  /* (1 << 3)    Capture/Compare 3 interrupt enable          0x00000008  */\\
@@ -1846,7 +1921,8 @@ __STATIC_INLINE void init(void) {
                                                                                                       \\
       0 * TIM_DIER_TIE    |  /* (1 << 6)    Trigger interrupt enable                    0x00000040  */\\
                                                                                                       \\
-      0 * TIM_DIER_UDE    |  /* (1 << 8)    Update DMA request enable                   0x00000100  */\\
+      DM * TIM_DIER_UDE   |  /* (1 << 8)    Update DMA request enable                   0x00000100  */\\
+                                                                                                      \\
       0 * TIM_DIER_CC1DE  |  /* (1 << 9)    Capture/Compare 1 DMA request enable        0x00000200  */\\
       0 * TIM_DIER_CC2DE  |  /* (1 << 10)   Capture/Compare 2 DMA request enable        0x00000400  */\\
       0 * TIM_DIER_CC3DE  |  /* (1 << 11)   Capture/Compare 3 DMA request enable        0x00000800  */\\
@@ -2376,6 +2452,7 @@ __STATIC_INLINE void init(void) {
     );
   #endif
 
+  SystemCoreClockUpdate();
 
 }  /* init() */
 
@@ -2532,63 +2609,6 @@ __STATIC_INLINE void init(void) {
 
 #endif
 
-static const char *build_msg  = "\\nThe firmware is built with following MACROs used:"
-#if defined(USE_HSE) && (USE_HSE != 0)
-  " USE_HSE"
-#endif
-#if defined(USE_PLL) && (USE_PLL != 0)
-  " USE_PLL"
-#endif
-#if defined(USE_LSE) && (USE_LSE != 0)
-  " USE_LSE"
-#endif
-#if defined(USE_ADC) && (USE_ADC!= 0)
-  " USE_ADC"
-#endif
-#if defined(USE_USART) && (USE_USART!= 0)
-  " USE_USART"
-#endif
-#if defined(USE_I2C) && (USE_I2C != 0)
-  " USE_I2C"
-#endif
-#if defined(USE_SPI) && (USE_SPI != 0)
-  " USE_SPI"
-#endif
-#if defined(USE_BTN) && (USE_BTN != 0)
-  " USE_BTN"
-#endif
-#if defined(USE_RTC) && (USE_RTC != 0)
-  " USE_RTC"
-#endif
-#if defined(USE_TIM2) && (USE_TIM2 != 0)
-  " USE_TIM2"
-#endif
-#if defined(USE_CRC) && (USE_CRC != 0)
-  " USE_CRC"
-#endif
-#if defined(USE_RNG) && (USE_RNG != 0)
-  " USE_RNG"
-#endif
-#if defined(USE_IWDG) && (USE_IWDG != 0)
-  " USE_IWDG"
-#endif
-#if defined(USE_WWDG) && (USE_WWDG != 0)
-  " USE_WWDG"
-#endif
-#if defined(USE_EXTI) && (USE_EXTI != 0)
-  " USE_EXTI"
-#endif
-#if defined(USE_FLASH) && (USE_FLASH != 0)
-  " USE_FLASH"
-#endif
-#if defined(USE_USE_SWD) && (USE_USE_SWD != 0)
-  " USE_SWD"
-#endif
-#if defined(USE_OVRCLK) && (USE_OVRCLK != 0)
-  " OVRCLK"
-#endif
-".\\n\\n";  
-
 #ifdef __cplusplus
 }
 #endif
@@ -2602,6 +2622,7 @@ MAIN_H
 
 cat <<MAIN_C >main.c
 #include <stdio.h>
+#include <string.h>
 #include "main.h"
 
 #if I2C_EN
@@ -2631,7 +2652,7 @@ cat <<MAIN_C >main.c
 // #endif
 
 #if RNG_EN
-  int rnd(void);             /* Get pseudo-random number            */
+  unsigned rnd(void);        /* Get pseudo-random number            */
   void srnd(unsigned seed);  /* Seed pseudo-random number generator */
 #endif
 
@@ -2654,8 +2675,16 @@ int main(void) {
     rtc_set_alarm(rtc_read_counter() + 30);
   #endif
 
+  extern const char *build_msg;
   #if USART_EN
-    uputs(build_msg);
+    #if DMA_EN
+      DMA1_Channel4->CCR = 0;
+      DMA1_Channel4->CNDTR = strlen(build_msg);   /* 0x40020048: */
+      DMA1_Channel4->CMAR = (unsigned) build_msg; /* 0x40020050: */
+      DMA1_Channel4->CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
+    #else
+      uputs(build_msg);
+    #endif
   #else
     (void) build_msg;
   #endif
@@ -2689,11 +2718,12 @@ int main(void) {
       #endif
     } while(j);
 
+    i = snprintf(buf.c, sizeof(buf.c), "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
     #if RNG_EN
-      i = snprintf(buf.c, sizeof(buf.c), "Test #0x%02X", rnd() % UINT8_MAX);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", rnd() % UINT8_MAX);
     #else
       static char loop_counter;
-      i = snprintf(buf.c, sizeof(buf.c), "Test #0x%02X", ++loop_counter);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", ++loop_counter);
     #endif
 #else
   for(;;) {
@@ -2770,20 +2800,21 @@ int main(void) {
     #endif
 
     #if RNG_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %04X", rnd());
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %08X", rnd());
     #endif
 
     #if USART_EN
-      #if 0
-      static unsigned done;
-      if (!done) {
-        done = !0;
-        uputs(build_msg);
-      }
+      #if DMA_EN
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "\n");
+        DMA1_Channel4->CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
+        DMA1_Channel4->CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
+        DMA1_Channel4->CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
+        DMA1_Channel4->CCR   = DMA1_Channel4_CCR;   /* 0x40020044: Apply the channel config and start the transfer */
+      #else
+        buf.c[i++] = '\n';
+        buf.c[i] = 0;
+        uputs(buf.c);
       #endif
-      buf.c[i++] = '\n';
-      buf.c[i] = 0;
-      uputs(buf.c);
     #endif
 
     #if IWDG_EN
@@ -2791,17 +2822,18 @@ int main(void) {
     #endif
 
   }
-
-  return 0;
-
 } /* main() */
 
 
 void SysTick_Handler(void) {
-  static unsigned t_cnt;
-  if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
-  (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GPIOC->BSRR = GPIO_BSRR_BR13)) ||
-  (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GPIOC->BSRR = GPIO_BSRR_BS13));
+
+  #if TIM2_EN && DMA_EN
+  #else
+    static unsigned t_cnt;
+    if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
+    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GPIOC->BSRR = GPIO_BSRR_BR13)) ||
+    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GPIOC->BSRR = GPIO_BSRR_BS13));
+  #endif
 
   #if BTN_EN
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
@@ -2902,18 +2934,97 @@ void SysTick_Handler(void) {
 #endif
 
 #if RNG_EN
-  static unsigned rnext;
+  static unsigned rnext; /* = 2463534242;  */
+  unsigned rnd(void) {
 
-  int rnd(void) {
+  #if 0
     rnext = rnext * 1103515245 + 12345;
-    return rnext / 65536 % 32768;
-  }
-
+    return rnext / 65536 % (UINT16_MAX / 2 + 1);
+  #else
+    rnext ^= rnext << 13;
+    rnext ^= rnext >> 17;
+    rnext ^= rnext << 5;
+    return rnext;
+  #endif
+  } /* rng() */
 
   void srnd(unsigned seed) {
     rnext = seed;
-  }
+  } /* srng() */
 #endif
+
+#if DMA_EN
+  volatile unsigned blink_pattern[30] = {
+    GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13
+  };
+#endif
+
+const char *build_msg  = ""
+#if defined DEBUG
+  "\\nThe firmware is built with following MACROs used:"
+  #if defined(USE_HSE) && (USE_HSE != 0)
+    " USE_HSE"
+  #endif
+  #if defined(USE_PLL) && (USE_PLL != 0)
+    " USE_PLL"
+  #endif
+  #if defined(USE_LSE) && (USE_LSE != 0)
+    " USE_LSE"
+  #endif
+  #if defined(USE_ADC) && (USE_ADC!= 0)
+    " USE_ADC"
+  #endif
+  #if defined(USE_USART) && (USE_USART!= 0)
+    " USE_USART"
+  #endif
+  #if defined(USE_I2C) && (USE_I2C != 0)
+    " USE_I2C"
+  #endif
+  #if defined(USE_SPI) && (USE_SPI != 0)
+    " USE_SPI"
+  #endif
+  #if defined(USE_BTN) && (USE_BTN != 0)
+    " USE_BTN"
+  #endif
+  #if defined(USE_RTC) && (USE_RTC != 0)
+    " USE_RTC"
+  #endif
+  #if defined(USE_TIM2) && (USE_TIM2 != 0)
+    " USE_TIM2"
+  #endif
+  #if defined(USE_DMA) && (USE_DMA != 0)
+    " USE_DMA"
+  #endif
+  #if defined(USE_CRC) && (USE_CRC != 0)
+    " USE_CRC"
+  #endif
+  #if defined(USE_RNG) && (USE_RNG != 0)
+    " USE_RNG"
+  #endif
+  #if defined(USE_IWDG) && (USE_IWDG != 0)
+    " USE_IWDG"
+  #endif
+  #if defined(USE_WWDG) && (USE_WWDG != 0)
+    " USE_WWDG"
+  #endif
+  #if defined(USE_EXTI) && (USE_EXTI != 0)
+    " USE_EXTI"
+  #endif
+  #if defined(USE_FLASH) && (USE_FLASH != 0)
+    " USE_FLASH"
+  #endif
+  #if defined(USE_USE_SWD) && (USE_USE_SWD != 0)
+    " USE_SWD"
+  #endif
+  #if defined(USE_OVRCLK) && (USE_OVRCLK != 0)
+    " OVRCLK"
+  #endif
+  #if !defined(__clang__)
+  " ["__DATE__"]"
+  #endif
+  ".\n"
+#endif
+"\\n";
 
 MAIN_C
 
