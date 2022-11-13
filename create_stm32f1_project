@@ -3,7 +3,7 @@
 if [ "$1" = "--help" ]
   then
       echo ""
-      echo "    STM32F1 Project Creator v0.03";
+      echo "    STM32F1 Project Creator v0.04";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
       echo
       echo "Usage:"
@@ -57,7 +57,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
         <TargetCommonOption>
           <Device>STM32F103CB</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32F1xx_DFP.2.3.0</PackID>
+          <PackID>Keil.STM32F1xx_DFP.2.4.0</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000,0x00005000) IROM(0x08000000,0x00020000) CPUTYPE("Cortex-M3") CLOCK(8000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -458,7 +458,7 @@ if [ "$1" = "mdk" ] || [ "$2" = "mdk" ] || [ "$3" = "mdk" ] || [ "$4" = "mdk" ] 
         <TargetCommonOption>
           <Device>STM32F103CB</Device>
           <Vendor>STMicroelectronics</Vendor>
-          <PackID>Keil.STM32F1xx_DFP.2.3.0</PackID>
+          <PackID>Keil.STM32F1xx_DFP.2.4.0</PackID>
           <PackURL>http://www.keil.com/pack/</PackURL>
           <Cpu>IRAM(0x20000000,0x00005000) IROM(0x08000000,0x00020000) CPUTYPE("Cortex-M3") CLOCK(8000000) ELITTLE</Cpu>
           <FlashUtilSpec></FlashUtilSpec>
@@ -1026,6 +1026,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 #if defined USE_BTN && USE_BTN != 0
   #define BTN_EN                        YES
+  enum {
+    button_1_pressed  = (1 << 0),
+    button_2_pressed  = (1 << 1),
+    button_1_released = (1 << 16),
+    button_2_released = (1 << 17)
+  };
 #else
   #define BTN_EN                        NO
 #endif
@@ -1105,14 +1111,17 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return counter;
   }
 
-  __STATIC_INLINE void unixtime_to_time(uint32_t utime, time_struct_t * t) {
 
-    uint32_t ace = (utime / 86400) + 32044 + JD0;
-    uint32_t b = (4 * ace + 3) / 146097;
+  __STATIC_INLINE void unixtime_to_time(uint32_t utime, time_struct_t * t) {
+    
+    uint32_t ace, b, d, m;
+
+    ace = (utime / 86400) + 32044 + JD0;
+    b = (4 * ace + 3) / 146097;
     ace = ace - ((146097 * b) / 4);
-    uint32_t d = (4 * ace + 3) / 1461;
+    d = (4 * ace + 3) / 1461;
     ace = ace - ((1461 * d) / 4);
-    uint32_t m = (5 * ace + 2) / 153;
+    m = (5 * ace + 2) / 153;
     t->day = (uint8_t)(ace - ((153 * m + 2) / 5) + 1);
     t->month = (uint8_t) (m + 3 - (12 * (m / 10)));
     t->year = (uint16_t) (100 * b + d - 4800 + (m / 10));
@@ -1120,6 +1129,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     t->minute = (utime / 60) % 60;
     t->second = (utime % 60);
   }
+
 
   __STATIC_INLINE unsigned rtc_read_counter(void) {
     unsigned a = RTC->CNTH, b = RTC->CNTL, c = RTC->CNTH;
@@ -1133,12 +1143,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE void rtc_set_alarm(unsigned alarm_time) {
 
-    unsigned apb1enr = RCC->APB1ENR;
+    unsigned apb1enr = RCC->APB1ENR, pwr_cr_dbp;
 
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
 
-    unsigned pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
@@ -1162,12 +1172,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE void rtc_set_counter(unsigned counter) {
 
-    unsigned apb1enr = RCC->APB1ENR;
+    unsigned apb1enr = RCC->APB1ENR, pwr_cr_dbp;
 
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
 
-    unsigned pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
@@ -1267,8 +1277,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   __STATIC_INLINE void get_adc_internals(short *t, unsigned short *v) {
 
     enum { ADC_SAMPLE_COUNT = 128 + (4096 - 128) * PLL_EN };
+    
+    unsigned temp_data, vcc_data, vcc;
 
-    unsigned temp_data = adc_get_average(ADC_SAMPLE_COUNT);
+    temp_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
@@ -1276,7 +1288,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
-    unsigned vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
+    vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
@@ -1284,11 +1296,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
-    unsigned vcc = 1200UL * 4095UL / vcc_data;
-    int temp = temp_data * vcc / 4095L;
-    temp = ((1430L - temp) * 10L / 43L) + 25L;
-    if (t != NULL) *t = (short) temp;
-    if (v != NULL) *v = (unsigned short) vcc;
+    vcc = 1200UL * 4095UL / vcc_data;
+    {
+      int temp = temp_data * vcc / 4095L;
+      temp = ((1430L - temp) * 10L / 43L) + 25L;
+      if (t != NULL) *t = (short) temp;
+      if (v != NULL) *v = (unsigned short) vcc;
+    }
   }
 
 #else
@@ -1344,13 +1358,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define CRC_EN                        YES
   __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
 
-    unsigned i;
+    unsigned i, result;
 
     CRC->CR = CRC_CR_RESET;
 
     for (i = 0; i < (cnt / 4); i++) CRC->DR = __RBIT(data[i]);
 
-    unsigned result = __RBIT(CRC->DR);
+    result = __RBIT(CRC->DR);
     cnt = (cnt % 4) * 8;
     if (cnt) {
       CRC->DR = CRC->DR;
@@ -1366,6 +1380,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #if defined USE_RNG && USE_RNG != 0
 
   #define RNG_EN                        YES
+
+    unsigned rnd(void);
+    void srnd(unsigned);
 
   __STATIC_INLINE unsigned prnd(void) {
 
@@ -1386,6 +1403,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     return CRC->DR;
   }
+
 #else
   #define RNG_EN                        NO
 #endif
@@ -1407,7 +1425,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE unsigned write2flash(uint16_t src[], uint16_t len) {
 
-    unsigned status = 0;
+    unsigned status  = 0;
+    __IO uint16_t* p = (__IO uint16_t*) FLASH_DATA_ADDR;
+
 
     /* Note: execution time of the function is about 81 ms @ 72 MHz                                 */
 
@@ -1455,8 +1475,6 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
                                                               /*
     4) WRITE DATA TO THE FLASH
     ========================================================= */
-
-    __IO uint16_t* p = (__IO uint16_t*) FLASH_DATA_ADDR;
 
     SET_REG_BIT(FLASH->CR, FLASH_CR_PG);                      /* Enable programming mode            */
     for (unsigned i = 0; i < len / 2; i++) {                  /* Start writing cycle                */
@@ -1732,9 +1750,7 @@ __STATIC_INLINE void init(void) {
 
   SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
 
-  #if RNG_EN
-
-    extern void srnd(unsigned);
+  #if RNG_EN    
 
     #if !RTC_EN && !ADC_EN
       SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |            /* Start SysTick timer (HCLK / 8)     */
@@ -1794,11 +1810,13 @@ __STATIC_INLINE void init(void) {
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);                     /* Start continuous conversion        */
 
     #if RNG_EN
-      unsigned rbits = 0;
-      for(unsigned i = 0; i < 32; i++) {
-        rbits = (rbits << 1) | adc_get_random_bit();
+      {
+        unsigned rbits = 0;
+        for(unsigned i = 0; i < 32; i++) {
+          rbits = (rbits << 1) | adc_get_random_bit();
+        }
+        srnd(rbits);
       }
-      srnd(rbits);
     #endif
 
     #if 0
@@ -1831,8 +1849,6 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if DMA_EN
-    extern const unsigned blink_pattern[30];
-    
     #define DMA1_Channel2_CCR (\\
       1 * DMA_CCR_EN      |  /* (1 << 0)           Channel enable                       0x00000001  */\\
       0 * DMA_CCR_TCIE    |  /* (1 << 1)           Transfer complete interrupt enable   0x00000002  */\\
@@ -1853,12 +1869,16 @@ __STATIC_INLINE void init(void) {
       0 * DMA_CCR_PL_1    |  /* (2 << 12)            0x00002000                                     */\\
       0 * DMA_CCR_MEM2MEM    /* (1 << 14)          Memory to memory mode                0x00004000  */\\
     )
-    
-    DMA1_Channel2->CMAR  = (unsigned)&blink_pattern;                 /* 0x40020028:                 */
-    DMA1_Channel2->CNDTR = sizeof(blink_pattern) / sizeof(unsigned); /* 0x40020020:                 */
-    DMA1_Channel2->CPAR  = (unsigned)&GPIOC->BSRR;                   /* 0x40020024:                 */
-    DMA1_Channel2->CCR   = DMA1_Channel2_CCR;                        /* 0x4002001C:                 */
-    
+
+    {
+      extern const unsigned blink_pattern[30];
+
+      DMA1_Channel2->CMAR  = (unsigned)&blink_pattern;                         /* 0x40020028:       */
+      DMA1_Channel2->CNDTR = sizeof(blink_pattern) / sizeof(blink_pattern[0]); /* 0x40020020:       */
+      DMA1_Channel2->CPAR  = (unsigned)&GPIOC->BSRR;                           /* 0x40020024:       */
+      DMA1_Channel2->CCR   = DMA1_Channel2_CCR;                                /* 0x4002001C:       */
+    }
+
     #define DMA1_Channel4_CCR (\\
       1 * DMA_CCR_EN      |  /* (1 << 0)           Channel enable                       0x00000001  */\\
       0 * DMA_CCR_TCIE    |  /* (1 << 1)           Transfer complete interrupt enable   0x00000002  */\\
@@ -1879,9 +1899,9 @@ __STATIC_INLINE void init(void) {
       0 * DMA_CCR_PL_1    |  /* (2 << 12)            0x00002000                                     */\\
       0 * DMA_CCR_MEM2MEM    /* (1 << 14)          Memory to memory mode                0x00004000  */\\
     )
-    
+
     DMA1_Channel4->CPAR  = (unsigned)&USART1->DR;                    /* 0x4002004C:                 */
-    
+
   #endif
 
 
@@ -2320,9 +2340,7 @@ __STATIC_INLINE void init(void) {
 
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain write prot.  */
 
-    unsigned is_rtc_enabled = READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN);
-
-    if (is_rtc_enabled == 0) {
+    if (0 == READ_REG_BIT(RCC->BDCR, RCC_BDCR_RTCEN)) {
 
       #if LSE_EN
         SET_REG_BIT(RCC->BDCR, RCC_BDCR_LSEON);               /* Enable LSE oscillator              */
@@ -2492,9 +2510,8 @@ __STATIC_INLINE void init(void) {
                             I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
                           )
 
-  extern unsigned short i2c_status;
-
   __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
+    extern unsigned short i2c_status;
     unsigned t_out = I2C_TIMEOUT;
     (void) SysTick->CTRL;
 
@@ -2505,10 +2522,12 @@ __STATIC_INLINE void init(void) {
         return ERROR;
       }
 
-      unsigned e_status = I2C1->SR1 & I2C_ERROR;
-      if (e_status) {
-        i2c_status = (unsigned short)e_status;
-        return ERROR;
+      {
+        unsigned e_status = I2C1->SR1 & I2C_ERROR;
+        if (e_status) {
+          i2c_status = (unsigned short)e_status;
+          return ERROR;
+        }
       }
     }
 
@@ -2618,204 +2637,20 @@ cat <<MAIN_C >main.c
 #include <string.h>
 #include "main.h"
 
-#if I2C_EN
-  unsigned short i2c_status;
-#endif
-
-#if BTN_EN
-  enum {
-    button_1_pressed  = (1 << 0),
-    button_2_pressed  = (1 << 1),
-    button_1_released = (1 << 16),
-    button_2_released = (1 << 17)
-  };
-  static volatile unsigned button_state;
-#endif
-
-#if RTC_EN
-  static volatile unsigned rtc_flag;
-#endif
-
-#if TIM2_EN
-  static volatile unsigned tim2_counter;
-#endif
-
-// #if ADC_EN
-//   static unsigned adc_data;
-// #endif
-
-#if RNG_EN
-  unsigned rnd(void);        /* Get pseudo-random number            */
-  void srnd(unsigned seed);  /* Seed pseudo-random number generator */
-#endif
+static void demo(void);
 
 int main(void) {
 
   init();
 
-  #if FLASH_EN
-    #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
-      if (!READ_REG_BIT(FLASH->OBR, FLASH_OBR_RDPRT)) {        /* Check RDP level status            */
-        lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
-      }
-    #endif
-  #endif
+  demo();
 
-  #if RTC_EN
-    if (RTC->CNTL + RTC->CNTH == 0) {
-      rtc_set_counter(1645568542);     /* Epoch timestamp 1645568542: Tue, 22 Feb 2022 22:22:22 GMT */
-    }
-    rtc_set_alarm(rtc_read_counter() + 30);
-  #endif
-
-  extern const char *build_msg;
-  #if USART_EN
-    #if DMA_EN
-      DMA1_Channel4->CCR = 0;
-      DMA1_Channel4->CNDTR = strlen(build_msg);   /* 0x40020048: */
-      DMA1_Channel4->CMAR = (unsigned) build_msg; /* 0x40020050: */
-      DMA1_Channel4->CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
-    #else
-      uputs(build_msg);
-    #endif
-  #else
-    (void) build_msg;
-  #endif
-
-#if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
-  for(int i = 0; i <= INT32_MAX;) {
-    union {
-      char c[UINT8_MAX + 1];
-      unsigned u[(UINT8_MAX + 1)/sizeof(unsigned)];
-    } buf;
-
-    int j = 1000;
-    do {
-
-      // #if ADC_EN
-      //   adc_data = (adc_data << 1) | adc_get_random_bit();
-      // #endif
-
-      #if RTC_EN
-        if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
-          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
-          j = 0;
-        }
-      #else
-        j -= GET_TICK();
-      #endif
-      #if WWDG_EN
-        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
-        }
-      #endif
-    } while(j);
-
-    i = snprintf(buf.c, sizeof(buf.c), "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
-    #if RNG_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", rnd() % UINT8_MAX);
-    #else
-      static char loop_counter;
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", ++loop_counter);
-    #endif
-#else
-  for(;;) {
-    #define VOID_LOOP
-    #if WWDG_EN
-      if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-        WWDG->CR = WWDG_COUNTER;  /* RESET WWDG */
-      }
-    #endif
-#endif
-
-    #if I2C_EN
-      char x[0x13];
-      i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
-      if (i2c_status == 0) {
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
-      } else {
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
-      }
-    #endif
-
-    #if SPI_EN
-      CS_LOW();
-        spi_xfer(0x00);
-        char y = spi_xfer(UINT8_MAX);
-      CS_HIGH();
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; SPI: 0x%02X", y);
-    #endif
-
-    #if BTN_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
-                                                                                    (button_state & button_2_released) ? "ON" : "OFF");
-      button_state &= (unsigned)~(button_1_released | button_2_released);
-    #endif
-
-    #if RTC_EN
-      time_struct_t tm;
-      unsigned rtc_counter = rtc_read_counter();
-      unixtime_to_time(rtc_counter, &tm);
-      char rtc_buf[10] = {0};
-      if (READ_MEM_BIT(rtc_flag, EXTI_PR_PR17)) {
-        CLEAR_MEM_BIT(rtc_flag, EXTI_PR_PR17);
-        rtc_buf[0] = '/'; rtc_buf[1] = 'A';
-      }
-      if (READ_MEM_BIT(rtc_flag, RTC_CRL_ALRF)) {
-        CLEAR_MEM_BIT(rtc_flag, RTC_CRL_ALRF);
-        if (rtc_buf[0] == '/') {
-          rtc_buf[2] = 'a';
-        } else {
-          rtc_buf[0] = '/'; rtc_buf[1] = 'a';
-        }
-        rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
-      }
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
-             tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second, rtc_buf);
-    #endif
-
-    #if TIM2_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; TIM2: %08X", tim2_counter);
-    #endif
-
-    #if CRC_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; CRC: %08X", crc32_zlib(buf.u, sizeof(buf.u)));
-    #endif
-
-    #if ADC_EN
-      short t;
-      unsigned short v;
-      get_adc_internals(&t, &v);
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
-    #endif
-
-    #if RNG_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %08X", rnd());
-    #endif
-
-    #if USART_EN
-      #if DMA_EN
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "\n");
-        DMA1_Channel4->CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
-        DMA1_Channel4->CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
-        DMA1_Channel4->CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
-        DMA1_Channel4->CCR   = DMA1_Channel4_CCR;   /* 0x40020044: Apply the channel config and start the transfer */
-      #else
-        buf.c[i++] = '\n';
-        buf.c[i] = 0;
-        uputs(buf.c);
-      #endif
-    #endif
-
-    #if IWDG_EN
-      IWDG->KR = 0xAAAA;
-    #endif
-
-  }
 } /* main() */
+
+
+#if BTN_EN
+  static volatile unsigned button_state;
+#endif
 
 
 void SysTick_Handler(void) {
@@ -2852,7 +2687,10 @@ void SysTick_Handler(void) {
   #endif
 } /* SysTick_Handler() */
 
+
 #if RTC_EN
+  static volatile unsigned rtc_flag;
+
   void RTC_IRQHandler(void) {                   /* RTC global interrupt handler  */
 
     if (READ_REG_BIT(RTC->CRL, RTC_CRL_ALRF)) {
@@ -2877,8 +2715,12 @@ void SysTick_Handler(void) {
   } /* RTC_Alarm_IRQHandler() */
 #endif
 
+
 #if TIM2_EN
+  static volatile unsigned tim2_counter;
+
   void TIM2_IRQHandler(void) {
+
     if (READ_REG_BIT(TIM2->SR, TIM_SR_UIF)) {
       CLEAR_REG_BIT(TIM2->SR, TIM_SR_UIF);
     } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC1IF)) {
@@ -2894,11 +2736,13 @@ void SysTick_Handler(void) {
   } /* TIM2_IRQHandler() */
 #endif
 
+
 #if ADC_EN
   void ADC1_2_IRQHandler(void) {
     ADC1->SR = 0;
   } /* ADC1_2_IRQHandler() */
 #endif
+
 
 #if EXTI_EN
   void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
@@ -2908,12 +2752,14 @@ void SysTick_Handler(void) {
   } /* EXTI9_5_IRQHandler() */
 #endif
 
+
 #if WWDG_EN
   void WWDG_IRQHandler(void) {
     WWDG->SR = 0;
     WWDG->CR = 0x7F;
   } /* WWDG_IRQHandler() */
 #endif
+
 
 #if !defined NO_HF_IRQ
   void __NO_RETURN HardFault_Handler(void) {
@@ -2925,6 +2771,193 @@ void SysTick_Handler(void) {
     }
   } /* HardFault_Handler() */
 #endif
+
+
+#if I2C_EN
+  unsigned short i2c_status = 0;
+#endif
+
+
+static void demo(void) {
+
+  #if FLASH_EN
+    #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
+      if (!READ_REG_BIT(FLASH->OBR, FLASH_OBR_RDPRT)) {        /* Check RDP level status            */
+        lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
+      }
+    #endif
+  #endif
+
+  #if RTC_EN
+    if (RTC->CNTL + RTC->CNTH == 0) {
+      rtc_set_counter(1645568542);     /* Epoch timestamp 1645568542: Tue, 22 Feb 2022 22:22:22 GMT */
+    }
+    rtc_set_alarm(rtc_read_counter() + 30);
+  #endif
+
+  {
+    extern const char *build_msg;
+    #if USART_EN
+      #if DMA_EN
+        DMA1_Channel4->CCR = 0;
+        DMA1_Channel4->CNDTR = strlen(build_msg);   /* 0x40020048: */
+        DMA1_Channel4->CMAR = (unsigned) build_msg; /* 0x40020050: */
+        DMA1_Channel4->CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
+      #else
+        uputs(build_msg);
+      #endif
+    #else
+      (void) build_msg;
+    #endif
+  }
+
+#if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
+  for(int i = 0; i <= INT32_MAX;) {
+    union {
+      char c[UINT8_MAX + 1];
+      unsigned u[(UINT8_MAX + 1)/sizeof(unsigned)];
+    } buf;
+
+    int j = 1000;
+    do {
+
+      // #if ADC_EN
+      //   adc_data = (adc_data << 1) | adc_get_random_bit();
+      // #endif
+
+      #if RTC_EN
+        if (READ_MEM_BIT(rtc_flag, RTC_CRL_SECF)) {
+          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_SECF);
+          j = 0;
+        }
+      #else
+        j -= GET_TICK();
+      #endif
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
+        }
+      #endif
+    } while(j);
+
+    i = snprintf(buf.c, sizeof(buf.c), "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
+    #if RNG_EN
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", rnd() % UINT8_MAX);
+    #else
+      {
+        static char loop_counter;
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", ++loop_counter);
+      }
+    #endif
+#else
+  for(;;) {
+    #define VOID_LOOP
+    #if WWDG_EN
+      if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+        WWDG->CR = WWDG_COUNTER;  /* RESET WWDG */
+      }
+    #endif
+#endif
+
+    #if I2C_EN
+      {
+        char x[0x13];
+        i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
+        if (i2c_status == 0) {
+          i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
+        } else {
+          i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
+        }
+      }
+    #endif
+
+    #if SPI_EN
+      {
+        char rx;
+        CS_LOW();
+          spi_xfer(0x00);
+          rx = spi_xfer(UINT8_MAX);
+        CS_HIGH();
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; SPI: 0x%02X", rx);
+      }
+    #endif
+
+    #if BTN_EN
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
+                                                                                    (button_state & button_2_released) ? "ON" : "OFF");
+      button_state &= (unsigned)~(button_1_released | button_2_released);
+    #endif
+
+    #if RTC_EN
+      {
+        time_struct_t tm;
+        char rtc_buf[10] = {0};
+        unsigned rtc_counter = rtc_read_counter();
+
+        unixtime_to_time(rtc_counter, &tm);
+        
+        if (READ_MEM_BIT(rtc_flag, EXTI_PR_PR17)) {
+          CLEAR_MEM_BIT(rtc_flag, EXTI_PR_PR17);
+          rtc_buf[0] = '/'; rtc_buf[1] = 'A';
+        }
+        if (READ_MEM_BIT(rtc_flag, RTC_CRL_ALRF)) {
+          CLEAR_MEM_BIT(rtc_flag, RTC_CRL_ALRF);
+          if (rtc_buf[0] == '/') {
+            rtc_buf[2] = 'a';
+          } else {
+            rtc_buf[0] = '/'; rtc_buf[1] = 'a';
+          }
+          rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
+        }
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
+               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
+               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
+               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
+               tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second, rtc_buf);
+      }    
+    #endif
+
+    #if TIM2_EN
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; TIM2: %08X", tim2_counter);
+    #endif
+
+    #if CRC_EN
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; CRC: %08X", crc32_zlib(buf.u, sizeof(buf.u)));
+    #endif
+
+    #if ADC_EN
+      {
+        short t;
+        unsigned short v;
+        get_adc_internals(&t, &v);
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
+      }
+    #endif
+
+    #if RNG_EN
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %08X", rnd());
+    #endif
+
+    #if USART_EN
+      #if DMA_EN
+        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "\n");
+        DMA1_Channel4->CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
+        DMA1_Channel4->CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
+        DMA1_Channel4->CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
+        DMA1_Channel4->CCR   = DMA1_Channel4_CCR;   /* 0x40020044: Apply the channel config and start the transfer */
+      #else
+        buf.c[i++] = '\n';
+        buf.c[i] = 0;
+        uputs(buf.c);
+      #endif
+    #endif
+
+    #if IWDG_EN
+      IWDG->KR = 0xAAAA;
+    #endif
+  }
+} /* demo() */
+
 
 #if RNG_EN
   static unsigned rnext; /* = 2463534242;  */
@@ -2946,11 +2979,18 @@ void SysTick_Handler(void) {
   } /* srng() */
 #endif
 
+
+// #if ADC_EN
+//   static unsigned adc_data;
+// #endif
+
+
 #if DMA_EN
   const unsigned blink_pattern[30] = {
     GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13
   };
 #endif
+
 
 const char *build_msg  = ""
 #if defined DEBUG
