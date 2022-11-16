@@ -1093,10 +1093,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #if defined USE_BTN && USE_BTN != 0
   #define BTN_EN                        YES
   enum {
-    button_1_pressed  = (1 << 0),
-    button_2_pressed  = (1 << 1),
-    button_1_released = (1 << 16),
-    button_2_released = (1 << 17)
+    BUTTON_1_PRESSED  = (1 << 0),
+    BUTTON_2_PRESSED  = (1 << 1),
+    BUTTON_1_RELEASED = (1 << 16),
+    BUTTON_2_RELEASED = (1 << 17)
   };
 #else
   #define BTN_EN                        NO
@@ -2743,19 +2743,19 @@ void SysTick_Handler(void) {
     btn[1][CURRENT] = (btn[1][CURRENT] << 1) | READ_REG_BIT(GPIOB->IDR, GPIO_IDR_IDR1);
 
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
-      SET_MEM_BIT(button_state, button_1_pressed);
+      SET_MEM_BIT(button_state, BUTTON_1_PRESSED);
       button_pressed(0);
     }
     if ((btn[1][CURRENT] == 0) && (btn[1][PREVIOUS] != 0)) {
-      SET_MEM_BIT(button_state, button_2_pressed);
+      SET_MEM_BIT(button_state, BUTTON_2_PRESSED);
       button_pressed(1);
     }
     if ((btn[0][CURRENT] == UINT32_MAX) && (btn[0][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(button_state, button_1_released);
+      SET_MEM_BIT(button_state, BUTTON_1_RELEASED);
       button_released(0);
     }
     if ((btn[1][CURRENT] == UINT32_MAX) && (btn[1][PREVIOUS] != UINT32_MAX)) {
-      SET_MEM_BIT(button_state, button_2_released);
+      SET_MEM_BIT(button_state, BUTTON_2_RELEASED);
       button_released(1);
     }
     btn[0][PREVIOUS] = btn[0][CURRENT];
@@ -2959,9 +2959,9 @@ static void demo(void) {
     #endif
 
     #if BTN_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & button_1_released) ? "ON" : "OFF",
-                                                                                    (button_state & button_2_released) ? "ON" : "OFF");
-      button_state &= (unsigned)~(button_1_released | button_2_released);
+      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & BUTTON_1_RELEASED) ? "ON" : "OFF",
+                                                                                    (button_state & BUTTON_2_RELEASED) ? "ON" : "OFF");
+      button_state &= (unsigned)~(BUTTON_1_RELEASED | BUTTON_2_RELEASED);
     #endif
 
     #if RTC_EN
