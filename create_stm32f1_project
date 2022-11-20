@@ -1452,21 +1452,34 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE unsigned prnd(void) {
 
-    unsigned *addr = (unsigned *) APB1PERIPH_BASE;
     for (unsigned i = 0; i < 0x2000; i++) {
-      CRC->DR = *addr++;
+      CRC->DR = ((unsigned *) APB1PERIPH_BASE)[i];
     }
 
-    addr = (unsigned *) APB2PERIPH_BASE;
     for (unsigned i = 0; i < 0x1000; i++) {
-      CRC->DR = *addr++;
+      CRC->DR = ((unsigned *) APB2PERIPH_BASE)[i];
     }
 
-    addr = (unsigned *) AHBPERIPH_BASE;
     for (unsigned i = 0; i < 0x100; i++) {
-      CRC->DR = *addr++;
+      CRC->DR = ((unsigned *) AHBPERIPH_BASE)[i];
     }
 
+    for (unsigned i = 0; i < 0x4000; i++) {
+      CRC->DR = ((unsigned *) FLASH_BASE)[i];
+    }
+    
+    for (unsigned i = 0; i < 0x1000; i++) {
+      CRC->DR = ((unsigned *) SRAM_BASE)[i];
+    }
+    
+    for (unsigned i = 0; i < 0x40000; i++) {
+      CRC->DR = ((unsigned *) ITM_BASE)[i];
+    }
+    
+    for (unsigned i = 0; i < 0x204; i++) {
+      CRC->DR = ((unsigned *) 0x1FFFF000)[i];
+    }
+    
     return CRC->DR;
   }
 
@@ -1814,29 +1827,29 @@ __STATIC_INLINE void init(void) {
 
   #endif
 
-  SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
-
   #if RNG_EN    
-
     #if !RTC_EN && !ADC_EN
+      SysTick->LOAD = HCLK / 40000 - 1;                       /* Set SysTick reload register        */
       SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |            /* Start SysTick timer (HCLK / 8)     */
                       SysTick_CTRL_CLKSOURCE_Msk |
                       SysTick_CTRL_TICKINT_Msk;               /* Enable SysTick exception request   */
-
+      
       for(int i = 0; i < 10000; i++) {
-
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
-        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSION)) { }     /* wait till oscillator switches on   */
+        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }    /* wait till oscillator switches on   */
         CRC->DR = SysTick->VAL;                               /* process counter                    */
 
         CLEAR_REG_BIT(RCC->CSR, RCC_CSR_LSION);               /* Disable LSI oscillator             */
-        while(READ_REG_BIT(RCC->CSR, RCC_CSR_LSION)) { }      /* wait till oscillator switches off  */
+        while(READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }     /* wait till oscillator switches off  */
         CRC->DR = SysTick->VAL;                               /* process counter                    */
       }
+    #else
       prnd();
-      srnd(CRC->DR);
     #endif
+    srnd(CRC->DR);
   #endif
+
+  SysTick->LOAD = HCLK / 8000 - 1;                            /* Set SysTick reload register        */
 
   SysTick->CTRL = SysTick_CTRL_ENABLE_Msk |                   /* Start SysTick timer (HCLK / 8)     */
                   SysTick_CTRL_TICKINT_Msk;                   /* Enable SysTick exception request   */
