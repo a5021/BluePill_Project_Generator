@@ -1,6 +1,6 @@
 # BluePill Project Generator
 
-Simple shell script to generate plain Makefile project for "BluePill" STM32F103C8 devboard.
+Simple shell script to generate bare-metal Makefile project for "Blue Pill" STM32F103C8 devboard.
 
 Run the script in any convenient way.
 
@@ -17,15 +17,12 @@ To upload firmware to the "BluePill" microcontroller simply type:
 *Note: st-link programmer and st-link utility are required*
 
 
-
 If it is nessesary to rebuild sources with debug information supplied just run make utility as follows:
 
   `make debug`
   
-  
+Configuration macro names from main.h can be used as command line parameters for the make utility.
 
-It is possible to compile firmware with macros predefined. It can be done with Makefile variable named EXT. For instance run
-
-  `make EXT="-DUSE_PLL=1 -DUSE_HSE=1"`  or  `make EXT="-DUSE_PLL -DUSE_HSE"`
+  `make USE_ALL=1 USE_HSE=0 USE_PLL=0` 
   
-to build firmware with HSE generator switched ON and PLL selected as system clock. The list of macros can be found at the top of main.h
+In the example above all configuration macros are enabled except for USE_HSE and USE_PLL which are disabled.

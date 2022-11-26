@@ -948,25 +948,83 @@ cat <<MAIN_H >main.h
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
 #if defined(USE_ALL)                       /*                                          */
-  #define USE_HSE                       1  /* Use crystall oscillator as clock source  */
-  #define USE_PLL                       1  /* Use PLL as system clock source           */
-  #define USE_LSE                       1  /* Use LSE as RTC clock source              */
-  #define USE_ADC                       1  /* Configure ADC1 peripheral                */
-  #define USE_USART                     1  /* Configure USART1 for send and receive    */
-  #define USE_I2C                       1  /* Configure I2C1 100kHz                    */
-  #define USE_SPI                       1  /* Configure SPI1                           */
-  #define USE_BTN                       1  /* Handle buttons connected to PB1 and PB2  */
-  #define USE_RTC                       1  /* Configure and run RTC                    */
-  #define USE_TIM2                      1  /* Configure and run TIM2                   */
-  #define USE_DMA                       1  /* Use DMA where it is possible             */
-  #define USE_CRC                       1  /* Add CRC computation code                 */
-  #define USE_RNG                       1  /* Add random numbers generation code       */
-  #define USE_IWDG                      1  /* Enable independent hardware watchdog     */
-  #define USE_WWDG                      1  /* Enable windows hardware watchdog         */
-  #define USE_EXTI                      1  /* Use external interrupt                   */
-  #define USE_FLASH                     1  /* Add feature to write data to flash       */
-  #define USE_SWD                       1  /* Use SWD pins for debugging               */
-  #define OVRCLK                        1  /* Overclock microcontroller (112 mhz)      */
+
+  #ifndef USE_HSE
+    #define USE_HSE                     1  /* Use crystall oscillator as clock source  */
+  #endif
+
+  #ifndef USE_PLL
+    #define USE_PLL                     1  /* Use PLL as system clock source           */
+  #endif
+
+  #ifndef USE_LSE
+    #define USE_LSE                     1  /* Use LSE as RTC clock source              */
+  #endif
+
+  #ifndef USE_ADC
+    #define USE_ADC                     1  /* Configure ADC1 peripheral                */
+  #endif
+
+  #ifndef USE_USART
+    #define USE_USART                   1  /* Configure USART1 for send and receive    */
+  #endif
+
+  #ifndef USE_I2C
+    #define USE_I2C                     1  /* Configure I2C1 100kHz                    */
+  #endif
+
+  #ifndef USE_SPI
+    #define USE_SPI                     1  /* Configure SPI1                           */
+  #endif
+
+  #ifndef USE_BTN
+    #define USE_BTN                     1  /* Handle buttons connected to PB1 and PB2  */
+  #endif
+
+  #ifndef USE_RTC
+    #define USE_RTC                     1  /* Configure and run RTC                    */
+  #endif
+
+  #ifndef USE_TIM2
+    #define USE_TIM2                    1  /* Configure and run TIM2                   */
+  #endif
+
+  #ifndef USE_DMA
+    #define USE_DMA                     1  /* Use DMA where it is possible             */
+  #endif
+
+  #ifndef USE_CRC
+    #define USE_CRC                     1  /* Add CRC computation code                 */
+  #endif
+
+  #ifndef USE_RNG
+    #define USE_RNG                     1  /* Add random numbers generation code       */
+  #endif
+
+  #ifndef USE_IWDG
+    #define USE_IWDG                    1  /* Enable independent hardware watchdog     */
+  #endif
+
+  #ifndef USE_WWDG
+    #define USE_WWDG                    0  /* Enable windows hardware watchdog         */
+  #endif
+
+  #ifndef USE_EXTI
+    #define USE_EXTI                    1  /* Use external interrupt                   */
+  #endif
+
+  #ifndef USE_FLASH
+    #define USE_FLASH                   1  /* Add feature to write data to flash       */
+  #endif
+
+  #ifndef USE_SWD
+    #define USE_SWD                     1  /* Use SWD pins for debugging               */
+  #endif
+
+  #ifndef OVRCLK
+    #define OVRCLK                      1  /* Overclock microcontroller (112 mhz)      */
+  #endif
+
 #endif                                     /*                                          */
 /* *********************************************************************************** */
 /* **********  or use it as command line parameters for make utility  **************** */
@@ -1179,7 +1237,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 
   __STATIC_INLINE void unixtime_to_time(uint32_t utime, time_struct_t * t) {
-    
+
     uint32_t ace, b, d, m;
 
     ace = (utime / 86400) + 32044 + JD0;
@@ -1343,7 +1401,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   __STATIC_INLINE void get_adc_internals(short *t, unsigned short *v) {
 
     enum { ADC_SAMPLE_COUNT = 128 + (4096 - 128) * PLL_EN };
-    
+
     unsigned temp_data, vcc_data, vcc;
 
     temp_data = adc_get_average(ADC_SAMPLE_COUNT);
@@ -1467,19 +1525,19 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     for (unsigned i = 0; i < 0x4000; i++) {
       CRC->DR = ((unsigned *) FLASH_BASE)[i];
     }
-    
+
     for (unsigned i = 0; i < 0x1000; i++) {
       CRC->DR = ((unsigned *) SRAM_BASE)[i];
     }
-    
+
     for (unsigned i = 0; i < 0x40000; i++) {
       CRC->DR = ((unsigned *) ITM_BASE)[i];
     }
-    
+
     for (unsigned i = 0; i < 0x204; i++) {
       CRC->DR = ((unsigned *) 0x1FFFF000)[i];
     }
-    
+
     return CRC->DR;
   }
 
@@ -1827,13 +1885,13 @@ __STATIC_INLINE void init(void) {
 
   #endif
 
-  #if RNG_EN    
+  #if RNG_EN
     #if !RTC_EN && !ADC_EN
       SysTick->LOAD = HCLK / 40000 - 1;                       /* Set SysTick reload register        */
       SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |            /* Start SysTick timer (HCLK / 8)     */
                       SysTick_CTRL_CLKSOURCE_Msk |
                       SysTick_CTRL_TICKINT_Msk;               /* Enable SysTick exception request   */
-      
+
       for(int i = 0; i < 10000; i++) {
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
         while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }    /* wait till oscillator switches on   */
@@ -2904,8 +2962,10 @@ static void demo(void) {
   for(int i = 0; i <= INT32_MAX;) {
     union {
       char c[UINT8_MAX + 1];
-      unsigned u[(UINT8_MAX + 1)/sizeof(unsigned)];
+      unsigned u[(UINT8_MAX + 1) / sizeof(unsigned)];  /* used for word access */
     } buf;
+
+    #define BUF buf.c + i, sizeof(buf) - (size_t)i
 
     int j = 1000;
     do {
@@ -2929,13 +2989,13 @@ static void demo(void) {
       #endif
     } while(j);
 
-    i = snprintf(buf.c, sizeof(buf.c), "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
+    i = snprintf(BUF, "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
     #if RNG_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", rnd() % UINT8_MAX);
+      i += snprintf(BUF, " #0x%02X", rnd() % UINT8_MAX);
     #else
       {
         static char loop_counter;
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, " #0x%02X", ++loop_counter);
+        i += snprintf(BUF, " #0x%02X", ++loop_counter);
       }
     #endif
 #else
@@ -2953,9 +3013,9 @@ static void demo(void) {
         char x[0x13];
         i2c_read_reg(0x68, x, 0, sizeof(x));  /* Read DS1307/DS3231 register pool */
         if (i2c_status == 0) {
-          i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
+          i += snprintf(BUF, "; I2C: %02X:%02X:%02X", x[2], x[1], x[0]);
         } else {
-          i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; I2C ERR: %04X", i2c_status);
+          i += snprintf(BUF, "; I2C ERR: %04X", i2c_status);
         }
       }
     #endif
@@ -2967,13 +3027,13 @@ static void demo(void) {
           spi_xfer(0x00);
           rx = spi_xfer(UINT8_MAX);
         CS_HIGH();
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; SPI: 0x%02X", rx);
+        i += snprintf(BUF, "; SPI: 0x%02X", rx);
       }
     #endif
 
     #if BTN_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; KEY: %s/%s", (button_state & BUTTON_1_RELEASED) ? "ON" : "OFF",
-                                                                                    (button_state & BUTTON_2_RELEASED) ? "ON" : "OFF");
+      i += snprintf(BUF, "; KEY: %s/%s", (button_state & BUTTON_1_RELEASED) ? "ON" : "OFF",
+                                         (button_state & BUTTON_2_RELEASED) ? "ON" : "OFF");
       button_state &= (unsigned)~(BUTTON_1_RELEASED | BUTTON_2_RELEASED);
     #endif
 
@@ -2984,7 +3044,7 @@ static void demo(void) {
         unsigned rtc_counter = rtc_read_counter();
 
         unixtime_to_time(rtc_counter, &tm);
-        
+
         if (READ_MEM_BIT(rtc_flag, EXTI_PR_PR17)) {
           CLEAR_MEM_BIT(rtc_flag, EXTI_PR_PR17);
           rtc_buf[0] = '/'; rtc_buf[1] = 'A';
@@ -2998,20 +3058,20 @@ static void demo(void) {
           }
           rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
         }
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
-               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
-               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
-               ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
-               tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second, rtc_buf);
-      }    
+        i += snprintf(BUF, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
+             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
+             tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second, rtc_buf);
+      }
     #endif
 
     #if TIM2_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; TIM2: %08X", tim2_counter);
+      i += snprintf(BUF, "; TIM2: %08X", tim2_counter);
     #endif
 
     #if CRC_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; CRC: %08X", crc32_zlib(buf.u, sizeof(buf.u)));
+      i += snprintf(BUF, "; CRC: %08X", crc32_zlib(buf.u, sizeof(buf.u)));
     #endif
 
     #if ADC_EN
@@ -3019,17 +3079,17 @@ static void demo(void) {
         short t;
         unsigned short v;
         get_adc_internals(&t, &v);
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
+        i += snprintf(BUF, "; ADC: %u.%03u/%d", v / 1000, v % 1000, t);
       }
     #endif
 
     #if RNG_EN
-      i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "; RNG: %08X", rnd());
+      i += snprintf(BUF, "; RNG: %08X", rnd());
     #endif
 
     #if USART_EN
       #if DMA_EN
-        i += snprintf((char*)&buf.c[i], sizeof(buf.c) - (unsigned) i, "\n");
+        i += snprintf(BUF, "\n");
         DMA1_Channel4->CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
         DMA1_Channel4->CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
         DMA1_Channel4->CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
@@ -3075,8 +3135,10 @@ static void demo(void) {
 
 
 #if DMA_EN
-  const unsigned blink_pattern[30] = {
-    GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13, GPIO_BSRR_BR13, GPIO_BSRR_BS13
+  const unsigned blink_pattern[30] = { /* Tripple flash per second */
+    GPIO_BSRR_BR13, GPIO_BSRR_BS13,    /*   first flash            */
+    GPIO_BSRR_BR13, GPIO_BSRR_BS13,    /*   second flash           */
+    GPIO_BSRR_BR13, GPIO_BSRR_BS13     /*   third flash            */
   };
 #endif
 
@@ -3174,6 +3236,86 @@ DEF = -DSTM32F103xB
 INC = -I.
 OPT = -O3 -g0 -flto
 
+ifdef USE_ALL
+  DEF += -DUSE_ALL=\$(USE_ALL)
+endif
+
+ifdef USE_PLL
+  DEF += -DUSE_PLL=\$(USE_PLL)
+endif
+
+ifdef USE_HSE
+  DEF += -DUSE_HSE=\$(USE_HSE)
+endif
+
+ifdef USE_LSE
+  DEF += -DUSE_LSE=\$(USE_LSE)
+endif
+
+ifdef USE_ADC
+  DEF += -DUSE_ADC=\$(USE_ADC)
+endif
+
+ifdef USE_USART
+  DEF += -DUSE_USART=\$(USE_USART)
+endif
+
+ifdef USE_I2C
+  DEF += -DUSE_I2C=\$(USE_I2C)
+endif
+
+ifdef USE_SPI
+  DEF += -DUSE_SPI=\$(USE_SPI)
+endif
+
+ifdef USE_BTN
+  DEF += -DUSE_BTN=\$(USE_BTN)
+endif
+
+ifdef USE_RTC
+  DEF += -DUSE_RTC=\$(USE_RTC)
+endif
+
+ifdef USE_TIM2
+  DEF += -DUSE_TIM2=\$(USE_TIM2)
+endif
+
+ifdef USE_DMA
+  DEF += -DUSE_DMA=\$(USE_DMA)
+endif
+
+ifdef USE_CRC
+  DEF += -DUSE_CRC=\$(USE_CRC)
+endif
+
+ifdef USE_RNG
+  DEF += -DUSE_RNG=\$(USE_RNG)
+endif
+
+ifdef USE_IWDG
+  DEF += -DUSE_IWDG=\$(USE_IWDG)
+endif
+
+ifdef USE_WWDG
+  DEF += -DUSE_WWDG=\$(USE_WWDG)
+endif
+
+ifdef USE_EXTI
+  DEF += -DUSE_EXTI=\$(USE_EXTI)
+endif
+
+ifdef USE_FLASH
+  DEF += -DUSE_FLASH=\$(USE_FLASH)
+endif
+
+ifdef USE_SWD
+  DEF += -DUSE_SWD=\$(USE_SWD)
+endif
+
+ifdef OVRCLK
+  DEF += -DUSE_OVRCLK=\$(USE_OVRCLK)
+endif
+
 ifdef GCC_PATH
   TOOLCHAIN = \$(GCC_PATH)/arm-none-eabi-
 else
@@ -3269,6 +3411,9 @@ vpath %.s \$(sort \$(dir \$(ASM)))
 
 \$(BUILD_DIR):
 	mkdir \$@
+
+test:  FLAG += -DUSE_ALL=1
+test:  all
 
 debug: OPT = -Og -g3 -gdwarf
 debug: FLAG += -DUSE_SWD=1
@@ -3424,7 +3569,7 @@ JFLASH_CONFIG
 # run 'make' utility
 #
 
-make
+make test
 
 echo
-echo "type \"make program\" or \"make jprogram\" to download the firmware into the chip."
+echo "type \"make program\" or \"make jprogram\" to download the firmware into a chip."
