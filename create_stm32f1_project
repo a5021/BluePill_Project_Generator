@@ -2584,19 +2584,19 @@ __STATIC_INLINE void init(void) {
     NVIC_ClearPendingIRQ(WWDG_IRQn);
     NVIC_EnableIRQ(WWDG_IRQn);
 
-    WWDG->CR = WWDG_CR_WDGA                                   /* When WDGA=1, WWDG reset is enabled */
-             | WWDG_COUNTER;                                  /* 7-bit counter (MSB to LSB).        */
-                                                              /* It is decremented every            */
-                                                              /* 4096 * 2 ^ WDGTB[1:0] PCLK1 cycles */
-                                                              /* A reset is produced when it rolls  */
-                                                              /* over from 0x40 to 0x3F             */
-                                                              /* (T6 becomes cleared)               */
+    WWDG->CR = (                         /* 0x40002C00: WWDG Control register                       */
+      WWDG_CR_WDGA            |          /* When WDGA=1, WWDG reset is enabled                      */
+      WWDG_COUNTER                       /* 7-bit counter (MSB to LSB).                             */
+    );                                   /* It is decremented every                                 */
+                                         /* 4096 * 2 ^ WDGTB[1:0] PCLK1 cycles                      */
+                                         /* A reset is produced when it rolls over from             */
+                                         /* 0x40 to 0x3F (T6 becomes cleared)                       */
 
-    WWDG->CFR = (
-      1 * WWDG_CFR_EWI        |                               /* Early wakeup interrupt             */
-      1 * WWDG_CFR_WDGTB_0    |                               /* Timer base bit 0                   */
-      1 * WWDG_CFR_WDGTB_1    |                               /* Timer base bit 1                   */
-      1 * WWDG_WINDOW                                         /* Watchdoeg Window                   */
+    WWDG->CFR = (                        /* 0x40002C04: WWDG Configuration register                 */
+      1 * WWDG_CFR_EWI        |          /* Early wakeup interrupt                                  */
+      1 * WWDG_CFR_WDGTB_0    |          /* Timer base bit 0                                        */
+      1 * WWDG_CFR_WDGTB_1    |          /* Timer base bit 1                                        */
+      1 * WWDG_WINDOW                    /* Watchdoeg Window                                        */
     );
   #endif
 
@@ -2902,8 +2902,8 @@ void SysTick_Handler(void) {
 
 #if WWDG_EN
   void WWDG_IRQHandler(void) {
-    WWDG->SR = 0;
-    WWDG->CR = 0x7F;
+    WWDG->SR = 0;                                               /* 0x40002C08: WWDG Status register   */
+    WWDG->CR = 0x7F;                                            /* 0x40002C00: WWDG Control register  */
   } /* WWDG_IRQHandler() */
 #endif
 
@@ -2945,6 +2945,11 @@ static void demo(void) {
   {
     extern const char *build_msg;
     #if USART_EN
+      #if WWDG_EN
+        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
+          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
+        }
+      #endif
       #if DMA_EN
         DMA1_Channel4->CCR = 0;
         DMA1_Channel4->CNDTR = strlen(build_msg);   /* 0x40020048: */
