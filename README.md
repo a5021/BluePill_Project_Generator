@@ -21,7 +21,7 @@ If it is nessesary to rebuild sources with debug information supplied just run m
 
   `make debug`
   
-Configuration macro names from main.h can be used as command line parameters for the make utility.
+Configuration macro names (those from top of main.h) can be used as command line parameters for the make utility.
 
   `make USE_ALL=1 USE_HSE=0 USE_PLL=0` 
   
