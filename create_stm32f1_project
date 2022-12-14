@@ -1040,7 +1040,7 @@ cat <<MAIN_H >main.h
 
 #define A1  (*ADC1)   /* 0x40012400 */
 #define A2  (*ADC2)   /* 0x40012800 */
-#define AF  (*AFIO)   /* 0x40010000 */
+#define A   (*AFIO)   /* 0x40010000 */
 
 #define B   (*BKP)    /* 0x40006C00 */
 #define C   (*CRC)    /* 0x40023000 */
@@ -1056,7 +1056,7 @@ cat <<MAIN_H >main.h
 
 #define I1  (*I2C1)   /* 0x40005400 */
 #define I2  (*I2C2)   /* 0x40005800 */
-#define IW  (*IWDG)   /* 0x40003000 */
+#define I   (*IWDG)   /* 0x40003000 */
 
 #define O   (*OB)     /* 0x1FFFF800 */
 
@@ -2853,16 +2853,16 @@ void SysTick_Handler(void) {
   #else
     static unsigned t_cnt;
     if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
-    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GPIOC->BSRR = GPIO_BSRR_BR13)) ||
-    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GPIOC->BSRR = GPIO_BSRR_BS13));
+    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GC.BSRR = GPIO_BSRR_BR13)) ||
+    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GC.BSRR = GPIO_BSRR_BS13));
   #endif
 
   #if BTN_EN
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
     static unsigned btn[TOTAL][TOTAL] = {{UINT32_MAX, UINT32_MAX}, {UINT32_MAX, UINT32_MAX}};
 
-    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | READ_REG_BIT(GPIOB->IDR, GPIO_IDR_IDR0);
-    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | READ_REG_BIT(GPIOB->IDR, GPIO_IDR_IDR1);
+    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | READ_REG_BIT(GB.IDR, GPIO_IDR_IDR0);
+    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | READ_REG_BIT(GB.IDR, GPIO_IDR_IDR1);
 
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
       SET_MEM_BIT(button_state, BUTTON_1_PRESSED);
@@ -2891,13 +2891,13 @@ void SysTick_Handler(void) {
 
   void RTC_IRQHandler(void) {                   /* RTC global interrupt handler  */
 
-    if (READ_REG_BIT(RTC->CRL, RTC_CRL_ALRF)) {
-      CLEAR_REG_BIT(RTC->CRL, RTC_CRL_ALRF);
+    if (READ_REG_BIT(RT.CRL, RTC_CRL_ALRF)) {
+      CLEAR_REG_BIT(RT.CRL, RTC_CRL_ALRF);
       SET_MEM_BIT(rtc_flag, RTC_CRL_ALRF);
     }
 
-    if (READ_REG_BIT(RTC->CRL, RTC_CRL_SECF)) {
-      CLEAR_REG_BIT(RTC->CRL, RTC_CRL_SECF);
+    if (READ_REG_BIT(RT.CRL, RTC_CRL_SECF)) {
+      CLEAR_REG_BIT(RT.CRL, RTC_CRL_SECF);
       SET_MEM_BIT(rtc_flag, RTC_CRL_SECF);
     }
 
@@ -2905,8 +2905,8 @@ void SysTick_Handler(void) {
 
   void RTC_Alarm_IRQHandler(void) {             /* RTC alarm interrupt handler   */
 
-    if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR17)) {
-      SET_REG_BIT(EXTI->PR, EXTI_PR_PR17);
+    if (READ_REG_BIT(E.PR, EXTI_PR_PR17)) {
+      SET_REG_BIT(E.PR, EXTI_PR_PR17);
       SET_MEM_BIT(rtc_flag, EXTI_PR_PR17);
     }
 
@@ -2919,16 +2919,16 @@ void SysTick_Handler(void) {
 
   void TIM2_IRQHandler(void) {
 
-    if (READ_REG_BIT(TIM2->SR, TIM_SR_UIF)) {
-      CLEAR_REG_BIT(TIM2->SR, TIM_SR_UIF);
-    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC1IF)) {
-      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC1IF);
-    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC2IF)) {
-      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC2IF);
-    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC3IF)) {
-      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC3IF);
-    } else if (READ_REG_BIT(TIM2->SR, TIM_SR_CC4IF)) {
-      CLEAR_REG_BIT(TIM2->SR, TIM_SR_CC4IF);
+    if (READ_REG_BIT(T2.SR, TIM_SR_UIF)) {
+      CLEAR_REG_BIT(T2.SR, TIM_SR_UIF);
+    } else if (READ_REG_BIT(T2.SR, TIM_SR_CC1IF)) {
+      CLEAR_REG_BIT(T2.SR, TIM_SR_CC1IF);
+    } else if (READ_REG_BIT(T2.SR, TIM_SR_CC2IF)) {
+      CLEAR_REG_BIT(T2.SR, TIM_SR_CC2IF);
+    } else if (READ_REG_BIT(T2.SR, TIM_SR_CC3IF)) {
+      CLEAR_REG_BIT(T2.SR, TIM_SR_CC3IF);
+    } else if (READ_REG_BIT(T2.SR, TIM_SR_CC4IF)) {
+      CLEAR_REG_BIT(T2.SR, TIM_SR_CC4IF);
     }
     tim2_counter++;
   } /* TIM2_IRQHandler() */
@@ -2937,15 +2937,15 @@ void SysTick_Handler(void) {
 
 #if ADC_EN
   void ADC1_2_IRQHandler(void) {
-    ADC1->SR = 0;
+    A1.SR = 0;
   } /* ADC1_2_IRQHandler() */
 #endif
 
 
 #if EXTI_EN
   void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
-    if (READ_REG_BIT(EXTI->PR, EXTI_PR_PR8)) {
-      SET_REG_BIT(EXTI->PR, EXTI_PR_PR8);
+    if (READ_REG_BIT(E.PR, EXTI_PR_PR8)) {
+      SET_REG_BIT(E.PR, EXTI_PR_PR8);
     }
   } /* EXTI9_5_IRQHandler() */
 #endif
@@ -2953,8 +2953,8 @@ void SysTick_Handler(void) {
 
 #if WWDG_EN
   void WWDG_IRQHandler(void) {
-    WWDG->SR = 0;                                               /* 0x40002C08: WWDG Status register   */
-    WWDG->CR = 0x7F;                                            /* 0x40002C00: WWDG Control register  */
+    W.SR = 0;                                                   /* 0x40002C08: WWDG Status register   */
+    W.CR = 0x7F;                                                /* 0x40002C00: WWDG Control register  */
   } /* WWDG_IRQHandler() */
 #endif
 
@@ -2980,14 +2980,14 @@ static void demo(void) {
 
   #if FLASH_EN
     #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
-      if (!READ_REG_BIT(FLASH->OBR, FLASH_OBR_RDPRT)) {        /* Check RDP level status            */
+      if (!READ_REG_BIT(F.OBR, FLASH_OBR_RDPRT)) {             /* Check RDP level status            */
         lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
       }
     #endif
   #endif
 
   #if RTC_EN
-    if (RTC->CNTL + RTC->CNTH == 0) {
+    if (RT.CNTL + RT.CNTH == 0) {
       rtc_set_counter(1645568542);     /* Epoch timestamp 1645568542: Tue, 22 Feb 2022 22:22:22 GMT */
     }
     rtc_set_alarm(rtc_read_counter() + 30);
@@ -2997,15 +2997,15 @@ static void demo(void) {
     extern const char *build_msg;
     #if USART_EN
       #if WWDG_EN
-        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
+        if ((W.CR & WWDG_CR_T) < WWDG_WINDOW) {
+          W.CR = WWDG_COUNTER;   /* RESET WWDG */
         }
       #endif
       #if DMA_EN
-        DMA1_Channel4->CCR = 0;
-        DMA1_Channel4->CNDTR = strlen(build_msg);   /* 0x40020048: */
-        DMA1_Channel4->CMAR = (unsigned) build_msg; /* 0x40020050: */
-        DMA1_Channel4->CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
+        D14.CCR = 0;
+        D14.CNDTR = strlen(build_msg);   /* 0x40020048: */
+        D14.CMAR = (unsigned) build_msg; /* 0x40020050: */
+        D14.CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
       #else
         uputs(build_msg);
       #endif
@@ -3039,8 +3039,8 @@ static void demo(void) {
         j -= GET_TICK();
       #endif
       #if WWDG_EN
-        if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-          WWDG->CR = WWDG_COUNTER;   /* RESET WWDG */
+        if ((W.CR & WWDG_CR_T) < WWDG_WINDOW) {
+          W.CR = WWDG_COUNTER;   /* RESET WWDG */
         }
       #endif
     } while(j);
@@ -3058,8 +3058,8 @@ static void demo(void) {
   for(;;) {
     #define VOID_LOOP
     #if WWDG_EN
-      if ((WWDG->CR & WWDG_CR_T) < WWDG_WINDOW) {
-        WWDG->CR = WWDG_COUNTER;  /* RESET WWDG */
+      if ((W.CR & WWDG_CR_T) < WWDG_WINDOW) {
+        W.CR = WWDG_COUNTER;  /* RESET WWDG */
       }
     #endif
 #endif
@@ -3112,12 +3112,12 @@ static void demo(void) {
           } else {
             rtc_buf[0] = '/'; rtc_buf[1] = 'a';
           }
-          rtc_set_alarm(((RTC->ALRH << 16) | RTC->ALRL) + 30);
+          rtc_set_alarm(((RT.ALRH << 16) | RT.ALRL) + 30);
         }
         i += snprintf(BUF, "; RTC/%s: %02u.%02u.%02u %02u:%02u:%02u%s",
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
-             ((RCC->BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
+             ((R.BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSE) ? "LSE" :
+             ((R.BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_HSE) ? "HSE" :
+             ((R.BDCR & RCC_BDCR_RTCSEL) == RCC_BDCR_RTCSEL_LSI) ? "LSI" : "UNK",
              tm.day, tm.month, tm.year, tm.hour, tm.minute, tm.second, rtc_buf);
       }
     #endif
@@ -3146,10 +3146,10 @@ static void demo(void) {
     #if USART_EN
       #if DMA_EN
         i += snprintf(BUF, "\n");
-        DMA1_Channel4->CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
-        DMA1_Channel4->CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
-        DMA1_Channel4->CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
-        DMA1_Channel4->CCR   = DMA1_Channel4_CCR;   /* 0x40020044: Apply the channel config and start the transfer */
+        D14.CCR   = 0;                   /* 0x40020044: Disable DMA1 Ch 4                               */
+        D14.CNDTR = (unsigned)i;         /* 0x40020048: Amount of data to send                          */
+        D14.CMAR  = (unsigned)&buf;      /* 0x40020050: Data source address                             */
+        D14.CCR   = DMA1_Channel4_CCR;   /* 0x40020044: Apply the channel config and start the transfer */
       #else
         buf.c[i++] = '\n';
         buf.c[i] = 0;
@@ -3158,7 +3158,7 @@ static void demo(void) {
     #endif
 
     #if IWDG_EN
-      IWDG->KR = 0xAAAA;
+      I.KR = 0xAAAA;
     #endif
   }
 } /* demo() */
