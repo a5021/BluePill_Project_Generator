@@ -1049,10 +1049,10 @@ cat <<MAIN_H >main.h
 #define E   (*EXTI)   /* 0x40010400 */
 #define F   (*FLASH)  /* 0x40022000 */
 
-#define GA  (*GPIOA)  /* 0x40010800 */
-#define GB  (*GPIOB)  /* 0x40010C00 */
-#define GC  (*GPIOC)  /* 0x40011000 */
-#define GD  (*GPIOD)  /* 0x40011400 */
+#define PA  (*GPIOA)  /* 0x40010800 */
+#define PB  (*GPIOB)  /* 0x40010C00 */
+#define PC  (*GPIOC)  /* 0x40011000 */
+#define PD  (*GPIOD)  /* 0x40011400 */
 
 #define I1  (*I2C1)   /* 0x40005400 */
 #define I2  (*I2C2)   /* 0x40005800 */
@@ -2853,16 +2853,16 @@ void SysTick_Handler(void) {
   #else
     static unsigned t_cnt;
     if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
-    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (GC.BSRR = GPIO_BSRR_BR13)) ||
-    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (GC.BSRR = GPIO_BSRR_BS13));
+    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (PC.BSRR = GPIO_BSRR_BR13)) ||
+    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (PC.BSRR = GPIO_BSRR_BS13));
   #endif
 
   #if BTN_EN
     enum {CURRENT = 0, PREVIOUS = 1, TOTAL = 2};
     static unsigned btn[TOTAL][TOTAL] = {{UINT32_MAX, UINT32_MAX}, {UINT32_MAX, UINT32_MAX}};
 
-    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | READ_REG_BIT(GB.IDR, GPIO_IDR_IDR0);
-    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | READ_REG_BIT(GB.IDR, GPIO_IDR_IDR1);
+    btn[0][CURRENT] = (btn[0][CURRENT] << 1) | READ_REG_BIT(PB.IDR, GPIO_IDR_IDR0);
+    btn[1][CURRENT] = (btn[1][CURRENT] << 1) | READ_REG_BIT(PB.IDR, GPIO_IDR_IDR1);
 
     if ((btn[0][CURRENT] == 0) && (btn[0][PREVIOUS] != 0)) {
       SET_MEM_BIT(button_state, BUTTON_1_PRESSED);
