@@ -3288,7 +3288,7 @@ ifeq (0, 1)
 endif
 
 # Define the C source files, assembly source file, linker script, and preprocessor definitions
-SRC = main.c system_stm32f1xx.c data.c
+SRC = main.c system_stm32f1xx.c
 ASM = startup_stm32f103xb.s
 LDS = STM32F103XB_FLASH.ld
 MCU = -mcpu=cortex-m3 -mthumb
