@@ -3273,18 +3273,22 @@ MAIN_C
 #
 
 cat <<MAKEFILE >Makefile
+
+# Define the name of the project target and the build directory
 TARGET = project
 BUILD_DIR = build
 
 ifeq (0, 1)
-  ifeq (\$(MAKECMDGOALS), debug)
-    BUILD_DIR = build-debug
-  else
-    BUILD_DIR = build-release
-  endif
+	# Set build directory based on make goals (debug or release)
+	ifeq (\$(MAKECMDGOALS), debug)
+    		BUILD_DIR := \$(addsuffix -debug, \$(BUILD_DIR))
+	else
+		BUILD_DIR := \$(addsuffix -release, \$(BUILD_DIR))
+	endif
 endif
 
-SRC = main.c system_stm32f1xx.c
+# Define the C source files, assembly source file, linker script, and preprocessor definitions
+SRC = main.c system_stm32f1xx.c data.c
 ASM = startup_stm32f103xb.s
 LDS = STM32F103XB_FLASH.ld
 MCU = -mcpu=cortex-m3 -mthumb
@@ -3292,100 +3296,29 @@ DEF = -DSTM32F103xB
 INC = -I.
 OPT = -O3 -g0 -flto
 
-ifdef USE_ALL
-  DEF += -DUSE_ALL=\$(USE_ALL)
-endif
+# Define additional preprocessor definitions based on conditional variables
+USE := USE_ALL USE_PLL USE_HSE USE_LSE USE_ADC USE_USART USE_I2C USE_SPI 
+USE += USE_BTN USE_RTC USE_TIM2 USE_DMA USE_CRC USE_RNG USE_IWDG USE_WWDG 
+USE += USE_EXTI USE_FLASH USE_SWD OVRCLK
+DEF += \$(strip \$(foreach def, \$(USE), \$(if \$(\$(def)), -D\$(def)=\$(\$(def)))))
 
-ifdef USE_PLL
-  DEF += -DUSE_PLL=\$(USE_PLL)
-endif
+# Define the toolchain to use
+TOOLCHAIN := \$(if \$(GCC_PATH),\$(GCC_PATH)/,)arm-none-eabi-
 
-ifdef USE_HSE
-  DEF += -DUSE_HSE=\$(USE_HSE)
-endif
+#\$(info The value of TOOLCHAIN is: \$(TOOLCHAIN))
+#\$(info The value of DEF is: \$(DEF))
 
-ifdef USE_LSE
-  DEF += -DUSE_LSE=\$(USE_LSE)
-endif
-
-ifdef USE_ADC
-  DEF += -DUSE_ADC=\$(USE_ADC)
-endif
-
-ifdef USE_USART
-  DEF += -DUSE_USART=\$(USE_USART)
-endif
-
-ifdef USE_I2C
-  DEF += -DUSE_I2C=\$(USE_I2C)
-endif
-
-ifdef USE_SPI
-  DEF += -DUSE_SPI=\$(USE_SPI)
-endif
-
-ifdef USE_BTN
-  DEF += -DUSE_BTN=\$(USE_BTN)
-endif
-
-ifdef USE_RTC
-  DEF += -DUSE_RTC=\$(USE_RTC)
-endif
-
-ifdef USE_TIM2
-  DEF += -DUSE_TIM2=\$(USE_TIM2)
-endif
-
-ifdef USE_DMA
-  DEF += -DUSE_DMA=\$(USE_DMA)
-endif
-
-ifdef USE_CRC
-  DEF += -DUSE_CRC=\$(USE_CRC)
-endif
-
-ifdef USE_RNG
-  DEF += -DUSE_RNG=\$(USE_RNG)
-endif
-
-ifdef USE_IWDG
-  DEF += -DUSE_IWDG=\$(USE_IWDG)
-endif
-
-ifdef USE_WWDG
-  DEF += -DUSE_WWDG=\$(USE_WWDG)
-endif
-
-ifdef USE_EXTI
-  DEF += -DUSE_EXTI=\$(USE_EXTI)
-endif
-
-ifdef USE_FLASH
-  DEF += -DUSE_FLASH=\$(USE_FLASH)
-endif
-
-ifdef USE_SWD
-  DEF += -DUSE_SWD=\$(USE_SWD)
-endif
-
-ifdef OVRCLK
-  DEF += -DUSE_OVRCLK=\$(USE_OVRCLK)
-endif
-
-ifdef GCC_PATH
-  TOOLCHAIN = \$(GCC_PATH)/arm-none-eabi-
-else
-  TOOLCHAIN = arm-none-eabi-
-endif
-
+# Define the compiler, assembler, object copy, and size utilities
 CC = \$(TOOLCHAIN)gcc
 AS = \$(TOOLCHAIN)gcc -x assembler-with-cpp
 CP = \$(TOOLCHAIN)objcopy
 SZ = \$(TOOLCHAIN)size
 
+# Define utility programs used for programming the device
 HEX = \$(CP) -O ihex
 BIN = \$(CP) -O binary -S
 
+# Set additional compiler flags for dependencies and object file generation
 FLAG = \$(MCU) \$(DEF) \$(INC) -Wall -Werror -Wextra -Wpedantic -fdata-sections -ffunction-sections
 
 JLINK_FLAGS = -openprj./stm32f103cb.jflash -open\$(BUILD_DIR)/\$(TARGET).hex -hide -auto -exit -jflashlog./jflash.log
@@ -3436,41 +3369,53 @@ else
 
 endif
 
+# Set additional compiler flags for dependencies and object file generation
 FLAG += -MMD -MP -MF \$(@:%.o=%.d)
 
+# Define linker flags
 LIB = -lc -lm -lnosys
 LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDS) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
 
+# Build all targets by default: the ELF binary, the HEX file, and the raw binary file
 all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
 
+# Define the object files that need to be built from C and assembly source files
 OBJ = \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(SRC:.c=.o)))
-vpath %.c \$(sort \$(dir \$(SRC)))
+vpath %.c \$(sort \$(dir \$(SRC))) # Set the search path for C source files
 
 OBJ += \$(addprefix \$(BUILD_DIR)/,\$(notdir \$(ASM:.s=.o)))
-vpath %.s \$(sort \$(dir \$(ASM)))
+vpath %.s \$(sort \$(dir \$(ASM))) # Set the search path for assembly source files
 
+# Specify how to compile a C source file into an object file
 \$(BUILD_DIR)/%.o: %.c Makefile | \$(BUILD_DIR)
 	\$(CC) -c \$(FLAG) \$(OPT) \$(EXT) \$< -o \$@
 
+# Specify how to compile an assembly source file into an object file
 \$(BUILD_DIR)/%.o: %.s Makefile | \$(BUILD_DIR)
 	\$(AS) -c \$(FLAG) \$(OPT) \$(EXT) -Wa,-a,-ad,-alms=\$(BUILD_DIR)/\$(notdir \$(<:.c=.lst)) \$< -o \$@
 
+# Specify how to build the final executable file
 \$(BUILD_DIR)/\$(TARGET).elf: \$(OBJ) Makefile
 	\$(CC) \$(OBJ) \$(LDFLAGS) \$(OPT) \$(EXT) -o \$@
 	\$(SZ) \$@
 
+# Specify how to build the hex file using the elf file
 \$(BUILD_DIR)/%.hex: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
 	\$(HEX) \$< \$@
 
+# Specify how to build the bin file using the elf file
 \$(BUILD_DIR)/%.bin: \$(BUILD_DIR)/%.elf | \$(BUILD_DIR)
 	\$(BIN) \$< \$@
 
+# Create the build directory if it doesn't exist
 \$(BUILD_DIR):
 	mkdir \$@
 
+# Perform the 'test' target, which enables all conditional definitions and builds the project
 test:  FLAG += -DUSE_ALL=1
 test:  all
 
+# Perform the 'debug' target, which enables SWD and debug symbols and builds the project
 debug: OPT = -Og -g3 -gdwarf
 debug: FLAG += -DUSE_SWD=1
 debug: all
@@ -3488,9 +3433,11 @@ jprogram: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(JLINK) \$(JLINK_FLAGS)
 
 
+# Clean the build directory by removing all object files, dependency files, binaries, and map files
 clean:
 	rm -fR \$(BUILD_DIR)
 
+# Include the dependency files generated during compilation
 -include \$(wildcard \$(BUILD_DIR)/*.d)
 
 # *** EOF ***
