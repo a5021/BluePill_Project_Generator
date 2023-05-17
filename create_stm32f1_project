@@ -1513,9 +1513,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define SPI_EN                        YES
 
   __STATIC_INLINE char spi_xfer(char d) {
-    while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE))  { /* wait until TX becomes empty  */ }
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE))  { /* Wait for the TX buffer to become empty    */ }
     *((__IO char *)&SPI1->DR) = d;
-    while(!READ_REG_BIT(SPI1->SR, SPI_SR_RXNE)) { /* wait until receive completes */ }
+    while(!READ_REG_BIT(SPI1->SR, SPI_SR_RXNE)) { /* Poll RX status register for received data */ }
     return *(__IO char *)&SPI1->DR;
   }
 
