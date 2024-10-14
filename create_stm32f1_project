@@ -21,7 +21,7 @@ raw=https://raw.githubusercontent.com
 st=$raw/STMicroelectronics/
 cmsis=$st/STM32CubeF1/master/Drivers/CMSIS/Include
 f1=$st/cmsis_device_f1/master
-svd="https://raw.githubusercontent.com/posborne/cmsis-svd/master/data/STMicro/STM32F103xx.svd"
+svd="https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/refs/heads/main/data/STMicro/STM32F103xx.svd"
 
 $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
@@ -3266,6 +3266,8 @@ const char *build_msg  = ""
 #endif
 "\\n";
 
+    /* following string is intended to suppress compiler warnings */
+void _close(void){}void _lseek(void){}void _read(void){}void _write(void){}
 MAIN_C
 
 #
@@ -3375,6 +3377,9 @@ FLAG += -MMD -MP -MF \$(@:%.o=%.d)
 # Define linker flags
 LIB = -lc -lm -lnosys
 LDFLAGS = \$(MCU) -specs=nano.specs -T\$(LDS) \$(LIB) -Wl,-Map=\$(BUILD_DIR)/\$(TARGET).map,--cref -Wl,--gc-sections
+
+# Suppress RWX segment warnings
+LDFLAGS += -Wl,--no-warn-rwx-segment
 
 # Build all targets by default: the ELF binary, the HEX file, and the raw binary file
 all: \$(BUILD_DIR)/\$(TARGET).elf \$(BUILD_DIR)/\$(TARGET).hex \$(BUILD_DIR)/\$(TARGET).bin
