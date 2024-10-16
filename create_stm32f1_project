@@ -2809,6 +2809,12 @@ __STATIC_INLINE void init(void) {
 
 #endif
 
+
+#if defined(__GNUC__) && ! defined(__clang__)
+  void _close_r(void){} void _close(void){} void _lseek_r(void){} void _lseek(void){} void _read_r(void){} void _read(void){} void _write_r(void){}
+#endif
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -3266,8 +3272,6 @@ const char *build_msg  = ""
 #endif
 "\\n";
 
-    /* following string is intended to suppress compiler warnings */
-void _close(void){}void _lseek(void){}void _read(void){}void _write(void){}
 MAIN_C
 
 #
