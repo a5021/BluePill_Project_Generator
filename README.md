@@ -30,7 +30,7 @@ After the sources have built successfully, to upload firmware to the 'Blue Pill'
   make program
   ```
   
-*Note: An ST-Link programmer and the ST-Link utility are required.
+_Note: An ST-Link programmer and the ST-Link utility are required._
                                                                  
 If it is necessary to rebuild the sources with debug information, just run the make utility as follows:
 
