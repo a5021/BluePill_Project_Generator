@@ -12,13 +12,13 @@ Run the script in any convenient way:
 
 The script will fetch all necessary CMSIS files from the STMicro repository, generate main.h and main.c source files, and build them using the GNU ARM toolchain. Both Linux and Windows (with Cygwin) are supported.
 
-Optionally, the script can be run with the parameter mdk to generate a Keil MDK-ARM project.
+Optionally, the script can be run with the parameter `mdk` to generate a Keil MDK-ARM project.
 
   ```console
   sh create_stm32f1_project mdk
   ```
 
-If you specify the 'pdf' parameter at the command line, the script will retrieve the description and datasheet from the STMicro website.
+If you specify the `pdf` parameter at the command line, the script will retrieve the description and datasheet from the STMicro website.
 
   ```console
   sh create_stm32f1_project pdf

@@ -1323,7 +1323,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
 
-    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);           /* Save protection bit status         */
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
@@ -1352,7 +1352,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_PWREN);
     SET_REG_BIT(RCC->APB1ENR, RCC_APB1ENR_BKPEN);
 
-    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);  /* Save protection bit status         */
+    pwr_cr_dbp = READ_REG_BIT(PWR->CR, PWR_CR_DBP);           /* Save protection bit status         */
     SET_REG_BIT(PWR->CR, PWR_CR_DBP);                         /* Disable Backup Domain Protection   */
 
     while (!READ_REG_BIT(RTC->CRL, RTC_CRL_RTOFF)) {  }       /* Wait if write op is still ongoing  */
