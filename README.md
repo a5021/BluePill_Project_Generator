@@ -4,7 +4,9 @@ This is a simple shell script to generate a bare-metal Makefile project for the 
 
 Run the script in any convenient way:
 
-  ```sh create_stm32f1_project```
+  ```console
+  sh create_stm32f1_project
+  ```
 
 The script will fetch all necessary CMSIS files from the STMicro repository, generate main.h and main.c source files, and build them using the GNU ARM toolchain. Both Linux and Windows (with Cygwin) are supported.
 
@@ -12,17 +14,23 @@ Optionally, the script can be run with the parameter mdk to generate a Keil MDK-
 
 To upload firmware to the "Blue Pill" microcontroller, simply type:
 
-  ```make program```
+  ```console
+  make program
+  ```
   
 Note: An ST-Link programmer and the ST-Link utility are required.
                                                                  
 If it is necessary to rebuild the sources with debug information, just run the make utility as follows:
 
-  ```make debug```
+  ```console
+  make debug
+  ```
   
 Configuration macro names (those from the top of main.h) can be used as command line parameters for the make utility:
 
-  ```make USE_ALL=1 USE_HSE=0 USE_PLL=0``` 
+  ```console
+  make USE_ALL=1 USE_HSE=0 USE_PLL=0
+  ``` 
   
 In the example above, all configuration macros are enabled except for USE_HSE and USE_PLL, which are disabled.
 
