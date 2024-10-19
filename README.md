@@ -1,6 +1,6 @@
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
-
 # BluePill Project Generator
+
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 
 This is a simple shell script to generate a bare-metal Makefile project for the "Blue Pill" STM32F103C8 development board.
 
