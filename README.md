@@ -12,13 +12,23 @@ The script will fetch all necessary CMSIS files from the STMicro repository, gen
 
 Optionally, the script can be run with the parameter mdk to generate a Keil MDK-ARM project.
 
-To upload firmware to the "Blue Pill" microcontroller, simply type:
+  ```console
+  sh create_stm32f1_project mdk
+  ```
+
+If you specify the 'pdf' parameter at the command line, the script will retrieve the description and datasheet from the STMicro website.
+
+  ```console
+  sh create_stm32f1_project pdf
+  ```
+
+After the sources have built successfully, to upload firmware to the 'Blue Pill' microcontroller, simply type:
 
   ```console
   make program
   ```
   
-Note: An ST-Link programmer and the ST-Link utility are required.
+*Note: An ST-Link programmer and the ST-Link utility are required.
                                                                  
 If it is necessary to rebuild the sources with debug information, just run the make utility as follows:
 
