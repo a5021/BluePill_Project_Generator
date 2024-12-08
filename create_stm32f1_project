@@ -1021,9 +1021,9 @@ cat <<MAIN_H >main.h
     #define USE_SWD                     1  /* Use SWD pins for debugging               */
   #endif
 
-  #ifndef OVRCLK
-    #define OVRCLK                      1  /* Overclock microcontroller (112 mhz)      */
-  #endif
+//#ifndef OVRCLK
+//  #define OVRCLK                      1  /* Overclock microcontroller (112 mhz)      */
+//#endif
 
 #endif                                     /*                                          */
 /* *********************************************************************************** */
