@@ -1155,7 +1155,7 @@ cat <<MAIN_H >main.h
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
-#define DELAY_MS(MS)                    do { (void)SysTick->CTRL; for (unsigned _ = MS; _; _ -= GET_TICK()) {} } while(0)
+#define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
 
 
 #define STOPWATCH_START(VAR)            do { (VAR) = DWT->CYCCNT; } while(0)
