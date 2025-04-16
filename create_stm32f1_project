@@ -1139,6 +1139,13 @@ cat <<MAIN_H >main.h
 #define PULL_UP(PIN)                    GPIO_BSRR_BS ## PIN
 #define PULL_DOWN(PIN)                  GPIO_BSRR_BR ## PIN
 
+#define _BR(PIN)                        GPIO_BSRR_BR ## PIN
+#define BR(PIN)                         _BR(PIN)
+#define _BS(PIN)                        GPIO_BSRR_BS ## PIN
+#define BS(PIN)                         _BS(PIN)
+#define _ODR(PIN)                       GPIO_ODR_ODR ## PIN
+#define ODR(PIN)                        _ODR(PIN)
+
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
@@ -1157,6 +1164,11 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
 
+#define STOPWATCH_INIT()                do {                                              \
+                                          CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \
+                                          DWT->CYCCNT = 0;                                \
+                                          DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            \
+                                        } while (0)
 
 #define STOPWATCH_START(VAR)            do { (VAR) = DWT->CYCCNT; } while(0)
 #define STOPWATCH_STOP(VAR)             do { (VAR) = DWT->CYCCNT - (VAR); } while(0)
@@ -1166,6 +1178,16 @@ __STATIC_INLINE void stopwatch_reset(void) {
   DWT->CYCCNT = 0;                                /* Reset CPU cycle counter          */
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter         */
 }
+
+// Nanoseconds delay (minimum ~100ns due to overhead)
+#define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
+
+// Microseconds delay (minimum ~1µs recommended)
+#define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
+
+// Milliseconds delay
+// #define DELAY_MS(MS)                    DELAY_CYCLES((uint32_t)((MS) * (HCLK / 1000UL)))
+
 
 
 __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
