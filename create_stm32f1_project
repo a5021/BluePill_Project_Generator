@@ -1151,15 +1151,17 @@ cat <<MAIN_H >main.h
 
 #define GET_BIT(AREA, ADDR, BIT)        *(__IO unsigned *)(AREA ## _BB_BASE + 32 * ((unsigned)&ADDR - AREA ## _BASE) + 4 * __builtin_ctz(BIT))
 
-#define READ_MEM_BIT(REG, BIT)          GET_BIT(SRAM, REG, BIT)
-#define WRITE_MEM_BIT(REG, BIT, VAL)    READ_MEM_BIT(REG, BIT) = VAL
-#define SET_MEM_BIT(REG, BIT)           WRITE_MEM_BIT(REG, BIT, 1)
-#define CLEAR_MEM_BIT(REG, BIT)         WRITE_MEM_BIT(REG, BIT, 0)
+#define READ_MEM_BIT(VAR, BIT)          GET_BIT(SRAM, VAR, BIT)
+#define WRITE_MEM_BIT(VAR, BIT, VAL)    READ_MEM_BIT(VAR, BIT) = VAL
+#define SET_MEM_BIT(VAR, BIT)           WRITE_MEM_BIT(VAR, BIT, 1)
+#define CLEAR_MEM_BIT(VAR, BIT)         WRITE_MEM_BIT(VAR, BIT, 0)
+#define TOGGLE_MEM_BIT(VAR, BIT)        READ_MEM_BIT(VAR, BIT) ^= 1
 
 #define READ_REG_BIT(REG, BIT)          GET_BIT(PERIPH, REG, BIT)
 #define WRITE_REG_BIT(REG, BIT, VAL)    READ_REG_BIT(REG, BIT) = VAL
 #define SET_REG_BIT(REG, BIT)           WRITE_REG_BIT(REG, BIT, 1)
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
+#define TOGGLE_REG_BIT(REG, BIT)        READ_REG_BIT(REG, BIT) ^= 1
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
