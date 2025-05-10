@@ -1657,13 +1657,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define ADC_SAMPLING_TIME_71_5        (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1                   ) /* Sampling time  71.5 ADC clock cycles */
   #define ADC_SAMPLING_TIME_239_5       (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP0_0) /* Sampling time 239.5 ADC clock cycles */
 
-  #define ADC_SQR1(SEQ_NUM, CH_NUM)     ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR1_SQ ## SEQ_NUM ##_Pos) & ADC_SQR1_SQ ## SEQ_NUM)
-  #define ADC_SQR2(SEQ_NUM, CH_NUM)     ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR2_SQ ## SEQ_NUM ##_Pos) & ADC_SQR2_SQ ## SEQ_NUM)
-  #define ADC_SQR3(SEQ_NUM, CH_NUM)     ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR3_SQ ## SEQ_NUM ##_Pos) & ADC_SQR3_SQ ## SEQ_NUM)
-  #define ADC_SQR1_LEN(LEN)             (((uint32_t)((LEN) - 1) << ADC_SQR1_L_Pos) & ADC_SQR1_L)
+  #define _ADC_SQR1(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR1_SQ ## SEQ_NUM ##_Pos) & ADC_SQR1_SQ ## SEQ_NUM)
+  #define _ADC_SQR2(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR2_SQ ## SEQ_NUM ##_Pos) & ADC_SQR2_SQ ## SEQ_NUM)
+  #define _ADC_SQR3(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR3_SQ ## SEQ_NUM ##_Pos) & ADC_SQR3_SQ ## SEQ_NUM)
+  #define _ADC_SQR1_LEN(LEN)            (((uint32_t)((LEN) - 1) << ADC_SQR1_L_Pos) & ADC_SQR1_L)
 
-  #define ADC_SMPR1(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR1_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR1_SMP ## SEQ_NUM)
-  #define ADC_SMPR2(SEQ_NUM, CYCLES)    ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
+  #define _ADC_SMPR1(SEQ_NUM, CYCLES)   ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR1_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR1_SMP ## SEQ_NUM)
+  #define _ADC_SMPR2(SEQ_NUM, CYCLES)   ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
 
 
   __STATIC_INLINE unsigned adc_get_bit(void) {
@@ -1708,7 +1708,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
-    ADC1->SQR3 = ADC_SQR3(1, 17);
+    ADC1->SQR3 = _ADC_SQR3(1, 17);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
@@ -1716,7 +1716,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
-    ADC1->SQR3 = ADC_SQR3(1, 16);
+    ADC1->SQR3 = _ADC_SQR3(1, 16);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
@@ -1746,11 +1746,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define I2C_SPEED_FAST                400000
 
   #if !0
-    #define I2C_CCR                     (((APB1_CLK / I2C_SPEED_STANDARD / 2) & I2C_CCR_CCR) < 4U) ? 4U : APB1_CLK / I2C_SPEED_STANDARD / 2
-    #define I2C_TRISE                   APB1_CLK / 1000000 + 1
+    #define _I2C_CCR                    (((APB1_CLK / I2C_SPEED_STANDARD / 2) & I2C_CCR_CCR) < 4U) ? 4U : APB1_CLK / I2C_SPEED_STANDARD / 2
+    #define _I2C_TRISE                  APB1_CLK / 1000000 + 1
   #else
-    #define I2C_CCR                     (((APB1_CLK / I2C_SPEED_FAST / 3) & I2C_CCR_CCR) == 0U) ? 1U : APB1_CLK / I2C_SPEED_FAST / 3
-    #define I2C_TRISE                   3 * APB1_CLK / 10000000 + 1
+    #define _I2C_CCR                    (((APB1_CLK / I2C_SPEED_FAST / 3) & I2C_CCR_CCR) == 0U) ? 1U : APB1_CLK / I2C_SPEED_FAST / 3
+    #define _I2C_TRISE                  3 * APB1_CLK / 10000000 + 1
   #endif
 
 #else
@@ -2141,14 +2141,14 @@ __STATIC_INLINE void init(void) {
     while(!READ_REG_BIT(RCC->CR, RCC_CR_HSERDY)) {/* */}      /* Wait until HSE becomes ready       */
 
     #if defined OVRCLK && OVRCLK != 0
-      #define RCC_CFGR (                                      /* 112 MHz:                           */\\
+      #define _RCC_CFGR (                                     /* 112 MHz:                           */\\
                 RCC_CFGR_PLLSRC                  |            /*   PLL Source is HSE                */\\
                 RCC_CFGR_PLLMULL14               |            /*   PLL multiplier is 14             */\\
                 RCC_CFGR_ADCPRE_DIV8                          /*   ADC clock divider is 8           */\\
               )
       #define HCLK     112000000UL
     #else
-      #define RCC_CFGR (                                      /* 72 MHz:                            */\\
+      #define _RCC_CFGR (                                     /* 72 MHz:                            */\\
                 RCC_CFGR_PLLSRC                  |            /*   PLL Source is HSE                */\\
                 RCC_CFGR_PLLMULL9                |            /*   PLL multiplier is 9              */\\
                 RCC_CFGR_ADCPRE_DIV6                          /*   ADC clock divider is 6           */\\
@@ -2156,21 +2156,21 @@ __STATIC_INLINE void init(void) {
       #define HCLK     72000000UL
     #endif
 
-    #define RCC_CR   RCC_CR_PLLON | RCC_CR_HSEON
+    #define _RCC_CR   RCC_CR_PLLON | RCC_CR_HSEON
   #else
-    #define RCC_CFGR RCC_CFGR_PLLMULL16                       /* 64 MHz: PLLSrc = HSI / 2, Mul = 16 */
-    #define RCC_CR   RCC_CR_PLLON
+    #define _RCC_CFGR RCC_CFGR_PLLMULL16                      /* 64 MHz: PLLSrc = HSI / 2, Mul = 16 */
+    #define _RCC_CR   RCC_CR_PLLON
     #define HCLK     64000000UL
   #endif
 
   #if PLL_EN
 
-    RCC->CFGR = RCC_CFGR;                                     /* Configure PLL                      */
-    RCC->CR = RCC_CR;                                         /* Switch PLL on                      */
+    RCC->CFGR = _RCC_CFGR;                                    /* Configure PLL                      */
+    RCC->CR = _RCC_CR;                                        /* Switch PLL on                      */
     while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) { /* */}     /* Wait until PLL becomes ready       */
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
     RCC->CFGR = (
-      RCC_CFGR             |
+      _RCC_CFGR            |
       RCC_CFGR_SW_PLL      |                                  /* Set PLL as system clock source     */
       RCC_CFGR_PPRE1_DIV2                                     /* Set APB1 clock as HCLK / 2         */
     );
@@ -2237,9 +2237,9 @@ __STATIC_INLINE void init(void) {
       VREFINT is connected to ADCx_IN17. These two internal channels can be selected and converted
       as injected or regular channels.                                                              */
 
-    ADC1->SMPR1 = ADC_SMPR1(16, 239) | ADC_SMPR1(17, 239);
-    ADC1->SQR3 = ADC_SQR3(1, 16);
-    ADC1->SQR1 = ADC_SQR1_LEN(1);
+    ADC1->SMPR1 = _ADC_SMPR1(16, 239) | _ADC_SMPR1(17, 239);
+    ADC1->SQR3  = _ADC_SQR3(1, 16);
+    ADC1->SQR1  = _ADC_SQR1_LEN(1);
                                                                                                     /*
       If any other bit in this register apart from ADON is changed at the same time,
       then conversion is not triggered. This is to prevent triggering an erroneous conversion.      */
@@ -2265,8 +2265,8 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if I2C_EN
-    I2C1->CCR = I2C_CCR;                                      /* Write CCR when I2C is disabled     */
-    I2C1->TRISE = I2C_TRISE;                                  /* Maximum rise time in Fm/Sm mode    */
+    I2C1->CCR = _I2C_CCR;                                     /* Write CCR when I2C is disabled     */
+    I2C1->TRISE = _I2C_TRISE;                                 /* Maximum rise time in Fm/Sm mode    */
     I2C1->CR2 = APB1_CLK / 1000000;                           /* Configure Peripheral Clock Freq.   */
     I2C1->CR1 = I2C_CR1_PE;                                   /* Enable I2C1 Peripheral             */
   #endif
