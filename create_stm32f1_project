@@ -1166,10 +1166,10 @@ cat <<MAIN_H >main.h
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
 
-#define STOPWATCH_INIT()                do {                                              \
-                                          CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \
-                                          DWT->CYCCNT = 0;                                \
-                                          DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            \
+#define STOPWATCH_INIT()                do {                                              \\
+                                          CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \\
+                                          DWT->CYCCNT = 0;                                \\
+                                          DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            \\
                                         } while (0)
 
 #define STOPWATCH_START(VAR)            do { (VAR) = DWT->CYCCNT; } while(0)
@@ -1181,15 +1181,19 @@ __STATIC_INLINE void stopwatch_reset(void) {
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter         */
 }
 
+// Delay for a specific number of CPU cycles (minimum ~5 cycles overhead)
+#define DELAY_CYCLES(N)                 for(unsigned _ = DWT->CYCCNT; (DWT->CYCCNT - _) < (N);) (void)0
+
 // Nanoseconds delay (minimum ~100ns due to overhead)
 #define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
 
 // Microseconds delay (minimum ~1µs recommended)
 #define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
 
+#if 0
 // Milliseconds delay
-// #define DELAY_MS(MS)                    DELAY_CYCLES((uint32_t)((MS) * (HCLK / 1000UL)))
-
+#define DELAY_MS(MS)                    DELAY_CYCLES((uint32_t)((MS) * (HCLK / 1000UL)))
+#endif
 
 __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
 
