@@ -1241,8 +1241,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define _BITS_CHOOSER(count)  _BITS_CHOOSER1(count)
 
 // Main macro: expands to a mask of all requested bitfields for a given peripheral register
-#define BITS(PREFIX_, REG, ...) \
-    (_BITS_CHOOSER(_BITS_NARG(__VA_ARGS__))(PREFIX_, REG, __VA_ARGS__))
+#define BITS(PREFIX_, REG, ...)     (_BITS_CHOOSER(_BITS_NARG(__VA_ARGS__))(PREFIX_, REG, __VA_ARGS__))
 
 // --- Peripheral Type Wrappers ---
 // These wrappers make it easy to use the BITS macro for each peripheral type.
@@ -1269,6 +1268,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define IWDG_BITS(reg, ...)     BITS(IWDG_, reg, __VA_ARGS__)   // For IWDG registers
 #define RTC_BITS(reg, ...)      BITS(RTC_, reg, __VA_ARGS__)    // For RTC registers
 #define EXTI_BITS(reg, ...)     BITS(EXTI_, reg, __VA_ARGS__)   // For EXTI registers
+#define DMA_BITS(reg, ...)      BITS(DMA_, reg, __VA_ARGS__)    // For DMA registers
 
 // === Register Shortcuts ===
 // The following are convenient macros for common registers,
@@ -1310,6 +1310,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define TIM_CR2(...)          BITS(TIM_, CR2, __VA_ARGS__)
 #define TIM_SMCR(...)         BITS(TIM_, SMCR, __VA_ARGS__)
 #define TIM_DIER(...)         BITS(TIM_, DIER, __VA_ARGS__)
+#define TIM_BDTR(...)         BITS(TIM_, BDTR, __VA_ARGS__)
 #define TIM_SR(...)           BITS(TIM_, SR, __VA_ARGS__)
 #define TIM_EGR(...)          BITS(TIM_, EGR, __VA_ARGS__)
 #define TIM_CCMR1(...)        BITS(TIM_, CCMR1, __VA_ARGS__)
@@ -1432,6 +1433,16 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define RTC_CNTL(...)         BITS(RTC_, CNTL, __VA_ARGS__)
 #define RTC_ALRH(...)         BITS(RTC_, ALRH, __VA_ARGS__)
 #define RTC_ALRL(...)         BITS(RTC_, ALRL, __VA_ARGS__)
+
+// --- DMA Channel Registers (common to all channels) ---
+#define DMA_CCR(...)           BITS(DMA_, CCR, __VA_ARGS__)
+#define DMA_CNDTR(...)         BITS(DMA_, CNDTR, __VA_ARGS__)
+#define DMA_CPAR(...)          BITS(DMA_, CPAR, __VA_ARGS__)
+#define DMA_CMAR(...)          BITS(DMA_, CMAR, __VA_ARGS__)
+
+// --- DMA Interrupt and Status Registers ---
+#define DMA_ISR(...)           BITS(DMA_, ISR, __VA_ARGS__)
+#define DMA_IFCR(...)          BITS(DMA_, IFCR, __VA_ARGS__)
 
 
 #if defined USE_HSE && USE_HSE != 0
