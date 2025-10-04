@@ -1149,19 +1149,43 @@ cat <<MAIN_H >main.h
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
-#define GET_BIT(AREA, ADDR, BIT)        *(__IO unsigned *)(AREA ## _BB_BASE + 32 * ((unsigned)&ADDR - AREA ## _BASE) + 4 * __builtin_ctz(BIT))
+ /* Portable _Static_assert definition (C99 / C11 / C++ safe)        */
+#ifndef _Static_assert
+  #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
+    /* C11 or newer: _Static_assert is standard */
+  #elif defined(__cplusplus) && (__cplusplus >= 201103L)
+    #define _Static_assert static_assert
+  #else
+    /* Fallback for pre-C11 compilers */
+    #define _Static_assert(expr, msg) \\
+        typedef char static_assertion_##__LINE__[(expr) ? 1 : -1]
+  #endif
+#endif
 
+/* Compile-time bitmask check (must be one-hot, e.g. (1 << n))        */
+#define ASSERT_BITMASK_ONEHOT(x) \\
+    _Static_assert(((x) != 0) && (((x) & ((x) - 1)) == 0), "bitmask must have exactly one bit set")
+
+/* Core bit-banding macros                                            */
+#define GET_BIT(AREA, ADDR, BIT)                                      \\
+({                                                                    \\
+    ASSERT_BITMASK_ONEHOT(BIT);                                       \\
+    *(__IO uint32_t *)(AREA##_BB_BASE +                               \\
+        32U * ((uint32_t)&(ADDR) - AREA##_BASE) +                     \\
+        4U * __builtin_ctz(BIT));                                     \\
+})
+
+/* SRAM bit access macros                                             */
 #define READ_MEM_BIT(VAR, BIT)          GET_BIT(SRAM, VAR, BIT)
-#define WRITE_MEM_BIT(VAR, BIT, VAL)    READ_MEM_BIT(VAR, BIT) = VAL
+#define WRITE_MEM_BIT(VAR, BIT, VAL)    (READ_MEM_BIT(VAR, BIT) = (VAL))
 #define SET_MEM_BIT(VAR, BIT)           WRITE_MEM_BIT(VAR, BIT, 1)
 #define CLEAR_MEM_BIT(VAR, BIT)         WRITE_MEM_BIT(VAR, BIT, 0)
-#define TOGGLE_MEM_BIT(VAR, BIT)        READ_MEM_BIT(VAR, BIT) ^= 1
 
+/* Peripheral bit access macros                                       */
 #define READ_REG_BIT(REG, BIT)          GET_BIT(PERIPH, REG, BIT)
-#define WRITE_REG_BIT(REG, BIT, VAL)    READ_REG_BIT(REG, BIT) = VAL
+#define WRITE_REG_BIT(REG, BIT, VAL)    (READ_REG_BIT(REG, BIT) = (VAL))
 #define SET_REG_BIT(REG, BIT)           WRITE_REG_BIT(REG, BIT, 1)
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
-#define TOGGLE_REG_BIT(REG, BIT)        READ_REG_BIT(REG, BIT) ^= 1
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
 #define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
@@ -1187,7 +1211,7 @@ __STATIC_INLINE void stopwatch_reset(void) {
 // Nanoseconds delay (minimum ~100ns due to overhead)
 #define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
 
-// Microseconds delay (minimum ~1µs recommended)
+// Microseconds delay (minimum ~1Âµs recommended)
 #define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
 
 #if 0
@@ -1213,7 +1237,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 // Helper macro: paste together PREFIX_, REG, and BF to form a bitfield macro name
 #define _BITS_ONE(PREFIX_, REG, BF) PREFIX_##REG##_##BF
 
-// Recursive macros to combine 1–16 bitfields using the '|' operator
+// Recursive macros to combine 1Â–16 bitfields using the '|' operator
 #define _BITS_1(PREFIX_, REG, BF) _BITS_ONE(PREFIX_, REG, BF)
 #define _BITS_2(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_1(PREFIX_, REG, __VA_ARGS__)
 #define _BITS_3(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_2(PREFIX_, REG, __VA_ARGS__)
