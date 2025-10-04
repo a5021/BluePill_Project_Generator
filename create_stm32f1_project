@@ -950,7 +950,7 @@ cat <<MAIN_H >main.h
 #if defined(USE_ALL)                       /*                                          */
 
   #ifndef USE_HSE
-    #define USE_HSE                     1  /* Use crystall oscillator as clock source  */
+    #define USE_HSE                     1  /* Use crystal oscillator as clock source   */
   #endif
 
   #ifndef USE_PLL
@@ -966,12 +966,12 @@ cat <<MAIN_H >main.h
   #endif
 
   #ifndef USE_USART
-    #define USE_USART                   1  /* Configure USART1 for send and receive    */
+    #define USE_USART                   1  /* Configure USART1 for transmit/receive    */
   #endif
 
   #ifndef USE_I2C
-    #define USE_I2C                     1  /* Configure I2C1 100kHz                    */
-  #endif
+    #define USE_I2C                     1  /* Configure I2C1 with 100 kHz clock speed  */
+  #endif                                                                    
 
   #ifndef USE_SPI
     #define USE_SPI                     1  /* Configure SPI1                           */
@@ -994,11 +994,11 @@ cat <<MAIN_H >main.h
   #endif
 
   #ifndef USE_CRC
-    #define USE_CRC                     1  /* Add CRC computation code                 */
+    #define USE_CRC                     1  /* Enable CRC computation                   */
   #endif
 
   #ifndef USE_RNG
-    #define USE_RNG                     1  /* Add random numbers generation code       */
+    #define USE_RNG                     1  /* Enable random number generation          */
   #endif
 
   #ifndef USE_IWDG
@@ -1006,7 +1006,7 @@ cat <<MAIN_H >main.h
   #endif
 
   #ifndef USE_WWDG
-    #define USE_WWDG                    0  /* Enable windows hardware watchdog         */
+    #define USE_WWDG                    0  /* Enable window hardware watchdog          */
   #endif
 
   #ifndef USE_EXTI
@@ -1021,13 +1021,19 @@ cat <<MAIN_H >main.h
     #define USE_SWD                     1  /* Use SWD pins for debugging               */
   #endif
 
+<<<<<<< Updated upstream
 //#ifndef OVRCLK
 //  #define OVRCLK                      1  /* Overclock microcontroller (112 mhz)      */
 //#endif
+=======
+  #ifndef OVRCLK
+    #define OVRCLK                      1  /* Overclock microcontroller (112 MHz)      */
+  #endif
+>>>>>>> Stashed changes
 
 #endif                                     /*                                          */
 /* *********************************************************************************** */
-/* **********  or use it as command line parameters for make utility  **************** */
+/* ********  Alternatively, define them as command-line parameters in Makefile  ****** */
 /* *********************************************************************************** */
 
 #define D11 (*DMA1_Channel1) /* 0x40020008 */
@@ -1631,7 +1637,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     WRITE_REG_BIT(PWR->CR, PWR_CR_DBP, pwr_cr_dbp);
     RCC->APB1ENR = apb1enr;
+
   } /* rtc_set_alarm() */
+
 
   __STATIC_INLINE void rtc_set_counter(unsigned counter) {
 
