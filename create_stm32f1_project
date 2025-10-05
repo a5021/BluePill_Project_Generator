@@ -1021,16 +1021,9 @@ cat <<MAIN_H >main.h
     #define USE_SWD                     1  /* Use SWD pins for debugging               */
   #endif
 
-<<<<<<< Updated upstream
-//#ifndef OVRCLK
-//  #define OVRCLK                      1  /* Overclock microcontroller (112 mhz)      */
-//#endif
-=======
   #ifndef OVRCLK
     #define OVRCLK                      1  /* Overclock microcontroller (112 MHz)      */
   #endif
->>>>>>> Stashed changes
-
 #endif                                     /*                                          */
 /* *********************************************************************************** */
 /* ********  Alternatively, define them as command-line parameters in Makefile  ****** */
@@ -1155,42 +1148,79 @@ cat <<MAIN_H >main.h
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
- /* Portable _Static_assert definition (C99 / C11 / C++ safe)        */
-#ifndef _Static_assert
-  #if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L)
-    /* C11 or newer: _Static_assert is standard */
-  #elif defined(__cplusplus) && (__cplusplus >= 201103L)
-    #define _Static_assert static_assert
-  #else
-    /* Fallback for pre-C11 compilers */
-    #define _Static_assert(expr, msg) \\
-        typedef char static_assertion_##__LINE__[(expr) ? 1 : -1]
-  #endif
-#endif
+/**
+ * @brief Compile-time validation helper for bit-banding macros
+ * 
+ * @details Validates that BIT parameter contains exactly ONE bit set.
+ *          Uses __builtin_popcount() to count the number of '1' bits.
+ * 
+ * Validation logic:
+ *   - __builtin_popcount(BIT) == 1  -> true  -> !!(true)  = 1 -> 1/1 = 1 (OK)
+ *   - __builtin_popcount(BIT) != 1  -> false -> !!(false) = 0 -> 1/0 (ERROR)
+ * 
+ * @note Actual compile errors when invalid BIT value is used:
+ *       - GCC/ARM GCC:  "error: division by zero [-Werror=div-by-zero]"
+ *       - MDK-ARM/Clang: "error: division by zero is undefined [-Werror,-Wdivision-by-zero]"
+ * 
+ *       This means: BIT parameter has ZERO bits or MULTIPLE bits set
+ * 
+ * @par Valid examples:
+ *      0x01, 0x08, 0x100, (1U << 5)  - exactly one bit
+ * 
+ * @par Invalid examples:
+ *      0x00 (no bits), 0x03 (two bits), 0xFF (eight bits)
+ */
+#define VALIDATE_SINGLE_BIT(BIT) \
+    (1 / (!!(__builtin_popcount(BIT) == 1)))
 
-/* Compile-time bitmask check (must be one-hot, e.g. (1 << n))        */
-#define ASSERT_BITMASK_ONEHOT(x) \\
-    _Static_assert(((x) != 0) && (((x) & ((x) - 1)) == 0), "bitmask must have exactly one bit set")
+/**
+ * @brief Core bit-banding address calculation macro
+ * 
+ * @details Calculates bit-band alias address for atomic bit access.
+ *          Includes compile-time validation that BIT has exactly one bit set.
+ *          Validation result is multiplied by 0U to not affect address calculation,
+ *          but forces compile-time evaluation of VALIDATE_SINGLE_BIT.
+ * 
+ * @param AREA Memory area prefix (SRAM or PERIPH)
+ * @param ADDR Address of the register or variable
+ * @param BIT  Bit mask with exactly ONE bit set (e.g., (1U << 5))
+ * 
+ * @return Pointer to bit-band alias address
+ */
+#define GET_BIT(AREA, ADDR, BIT)                                        \\
+    (*(__IO uint32_t *)(                                                \\
+        (AREA##_BB_BASE +                                               \\
+        32U * ((uint32_t)&(ADDR) - AREA##_BASE) +                       \\
+        4U * __builtin_ctz(BIT) +                                       \\
+        0U * VALIDATE_SINGLE_BIT(BIT))                                  \\
+     ))
 
-/* Core bit-banding macros                                            */
-#define GET_BIT(AREA, ADDR, BIT)                                      \\
-({                                                                    \\
-    ASSERT_BITMASK_ONEHOT(BIT);                                       \\
-    *(__IO uint32_t *)(AREA##_BB_BASE +                               \\
-        32U * ((uint32_t)&(ADDR) - AREA##_BASE) +                     \\
-        4U * __builtin_ctz(BIT));                                     \\
-})
+/* SRAM bit access macros                                               */
 
-/* SRAM bit access macros                                             */
+/** @brief Read single bit from SRAM variable via bit-banding           */
 #define READ_MEM_BIT(VAR, BIT)          GET_BIT(SRAM, VAR, BIT)
-#define WRITE_MEM_BIT(VAR, BIT, VAL)    (READ_MEM_BIT(VAR, BIT) = (VAL))
+
+/** @brief Write single bit to SRAM variable via bit-banding            */
+#define WRITE_MEM_BIT(VAR, BIT, VAL)    READ_MEM_BIT(VAR, BIT) = (VAL)
+
+/** @brief Set single bit in SRAM variable to 1 via bit-banding         */
 #define SET_MEM_BIT(VAR, BIT)           WRITE_MEM_BIT(VAR, BIT, 1)
+
+/** @brief Clear single bit in SRAM variable to 0 via bit-banding       */
 #define CLEAR_MEM_BIT(VAR, BIT)         WRITE_MEM_BIT(VAR, BIT, 0)
 
-/* Peripheral bit access macros                                       */
+/* Peripheral bit access macros                                         */
+
+/** @brief Read single bit from peripheral register via bit-banding     */
 #define READ_REG_BIT(REG, BIT)          GET_BIT(PERIPH, REG, BIT)
-#define WRITE_REG_BIT(REG, BIT, VAL)    (READ_REG_BIT(REG, BIT) = (VAL))
+
+/** @brief Write single bit to peripheral register via bit-banding      */
+#define WRITE_REG_BIT(REG, BIT, VAL)    READ_REG_BIT(REG, BIT) = (VAL)
+
+/** @brief Set single bit in peripheral register to 1 via bit-banding   */
 #define SET_REG_BIT(REG, BIT)           WRITE_REG_BIT(REG, BIT, 1)
+
+/** @brief Clear single bit in peripheral register to 0 via bit-banding */
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
 
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
@@ -1217,7 +1247,7 @@ __STATIC_INLINE void stopwatch_reset(void) {
 // Nanoseconds delay (minimum ~100ns due to overhead)
 #define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
 
-// Microseconds delay (minimum ~1µs recommended)
+// Microseconds delay (minimum ~1Вµs recommended)
 #define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
 
 #if 0
@@ -1243,7 +1273,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 // Helper macro: paste together PREFIX_, REG, and BF to form a bitfield macro name
 #define _BITS_ONE(PREFIX_, REG, BF) PREFIX_##REG##_##BF
 
-// Recursive macros to combine 116 bitfields using the '|' operator
+// Recursive macros to combine 1В–16 bitfields using the '|' operator
 #define _BITS_1(PREFIX_, REG, BF) _BITS_ONE(PREFIX_, REG, BF)
 #define _BITS_2(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_1(PREFIX_, REG, __VA_ARGS__)
 #define _BITS_3(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_2(PREFIX_, REG, __VA_ARGS__)
@@ -1896,94 +1926,428 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   #define FLASH_EN                      YES
 
-  #define FLASH_DATA_ADDR               0x0801FC00
-  #define FLASH_PAGE_SIZE               0x00000400
-
-  #define FLASH_ERROR                   0x01
-  #define FLASH_ERROR_ERASE             0x02
-  #define FLASH_ERROR_WRITE             0x04
-  #define FLASH_ERROR_WRITE_PROT        0x08
-  #define FLASH_ERROR_UNKNOWN           0x10
-
-  #define FLASH_ERR                     (FLASH_SR_PGERR | FLASH_SR_WRPRTERR)
-
+ /**
+   * @brief   Flash programming routines for STM32F103 (auto-detects C4/C6/C8/CB)
+   * 
+   * @details Implements page erase, half-word programming, and verification
+   *          according to PM0075 (STM32F10xxx Flash programming manual).
+   *          Automatically detects Flash size at runtime.
+   * 
+   * @note    Optimizations applied:
+   *          - Countdown loops with unsigned counters
+   *          - do-while loops where iteration count is known
+   *          - Loop unrolling (4x) for verification functions
+   *          - Pre-decrement in loop conditions (--n != 0)
+   *          - __restrict pointers for better code generation
+   *          - Direct register access instead of macros
+   *          - Interrupt disable/enable with PRIMASK save/restore
+   * 
+   * @note    Supported hardware (auto-detected):
+   *          - STM32F103C4: 16KB Flash, 16 pages × 1KB
+   *          - STM32F103C6: 32KB Flash, 32 pages × 1KB
+   *          - STM32F103C8: 64KB Flash, 64 pages × 1KB
+   *          - STM32F103CB: 128KB Flash, 128 pages × 1KB
+   *          - Page erase time: ~40ms
+   *          - Half-word programming time: ~50µs
+   * 
+   * @note    C8 Quirk Mode (FLASH_C8_QUIRK):
+   *          Many STM32F103C8T6 chips (especially "Blue Pill" boards) actually
+   *          have 128KB Flash instead of the specified 64KB. When FLASH_C8_QUIRK
+   *          is defined, the code will use the last page at 0x0801FC00 for C8
+   *          chips, allowing access to the full 128KB.
+   * 
+   * @warning According to page 25 of RM0008, Flash operations require HSI clock
+   *          enabled and disable interrupts to prevent CPU stalls when attempting
+   *          to fetch instructions from Flash during write/erase operations.
+   * 
+   * @author  Your Name
+   * @date    October 2025
+   */
+  
+  /* Configuration: Enable C8 quirk mode for 128KB Flash on C8T6 chips */
+  /* Uncomment the line below to enable quirk mode for "Blue Pill" boards */
+  /* #define FLASH_C8_QUIRK 1 */
+  
+  /* Flash size register address (factory-programmed) */
+  #define FLASH_SIZE_REG      ((uint16_t*)0x1FFFF7E0)  /**< Flash size in KB */
+  
+  /* Page size constant - always 1KB for STM32F103 (all variants) */
+  #define FLASH_PAGE_SIZE       0x00000400  /**< 1KB page size (1024 bytes) */
+  
+  /* Error codes (can be combined as bitmask) */
+  #define FLASH_ERROR_WRITE_PROT      0x01  /**< Write protection error */
+  #define FLASH_ERROR_WRITE           0x02  /**< Programming error */
+  #define FLASH_ERROR_ERASE           0x04  /**< Erase verification failed */
+  #define FLASH_ERROR_UNKNOWN         0x08  /**< Unknown/timeout error */
+  #define FLASH_ERROR_HSI             0x10  /**< HSI clock not enabled */
+  #define FLASH_ERROR_ALIGN           0x20  /**< Alignment error (address or length) */
+  #define FLASH_ERROR_SIZE            0x40  /**< Data size exceeds page size */
+  
+  /**
+   * @brief   Get Flash size in KB from factory-programmed register
+   * @return  Flash size in kilobytes (16, 32, 64, or 128)
+   * 
+   * @note    This reads the factory-programmed register at 0x1FFFF7E0.
+   *          Returns: 16 for C4, 32 for C6, 64 for C8, 128 for CB.
+   *          Note: Many C8 chips report 64KB but actually have 128KB.
+   */
+  __STATIC_FORCEINLINE uint16_t flash_get_size_kb(void) {
+    return *FLASH_SIZE_REG;
+  }
+  
+  /**
+   * @brief   Get last Flash page address based on detected Flash size
+   * @return  Address of the last page (suitable for data storage)
+   * 
+   * @details Calculates last page address dynamically:
+   *          - STM32F103C4 (16KB):  0x08003C00 (page 15)
+   *          - STM32F103C6 (32KB):  0x08007C00 (page 31)
+   *          - STM32F103C8 (64KB):  0x0800FC00 (page 63)
+   *                        [quirk]: 0x0801FC00 (page 127, if FLASH_C8_QUIRK defined)
+   *          - STM32F103CB (128KB): 0x0801FC00 (page 127)
+   * 
+   * @note    When FLASH_C8_QUIRK is defined, C8 chips use the same last page
+   *          address as CB (0x0801FC00) to access the extra 64KB of Flash that
+   *          many C8 chips actually have.
+   */
+  __STATIC_FORCEINLINE uint32_t flash_get_last_page_addr(void) {
+    const uint16_t flash_kb = flash_get_size_kb();
+    
+  #ifdef FLASH_C8_QUIRK
+    /* Quirk mode: treat C8 (64KB) as CB (128KB) for last page calculation */
+    if (flash_kb == 64) {
+      return 0x0801FC00UL;  /* Use CB's last page address */
+    }
+  #endif
+    
+    return (0x08000000UL + (flash_kb << 10) - FLASH_PAGE_SIZE);
+  }
+  
+  /**
+   * @brief   Read Flash status register and return error flags
+   * @return  Error bitmask (0 = no error, combination of FLASH_ERROR_xxx)
+   * 
+   * @details Reads FLASH->SR once and tests both error bits:
+   *          - FLASH_SR_WRPRTERR: Write protection error
+   *          - FLASH_SR_PGERR: Programming sequence error
+   * 
+   * @note    Single register read minimizes bus access overhead
+   */
+  __STATIC_FORCEINLINE unsigned flash_get_err(void) {
+    const uint32_t sr = FLASH->SR;
+    return ((sr & FLASH_SR_WRPRTERR) ? FLASH_ERROR_WRITE_PROT : 0) |
+           ((sr & FLASH_SR_PGERR) ? FLASH_ERROR_WRITE : 0);
+  }
+  
+  /**
+   * @brief   Verify entire Flash page is blank (erased to 0xFFFFFFFF)
+   * @param   addr  Start address of page to verify (must be page-aligned)
+   * @return  0 on success, FLASH_ERROR_ERASE if page not blank
+   * 
+   * @details Checks entire FLASH_PAGE_SIZE (1024 bytes = 256 words) as 32-bit
+   *          words for optimal performance.
+   * 
+   * @note    Optimizations applied:
+   *          - Countdown loop (free comparison with zero)
+   *          - Unsigned counter with i!=0 condition
+   *          - do-while loop (guaranteed at least one iteration)
+   *          - Unrolled by 4 (256 words → 64 iterations)
+   *          - FLASH_PAGE_SIZE is always multiple of 16 bytes
+   */
+  __STATIC_FORCEINLINE unsigned flash_verify_blank(uint32_t addr) {
+    const __IO uint32_t *__restrict p = (const __IO uint32_t *)addr;
+    unsigned i = FLASH_PAGE_SIZE >> 2;  /* 256 words, countdown */
+    
+    /* Unroll by 4 to reduce loop overhead */
+    do {
+      if (p[0] != 0xFFFFFFFFU) return FLASH_ERROR_ERASE;
+      if (p[1] != 0xFFFFFFFFU) return FLASH_ERROR_ERASE;
+      if (p[2] != 0xFFFFFFFFU) return FLASH_ERROR_ERASE;
+      if (p[3] != 0xFFFFFFFFU) return FLASH_ERROR_ERASE;
+      p += 4;
+      i -= 4;
+    } while (i != 0);  /* Countdown to zero */
+    
+    return 0;
+  }
+  
+  /**
+   * @brief   Verify programmed Flash data matches source buffer
+   * @param   addr  Flash address to verify
+   * @param   data  Expected data buffer (half-word array)
+   * @param   len   Data length in bytes (must be even)
+   * @return  0 on success, FLASH_ERROR_WRITE if mismatch detected
+   * 
+   * @details Compares Flash content with source buffer half-word by half-word.
+   * 
+   * @note    Optimizations applied:
+   *          - Countdown loop with unsigned counter
+   *          - Unrolled by 4 for main loop
+   *          - Handles remaining 1-3 half-words separately
+   *          - __restrict pointers allow better optimization
+   */
+  __STATIC_FORCEINLINE unsigned flash_verify_data(uint32_t addr, 
+                                                   const uint16_t *__restrict data, 
+                                                   uint16_t len) {
+    const __IO uint16_t *__restrict p = (const __IO uint16_t *)addr;
+    unsigned n = len >> 1;  /* Half-words count */
+    
+    /* Process 4 half-words at a time (unroll by 4) */
+    while (n >= 4) {
+      if (p[0] != data[0]) return FLASH_ERROR_WRITE;
+      if (p[1] != data[1]) return FLASH_ERROR_WRITE;
+      if (p[2] != data[2]) return FLASH_ERROR_WRITE;
+      if (p[3] != data[3]) return FLASH_ERROR_WRITE;
+      p += 4;
+      data += 4;
+      n -= 4;
+    }
+    
+    /* Handle remaining 1-3 half-words (countdown loop) */
+    if (n != 0) {
+      do {
+        if (*p++ != *data++) return FLASH_ERROR_WRITE;
+      } while (--n != 0);
+    }
+    
+    return 0;
+  }
+  
+  /**
+   * @brief   Erase Flash page and verify blank
+   * @param   addr  Start address of page to erase (must be page-aligned)
+   * @return  0 on success, error code on failure
+   * 
+   * @details Performs Flash page erase operation according to PM0075:
+   *          1. Clear previous status flags
+   *          2. Wait for any pending operation to complete (BSY=0)
+   *          3. Set PER (Page Erase) bit in FLASH_CR
+   *          4. Write target page address to FLASH_AR
+   *          5. Set STRT bit to start erase (with interrupts disabled)
+   *          6. Wait for BSY=0 (erase completes in ~40ms)
+   *          7. Check for errors in FLASH_SR
+   *          8. Clear PER bit and status flags
+   *          9. Verify entire page is blank (0xFFFFFFFF)
+   * 
+   * @warning Interrupts are disabled during erase operation to prevent CPU
+   *          from attempting to fetch instructions from Flash, which would
+   *          cause a hard fault. Maximum interrupt latency: ~40ms.
+   * 
+   * @note    Uses PRIMASK save/restore to preserve caller's interrupt state.
+   *          Assumes HSI clock is already verified by caller.
+   */
+  __STATIC_INLINE unsigned flash_erase_page(uint32_t addr) {
+    /* Clear previous operation flags */
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    while (FLASH->SR & FLASH_SR_BSY);  /* Wait until ready */
+    
+    /* Setup page erase */
+    FLASH->CR |= FLASH_CR_PER;         /* Enable page erase mode */
+    FLASH->AR = addr;                  /* Set target page address */
+    
+    /* Start erase with interrupts disabled */
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
+    FLASH->CR |= FLASH_CR_STRT;        /* Start erase operation */
+    while (FLASH->SR & FLASH_SR_BSY);  /* Wait ~40ms until complete */
+    const unsigned st = flash_get_err();
+    
+    __set_PRIMASK(primask);            /* Restore interrupt state */
+    
+    /* Cleanup */
+    FLASH->CR &= ~FLASH_CR_PER;        /* Disable page erase mode */
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    
+    /* Verify entire page is blank */
+    return st ? st : flash_verify_blank(addr);
+  }
+  
+  /**
+   * @brief   Program half-words to Flash and verify
+   * @param   addr  Flash destination address (must be half-word aligned)
+   * @param   src   Source data buffer (half-word array)
+   * @param   len   Data length in bytes (must be even)
+   * @return  0 on success, error code on failure
+   * 
+   * @details Performs Flash half-word programming according to PM0075:
+   *          1. Validate alignment (address and length must be even)
+   *          2. Clear previous status flags
+   *          3. Wait for any pending operation (BSY=0)
+   *          4. Set PG (Programming) bit in FLASH_CR
+   *          5. For each half-word (with interrupts disabled):
+   *             a. Write half-word to Flash address
+   *             b. Wait for BSY=0 (~50µs per half-word)
+   *             c. Check for errors
+   *          6. Clear PG bit and status flags
+   *          7. Verify programmed data matches source
+   * 
+   * @note    Loop optimizations:
+   *          - Countdown loop with unsigned counter
+   *          - Pre-decrement in condition (--n != 0) for optimal ARM code
+   *          - No unrolling (50µs hardware wait dominates loop overhead)
+   * 
+   * @warning - Flash must be erased (0xFFFF) before programming
+   *          - Interrupts disabled during writes (~50µs per half-word)
+   *          - Cannot program same address twice without erase
+   *          - CPU cannot fetch instructions from Flash during programming
+   *          - Assumes HSI clock is already verified by caller
+   */
+  __STATIC_INLINE unsigned flash_program(uint32_t addr, 
+                                          const uint16_t *__restrict src, 
+                                          uint16_t len) {
+    /* Validate alignment */
+    if ((len & 1u) | (addr & 1u)) return FLASH_ERROR_ALIGN;
+    
+    __IO uint16_t *__restrict p = (__IO uint16_t *)addr;
+    unsigned n = len >> 1;  /* Half-words count (unsigned, countdown) */
+    unsigned st = 0;
+    
+    /* Prepare for programming */
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    while (FLASH->SR & FLASH_SR_BSY);
+    
+    FLASH->CR |= FLASH_CR_PG;          /* Enable programming mode */
+    
+    /* Program half-words with interrupts disabled */
+    const uint32_t primask = __get_PRIMASK();
+    __disable_irq();
+    
+    /* Countdown loop: write each half-word to Flash */
+    do {
+      *p++ = *src++;                   /* Write triggers Flash operation */
+      while (FLASH->SR & FLASH_SR_BSY); /* Wait ~50µs per half-word */
+      if ((st = flash_get_err()) != 0u) break;
+    } while (--n != 0);                /* Pre-decrement, compare with zero */
+    
+    __set_PRIMASK(primask);            /* Restore interrupt state */
+    
+    /* Cleanup */
+    FLASH->CR &= ~FLASH_CR_PG;         /* Disable programming mode */
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    
+    /* Verify programmed data */
+    return st ? st : flash_verify_data(addr, src, len);
+  }
+  
+  /**
+   * @brief   Erase and program Flash data area (auto-detects last page)
+   * @param   src   Source data buffer (half-word array)
+   * @param   len   Data length in bytes (must be even, max 1024 bytes)
+   * @return  0 on success, error code on failure
+   * 
+   * @details High-level Flash write operation that performs:
+   *          1. Validate alignment (length must be even)
+   *          2. Validate data size (must not exceed page size)
+   *          3. Detect Flash size (16/32/64/128KB) from factory register
+   *          4. Calculate last page address automatically
+   *          5. Check HSI clock is enabled (required per RM0008 page 25)
+   *          6. Unlock Flash controller if locked
+   *          7. Erase target page (last page)
+   *          8. Program new data if erase successful
+   *          9. Re-lock Flash controller for safety
+   * 
+   * @note    Execution time breakdown:
+   *          - Page erase: ~40ms
+   *          - Programming: (len/2) × 50µs
+   *          - Verification: (len/2) × ~1µs
+   *          - Example for 1KB: 40ms + 25ms + 0.5ms ≈ 65ms
+   * 
+   * @note    Automatic detection (works on all variants):
+   *          - STM32F103C4 (16KB):  Uses page at 0x08003C00
+   *          - STM32F103C6 (32KB):  Uses page at 0x08007C00
+   *          - STM32F103C8 (64KB):  Uses page at 0x0800FC00
+   *                       [quirk]:  Uses page at 0x0801FC00 (with FLASH_C8_QUIRK)
+   *          - STM32F103CB (128KB): Uses page at 0x0801FC00
+   * 
+   * @note    C8 Quirk Mode:
+   *          When FLASH_C8_QUIRK is defined, C8 chips will use the last page
+   *          at 0x0801FC00 (same as CB) to access the full 128KB that many
+   *          "Blue Pill" boards actually have. This is safe because:
+   *          - If chip has 128KB: Works perfectly, accesses upper memory
+   *          - If chip has only 64KB: Flash operation will fail with error
+   * 
+   * @warning - This function blocks for the entire operation duration
+   *          - Interrupts disabled during erase (~40ms) and program operations
+   *          - Maximum total interrupt latency: ~65ms for 1KB page
+   *          - Flash controller remains locked after completion
+   *          - HSI clock must be enabled before calling this function
+   *          - Data length must be even (half-word aligned)
+   *          - Data size must not exceed FLASH_PAGE_SIZE (1024 bytes)
+   * 
+   * @example Basic usage (works on C4/C6/C8/CB):
+   * @code
+   * // Enable quirk mode in your project (optional):
+   * // #define FLASH_C8_QUIRK 1
+   * 
+   * // HSI is typically enabled by default in SystemInit()
+   * 
+   * // Union for test string
+   * union {
+   *     char str[64];
+   *     uint16_t halfwords[32];
+   * } test_data = {
+   *     .str = "Just a test string to write to the flash page."
+   * };
+   * 
+   * unsigned len = (strlen(test_data.str) + 2) & ~1u;  // Round up to even
+   * unsigned status = write2flash(test_data.halfwords, len);
+   * 
+   * if (status == 0) {
+   *     // Success: data written and verified
+   *     // Read back from auto-detected address
+   *     const char *flash_str = (const char *)flash_get_last_page_addr();
+   *     if (strcmp(flash_str, test_data.str) == 0) {
+   *         // Perfect match!
+   *     }
+   * } else {
+   *     // Error handling
+   *     if (status & FLASH_ERROR_HSI) { }       // HSI not enabled
+   *     if (status & FLASH_ERROR_SIZE) { }      // Data too large
+   *     if (status & FLASH_ERROR_ALIGN) { }     // Alignment error
+   *     if (status & FLASH_ERROR_WRITE_PROT) { } // Write protected
+   *     if (status & FLASH_ERROR_ERASE) { }     // Erase failed
+   *     if (status & FLASH_ERROR_WRITE) { }     // Write failed
+   * }
+   * @endcode
+   */
   __STATIC_INLINE unsigned write2flash(uint16_t src[], uint16_t len) {
-
-    unsigned status  = 0;
-    __IO uint16_t* p = (__IO uint16_t*) FLASH_DATA_ADDR;
-
-
-    /* Note: execution time of the function is about 81 ms @ 72 MHz                                 */
-
-                                                              /*
-    1) UNLOCK THE FLASH
-    ========================================================= */
-
-    while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
-
-    if (READ_REG_BIT(FLASH->CR, FLASH_CR_LOCK)) {             /* Check the Flash is locked          */
-      FLASH->KEYR = FLASH_KEY1;                               /* Perform unlock sequence            */
+    /* Validate alignment (length must be even) */
+    if (len & 1u) {
+      return FLASH_ERROR_ALIGN;
+    }
+    
+    /* Validate data size does not exceed page size */
+    if (len > FLASH_PAGE_SIZE) {
+      return FLASH_ERROR_SIZE;
+    }
+    
+    /* Check HSI is enabled (required per RM0008 page 25) */
+    if (!(RCC->CR & RCC_CR_HSIRDY)) {
+      return FLASH_ERROR_HSI;
+    }
+    
+    /* Auto-detect last page address based on Flash size */
+    const uint32_t flash_data_addr = flash_get_last_page_addr();
+    
+    /* Unlock Flash if locked */
+    if (FLASH->CR & FLASH_CR_LOCK) {
+      FLASH->KEYR = FLASH_KEY1;        /* Unlock sequence */
       FLASH->KEYR = FLASH_KEY2;
     }
-                                                              /*
-    2) ERASE THE DATA AREA
-    ========================================================= */
-
-    SET_REG_BIT(FLASH->CR, FLASH_CR_PER);                     /* Enable page erasing mode           */
-    FLASH->AR = FLASH_DATA_ADDR;                              /* Set page address                   */
-    SET_REG_BIT(FLASH->CR, FLASH_CR_STRT);                    /* Start the erasing                  */
-
-    while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}    /* Wait till page be erased           */
-    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PER);                   /* Reset page erasing flag            */
-    SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                     /* clear OPERATION COMPLETE flag      */
-
-    if (READ_REG_BIT(FLASH->SR, FLASH_ERR)) {
-      if (READ_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR)) {       /* Check Write protection error       */
-        status = FLASH_ERROR_WRITE_PROT;                      /* Report the error                   */
-        SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);            /* Clear the error flag               */
-      } else {
-        status = FLASH_ERROR_WRITE;                           /* Report the error                   */
-        SET_REG_BIT(FLASH->SR, FLASH_SR_PGERR);               /* Clear the error flag               */
-      }
-      return status;                                          /* Break flashing                     */
+    
+    /* Erase page */
+    unsigned st = flash_erase_page(flash_data_addr);
+    
+    /* Program only if erase succeeded */
+    if (st == 0u) {
+      st = flash_program(flash_data_addr, src, len);
     }
-                                                              /*
-    3) CHECK THE DATA AREA CLEARED
-    ========================================================= */
-
-    for(int *i = (int *)FLASH_DATA_ADDR; i < (int *)(FLASH_DATA_ADDR + FLASH_PAGE_SIZE); i++) {
-      if (*i != -1L) {                                        /* If page not clean                  */
-        return  FLASH_ERROR_ERASE;                            /* Report the error                   */
-      }
-    }
-                                                              /*
-    4) WRITE DATA TO THE FLASH
-    ========================================================= */
-
-    SET_REG_BIT(FLASH->CR, FLASH_CR_PG);                      /* Enable programming mode            */
-    for (unsigned i = 0; i < len / 2; i++) {                  /* Start writing cycle                */
-
-      *p = src[i];                                            /* Write 16 bits data                 */
-
-      while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}  /* Wait till the operation completes  */
-      SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
-
-      if (READ_REG_BIT(FLASH->SR, FLASH_ERR)) {
-        if (READ_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR)) {     /* Check for write protection error   */
-          status = FLASH_ERROR_WRITE_PROT;                    /* Report the error                   */
-          SET_REG_BIT(FLASH->SR, FLASH_SR_WRPRTERR);          /* Clear the error flag               */
-        } else {
-          status = FLASH_ERROR_WRITE;                         /* Report the error                   */
-          SET_REG_BIT(FLASH->SR, FLASH_SR_PGERR);             /* Clear the error flag               */
-        }
-        CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PG);                /* Disable programming                */
-        return status;                                        /* Break flashing                     */
-      }
-      p++;                                                    /* Next address to write data to      */
-    }
-
-    CLEAR_REG_BIT(FLASH->CR, FLASH_CR_PG);                    /* Disable programming                */
-    return !FLASH_ERROR;                                      /* Return success                     */
+    
+    /* Re-lock Flash */
+    FLASH->CR |= FLASH_CR_LOCK;
+    
+    return st;
   }
 
   #define OB_RDP_LEVEL_0            ((uint8_t)0xA5)
@@ -3281,6 +3645,21 @@ void SysTick_Handler(void) {
 static void demo(void) {
 
   #if FLASH_EN
+    /* Union variable with string initializer */
+    union {
+        char str[64];           /* String storage */
+        uint16_t halfwords[32]; /* Same memory as half-words */
+    } test_data = {
+        .str = "Just a test string to write to the last FLASH page."
+    };
+    
+    /* Calculate string length */
+    const unsigned str_len = strlen(test_data.str) + 1;  /* Include '\0' */
+    const unsigned write_len = (str_len + 1) & ~1u;      /* Round up to even */
+    
+    /* Write to Flash using halfwords */
+    write2flash(test_data.halfwords, write_len);
+
     #if defined LOCK_FIRMWARE && LOCK_FIRMWARE != 0
       if (!READ_REG_BIT(F.OBR, FLASH_OBR_RDPRT)) {             /* Check RDP level status            */
         lock_firmware(NULL, NULL);                             /* Enable read- and write-protect    */
