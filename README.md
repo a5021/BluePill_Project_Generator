@@ -53,3 +53,23 @@ In the example above, all configuration macros are enabled except for USE_HSE an
 * [PM0056: Cortex-M3 programming manual](https://www.st.com/resource/en/programming_manual/cd00228163.pdf)
 * [PM0075: STM32F1 flash programming manual](https://www.st.com/resource/en/programming_manual/cd00283419.pdf)
 
+## Other useful links
+
+- STM32CubeF1 (CMSIS headers)
+  - Repo: https://github.com/STMicroelectronics/STM32CubeF1
+  - Raw CMSIS include path used by the script:
+    https://raw.githubusercontent.com/STMicroelectronics/STM32CubeF1/master/Drivers/CMSIS/Include/
+
+- cmsis_device_f1 (device headers, startup, system files for STM32F1 series)
+  - Repo: https://github.com/STMicroelectronics/cmsis_device_f1
+  - Raw files used by the script (examples):
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/stm32f1xx.h
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/stm32f103xb.h
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/system_stm32f1xx.h
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/system_stm32f1xx.c
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/gcc/startup_stm32f103xb.s
+    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld
+
+- SVD (device description) used by the script:
+  - Repo: https://github.com/cmsis-svd/cmsis-svd-data
+  - Raw file: https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/refs/heads/main/data/STMicro/STM32F103xx.svd
