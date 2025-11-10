@@ -1247,7 +1247,7 @@ __STATIC_INLINE void stopwatch_reset(void) {
 // Nanoseconds delay (minimum ~100ns due to overhead)
 #define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
 
-// Microseconds delay (minimum ~1Вµs recommended)
+// Microseconds delay (minimum ~1Р’Вµs recommended)
 #define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
 
 #if 0
@@ -1273,7 +1273,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 // Helper macro: paste together PREFIX_, REG, and BF to form a bitfield macro name
 #define _BITS_ONE(PREFIX_, REG, BF) PREFIX_##REG##_##BF
 
-// Recursive macros to combine 1В–16 bitfields using the '|' operator
+// Recursive macros to combine 1Р’вЂ“16 bitfields using the '|' operator
 #define _BITS_1(PREFIX_, REG, BF) _BITS_ONE(PREFIX_, REG, BF)
 #define _BITS_2(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_1(PREFIX_, REG, __VA_ARGS__)
 #define _BITS_3(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_2(PREFIX_, REG, __VA_ARGS__)
@@ -1943,12 +1943,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *          - Interrupt disable/enable with PRIMASK save/restore
    * 
    * @note    Supported hardware (auto-detected):
-   *          - STM32F103C4: 16KB Flash, 16 pages × 1KB
-   *          - STM32F103C6: 32KB Flash, 32 pages × 1KB
-   *          - STM32F103C8: 64KB Flash, 64 pages × 1KB
-   *          - STM32F103CB: 128KB Flash, 128 pages × 1KB
+   *          - STM32F103C4: 16KB Flash, 16 pages Г— 1KB
+   *          - STM32F103C6: 32KB Flash, 32 pages Г— 1KB
+   *          - STM32F103C8: 64KB Flash, 64 pages Г— 1KB
+   *          - STM32F103CB: 128KB Flash, 128 pages Г— 1KB
    *          - Page erase time: ~40ms
-   *          - Half-word programming time: ~50µs
+   *          - Half-word programming time: ~50Вµs
    * 
    * @note    C8 Quirk Mode (FLASH_C8_QUIRK):
    *          Many STM32F103C8T6 chips (especially "Blue Pill" boards) actually
@@ -1960,7 +1960,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *          enabled and disable interrupts to prevent CPU stalls when attempting
    *          to fetch instructions from Flash during write/erase operations.
    * 
-   * @author  Your Name
+   * @author  a5021
    * @date    October 2025
    */
   
@@ -2051,7 +2051,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *          - Countdown loop (free comparison with zero)
    *          - Unsigned counter with i!=0 condition
    *          - do-while loop (guaranteed at least one iteration)
-   *          - Unrolled by 4 (256 words → 64 iterations)
+   *          - Unrolled by 4 (256 words в†’ 64 iterations)
    *          - FLASH_PAGE_SIZE is always multiple of 16 bytes
    */
   __STATIC_FORCEINLINE unsigned flash_verify_blank(uint32_t addr) {
@@ -2177,7 +2177,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *          4. Set PG (Programming) bit in FLASH_CR
    *          5. For each half-word (with interrupts disabled):
    *             a. Write half-word to Flash address
-   *             b. Wait for BSY=0 (~50µs per half-word)
+   *             b. Wait for BSY=0 (~50Вµs per half-word)
    *             c. Check for errors
    *          6. Clear PG bit and status flags
    *          7. Verify programmed data matches source
@@ -2185,10 +2185,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    * @note    Loop optimizations:
    *          - Countdown loop with unsigned counter
    *          - Pre-decrement in condition (--n != 0) for optimal ARM code
-   *          - No unrolling (50µs hardware wait dominates loop overhead)
+   *          - No unrolling (50Вµs hardware wait dominates loop overhead)
    * 
    * @warning - Flash must be erased (0xFFFF) before programming
-   *          - Interrupts disabled during writes (~50µs per half-word)
+   *          - Interrupts disabled during writes (~50Вµs per half-word)
    *          - Cannot program same address twice without erase
    *          - CPU cannot fetch instructions from Flash during programming
    *          - Assumes HSI clock is already verified by caller
@@ -2216,7 +2216,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     /* Countdown loop: write each half-word to Flash */
     do {
       *p++ = *src++;                   /* Write triggers Flash operation */
-      while (FLASH->SR & FLASH_SR_BSY); /* Wait ~50µs per half-word */
+      while (FLASH->SR & FLASH_SR_BSY); /* Wait ~50Вµs per half-word */
       if ((st = flash_get_err()) != 0u) break;
     } while (--n != 0);                /* Pre-decrement, compare with zero */
     
@@ -2249,9 +2249,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    * 
    * @note    Execution time breakdown:
    *          - Page erase: ~40ms
-   *          - Programming: (len/2) × 50µs
-   *          - Verification: (len/2) × ~1µs
-   *          - Example for 1KB: 40ms + 25ms + 0.5ms ≈ 65ms
+   *          - Programming: (len/2) Г— 50Вµs
+   *          - Verification: (len/2) Г— ~1Вµs
+   *          - Example for 1KB: 40ms + 25ms + 0.5ms в‰€ 65ms
    * 
    * @note    Automatic detection (works on all variants):
    *          - STM32F103C4 (16KB):  Uses page at 0x08003C00
@@ -2302,12 +2302,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *     }
    * } else {
    *     // Error handling
-   *     if (status & FLASH_ERROR_HSI) { }       // HSI not enabled
-   *     if (status & FLASH_ERROR_SIZE) { }      // Data too large
-   *     if (status & FLASH_ERROR_ALIGN) { }     // Alignment error
+   *     if (status & FLASH_ERROR_HSI) { }        // HSI not enabled
+   *     if (status & FLASH_ERROR_SIZE) { }       // Data too large
+   *     if (status & FLASH_ERROR_ALIGN) { }      // Alignment error
    *     if (status & FLASH_ERROR_WRITE_PROT) { } // Write protected
-   *     if (status & FLASH_ERROR_ERASE) { }     // Erase failed
-   *     if (status & FLASH_ERROR_WRITE) { }     // Write failed
+   *     if (status & FLASH_ERROR_ERASE) { }      // Erase failed
+   *     if (status & FLASH_ERROR_WRITE) { }      // Write failed
    * }
    * @endcode
    */
@@ -3517,10 +3517,10 @@ void SysTick_Handler(void) {
 
   #if TIM2_EN && DMA_EN
   #else
-    static unsigned t_cnt;
-    if (++t_cnt == 1000) /* Count to 1000 then reset */ { t_cnt = 0; }
-    (((t_cnt == 970) || (t_cnt == 910) || (t_cnt == 850)) && (PC.BSRR = GPIO_BSRR_BR13)) ||
-    (((t_cnt == 940) || (t_cnt == 880) || (t_cnt == 0  )) && (PC.BSRR = GPIO_BSRR_BS13));
+    static uint16_t t;              // 0…999
+    t = (t + 1) % 1000;             // 1 ms roll-over
+    // active slice: 0…179 ms  (3x30 ms on + 3x30 ms off)
+    if (t < 180) PC.BSRR = ((t / 30) & 1) * GPIO_BSRR_BS13 | GPIO_BSRR_BR13;
   #endif
 
   #if BTN_EN
@@ -4266,6 +4266,9 @@ cat << JFLASH_CONFIG >stm32f103cb.jflash
   PerfromBlankCheckPriorEraseChip = 0x00000001
   PerfromBlankCheckPriorEraseSelectedSectors = 0x00000001
 JFLASH_CONFIG
+
+sed -i 's/bl __libc_init_array/@  call was disabled/' startup_stm32f103xb.s
+sed -i 's/^LDFLAGS = /&-nostartfiles /' Makefile
 
 #
 # run 'make' utility
