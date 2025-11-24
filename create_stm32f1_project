@@ -4272,179 +4272,274 @@ for arg in "$@"; do
     if [ "$arg" = "opt" ]; then
 
         cat << STARTUP_S >startup_stm32f103xb.s
+/**
+ ******************************************************************************
+ * @file      startup_stm32f103c8t6.s
+ * @author    Your Name
+ * @brief     STM32F103C8T6 startup code - Optimized version
+ *            - Uses block transfer instructions (ldmia/stmia) for fast copy
+ *            - Handles .data and .bss sections efficiently
+ *            - No SystemInit() call (configure clocks in main if needed)
+ ******************************************************************************
+ */
 
-  .syntax unified
-  .cpu cortex-m3
-  .fpu softvfp
-  .thumb
+.syntax unified              /* Use unified ARM/Thumb syntax */
+.cpu cortex-m3              /* Target CPU: ARM Cortex-M3 */
+.fpu softvfp                /* No hardware FPU, use software floating point */
+.thumb                      /* Use Thumb instruction set */
 
+/* Make vector table and default handler visible to linker */
 .global g_pfnVectors
 .global Default_Handler
 
-/* Start address for the initialization values of the .data section. */
-.word _sidata
-/* Start address for the .data section. */
-.word _sdata
-/* End address for the .data section. */
-.word _edata
-/* Start address for the .bss section. */
-.word _sbss
-/* End address for the .bss section. */
-.word _ebss
+/* Linker-provided symbols for memory sections */
+.word _sidata               /* Start address of .data in Flash (source) */
+.word _sdata                /* Start address of .data in SRAM (destination) */
+.word _edata                /* End address of .data in SRAM */
+.word _sbss                 /* Start address of .bss in SRAM */
+.word _ebss                 /* End address of .bss in SRAM */
 
-.equ  BootRAM, 0xF108F85F
+/* Special boot configuration for STM32 */
+.equ  BootRAM, 0xF108F85F   /* Boot from RAM configuration value */
 
 /**
- * @brief  Reset_Handler
- *         This function is called at system reset.
- *         1. Calls SystemInit (clock setup).
- *         2. Copies .data from Flash to SRAM (Optimized).
- *         3. Zeroes .bss section (Optimized).
- *         4. Calls static constructors (__libc_init_array).
- *         5. Branches to main.
+ ******************************************************************************
+ * @brief  Reset_Handler - Executed on system reset/power-up
+ *
+ * This is the first code that runs after the processor starts.
+ * Execution flow:
+ *   1. Copy initialized data from Flash to SRAM (.data section)
+ *   2. Zero-fill uninitialized data in SRAM (.bss section)
+ *   3. Jump to main() application code
+ *   4. Trap in infinite loop if main() ever returns (should never happen)
+ ******************************************************************************
  */
   .section .text.Reset_Handler
   .weak Reset_Handler
   .type Reset_Handler, %function
+
 Reset_Handler:
 
-/* 1. Initialize the system clock */
-  bl  SystemInit
+/*----------------------------------------------------------------------------*/
+/* STEP 1: Copy .data section from Flash to SRAM                              */
+/*----------------------------------------------------------------------------*/
+/* The .data section contains initialized global/static variables.            */
+/* Their initial values are stored in Flash and must be copied to SRAM.       */
+/*----------------------------------------------------------------------------*/
 
-/* 2. Copy the data segment initializers from flash to SRAM */
-  ldr r0, =_sdata       /* R0 = Start of destination (SRAM) */
-  ldr r1, =_edata       /* R1 = End of destination (SRAM) */
-  ldr r2, =_sidata      /* R2 = Start of source (Flash) */
+  ldr r0, =_sdata           /* R0 = Destination start address (SRAM) */
+  ldr r1, =_edata           /* R1 = Destination end address (SRAM) */
+  ldr r2, =_sidata          /* R2 = Source start address (Flash) */
+  subs r3, r1, r0           /* R3 = Size of .data section in bytes */
+  ble SkipDataCopy          /* Skip if .data is empty (size <= 0) */
 
-  /* Jump to check first to handle empty .data section case */
-  b LoopCopyDataInit
-
+/* Main copy loop: Process 32 bytes (8 words) per iteration using block transfer */
 CopyDataInit:
-  ldr r3, [r2], #4      /* Load word from Flash and increment Source ptr */
-  str r3, [r0], #4      /* Store word to SRAM and increment Dest ptr */
+  subs r3, r3, #32          /* Decrement counter by 32 bytes */
+  blt CopyDataRemainder     /* If less than 32 bytes remain, handle remainder */
+  ldmia r2!, {r4-r11}       /* Load 8 words (32 bytes) from Flash, auto-increment R2 */
+  stmia r0!, {r4-r11}       /* Store 8 words (32 bytes) to SRAM, auto-increment R0 */
+  b CopyDataInit            /* Continue main loop */
 
-LoopCopyDataInit:
-  cmp r0, r1            /* Compare current Dest ptr with End ptr */
-  bcc CopyDataInit      /* If Current < End, continue loop */
+/* Handle remaining bytes when less than 32 bytes left */
+CopyDataRemainder:
+  adds r3, r3, #32          /* Restore the actual remainder count */
+  cbz r3, SkipDataCopy      /* If remainder is zero, we're done */
 
-/* 3. Zero fill the bss segment */
-  ldr r0, =_sbss        /* R0 = Start of .bss */
-  ldr r1, =_ebss        /* R1 = End of .bss */
-  movs r3, #0           /* R3 = 0 */
+/* Copy remainder word-by-word (4 bytes at a time) */
+CopyDataWord:
+  subs r3, r3, #4           /* Decrement counter by 4 bytes (1 word) */
+  ldr r4, [r2], #4          /* Load 1 word from Flash, auto-increment R2 */
+  str r4, [r0], #4          /* Store 1 word to SRAM, auto-increment R0 */
+  bne CopyDataWord          /* Continue if more bytes remain */
 
-  b LoopFillZerobss
+SkipDataCopy:
 
+/*----------------------------------------------------------------------------*/
+/* STEP 2: Zero-fill .bss section in SRAM                                     */
+/*----------------------------------------------------------------------------*/
+/* The .bss section contains uninitialized global/static variables.           */
+/* C standard requires these to be zero-initialized before main() is called.  */
+/*----------------------------------------------------------------------------*/
+
+  ldr r0, =_sbss            /* R0 = Start address of .bss section */
+  ldr r1, =_ebss            /* R1 = End address of .bss section */
+  subs r6, r1, r0           /* R6 = Size of .bss section in bytes */
+  ble SkipBssZero           /* Skip if .bss is empty (size <= 0) */
+
+  /* Initialize 8 registers with zero - done ONCE before loop for efficiency */
+  movs r2, #0               /* R2 = 0 */
+  movs r3, #0               /* R3 = 0 */
+  movs r4, #0               /* R4 = 0 */
+  movs r5, #0               /* R5 = 0 */
+  movs r7, #0               /* R7 = 0 (skip R6, it's our counter) */
+  movs r8, #0               /* R8 = 0 */
+  movs r9, #0               /* R9 = 0 */
+  movs r10, #0              /* R10 = 0 */
+
+/* Main zeroing loop: Process 32 bytes (8 words) per iteration using block transfer */
 FillZerobss:
-  str r3, [r0], #4      /* Store 0 to SRAM and increment ptr */
+  subs r6, r6, #32          /* Decrement counter by 32 bytes */
+  blt FillZeroRemainder     /* If less than 32 bytes remain, handle remainder */
+  stmia r0!, {r2-r5, r7-r10} /* Store 8 zero words (32 bytes) to SRAM, auto-increment R0 */
+  b FillZerobss             /* Continue main loop */
 
-LoopFillZerobss:
-  cmp r0, r1            /* Compare current ptr with End ptr */
-  bcc FillZerobss       /* If Current < End, continue loop */
+/* Handle remaining bytes when less than 32 bytes left */
+FillZeroRemainder:
+  adds r6, r6, #32          /* Restore the actual remainder count */
+  cbz r6, SkipBssZero       /* If remainder is zero, we're done */
 
-/* 4. Call static constructors */
-/*  bl __libc_init_array */
+/* Zero remainder word-by-word (4 bytes at a time) */
+FillZeroWord:
+  subs r6, r6, #4           /* Decrement counter by 4 bytes (1 word) */
+  str r2, [r0], #4          /* Store zero to SRAM, auto-increment R0 */
+  bne FillZeroWord          /* Continue if more bytes remain */
 
-/* 5. Call the application's entry point */
-  bl main
+SkipBssZero:
 
-/* Trap if main returns (should not happen) */
-  bx lr
+/*----------------------------------------------------------------------------*/
+/* STEP 3: Call main() function                                               */
+/*----------------------------------------------------------------------------*/
+/* At this point, the C runtime environment is fully initialized:             */
+/*   - Stack pointer was set by hardware from vector table                    */
+/*   - .data section is copied from Flash to SRAM                             */
+/*   - .bss section is zero-initialized                                       */
+/* Now it's safe to call the main application code.                           */
+/*----------------------------------------------------------------------------*/
+
+  bl main                   /* Branch with Link to main() function */
+
+/*----------------------------------------------------------------------------*/
+/* STEP 4: Trap if main() returns (should never happen in embedded systems)   */
+/*----------------------------------------------------------------------------*/
+/* In embedded systems, main() should never return. If it does, something     */
+/* went wrong. We trap here in an infinite loop for debugging.                */
+/*----------------------------------------------------------------------------*/
+
+Infinite_Loop:
+  b Infinite_Loop           /* Loop forever */
 .size Reset_Handler, .-Reset_Handler
 
 /**
- * @brief  Default_Handler
- *         Infinite loop for unhandled interrupts.
+ ******************************************************************************
+ * @brief  Default_Handler - Default handler for all unhandled interrupts
+ *
+ * If an interrupt occurs and no specific handler is defined, execution
+ * will trap here in an infinite loop. This helps catch unexpected interrupts
+ * during development and debugging.
+ ******************************************************************************
  */
     .section .text.Default_Handler,"ax",%progbits
 Default_Handler:
-Infinite_Loop:
-  b Infinite_Loop
+Infinite_Loop_Default:
+  b Infinite_Loop_Default   /* Trap unhandled interrupts here */
   .size Default_Handler, .-Default_Handler
 
-/******************************************************************************
-*
-* The minimal vector table for a Cortex M3.
-*
-******************************************************************************/
+/**
+ ******************************************************************************
+ * Interrupt Vector Table for STM32F103C8T6 (ARM Cortex-M3)
+ *
+ * This table MUST be placed at the start of Flash memory (address 0x08000000)
+ * The processor uses this table to find interrupt handler addresses.
+ *
+ * Entry 0:  Initial Stack Pointer (loaded into SP on reset)
+ * Entry 1:  Reset Handler (executed on power-up/reset)
+ * Entry 2+: Exception and Interrupt Handlers (60+ entries for STM32F103)
+ *
+ * All handlers default to Default_Handler via weak aliases (see below)
+ * You can override any handler by defining a function with the same name.
+ ******************************************************************************
+ */
   .section .isr_vector,"a",%progbits
   .type g_pfnVectors, %object
   .size g_pfnVectors, .-g_pfnVectors
 
 g_pfnVectors:
-  .word _estack
-  .word Reset_Handler
-  .word NMI_Handler
-  .word HardFault_Handler
-  .word MemManage_Handler
-  .word BusFault_Handler
-  .word UsageFault_Handler
-  .word 0
-  .word 0
-  .word 0
-  .word 0
-  .word SVC_Handler
-  .word DebugMon_Handler
-  .word 0
-  .word PendSV_Handler
-  .word SysTick_Handler
-  .word WWDG_IRQHandler
-  .word PVD_IRQHandler
-  .word TAMPER_IRQHandler
-  .word RTC_IRQHandler
-  .word FLASH_IRQHandler
-  .word RCC_IRQHandler
-  .word EXTI0_IRQHandler
-  .word EXTI1_IRQHandler
-  .word EXTI2_IRQHandler
-  .word EXTI3_IRQHandler
-  .word EXTI4_IRQHandler
-  .word DMA1_Channel1_IRQHandler
-  .word DMA1_Channel2_IRQHandler
-  .word DMA1_Channel3_IRQHandler
-  .word DMA1_Channel4_IRQHandler
-  .word DMA1_Channel5_IRQHandler
-  .word DMA1_Channel6_IRQHandler
-  .word DMA1_Channel7_IRQHandler
-  .word ADC1_2_IRQHandler
-  .word USB_HP_CAN1_TX_IRQHandler
-  .word USB_LP_CAN1_RX0_IRQHandler
-  .word CAN1_RX1_IRQHandler
-  .word CAN1_SCE_IRQHandler
-  .word EXTI9_5_IRQHandler
-  .word TIM1_BRK_IRQHandler
-  .word TIM1_UP_IRQHandler
-  .word TIM1_TRG_COM_IRQHandler
-  .word TIM1_CC_IRQHandler
-  .word TIM2_IRQHandler
-  .word TIM3_IRQHandler
-  .word TIM4_IRQHandler
-  .word I2C1_EV_IRQHandler
-  .word I2C1_ER_IRQHandler
-  .word I2C2_EV_IRQHandler
-  .word I2C2_ER_IRQHandler
-  .word SPI1_IRQHandler
-  .word SPI2_IRQHandler
-  .word USART1_IRQHandler
-  .word USART2_IRQHandler
-  .word USART3_IRQHandler
-  .word EXTI15_10_IRQHandler
-  .word RTC_Alarm_IRQHandler
-  .word USBWakeUp_IRQHandler
-  .word 0
-  .word 0
-  .word 0
-  .word 0
-  .word 0
-  .word 0
-  .word 0
-  .word BootRAM
+  /* Cortex-M3 Core Exceptions */
+  .word _estack                      /* 0: Initial Stack Pointer (top of RAM) */
+  .word Reset_Handler                /* 1: Reset Handler */
+  .word NMI_Handler                  /* 2: Non-Maskable Interrupt */
+  .word HardFault_Handler            /* 3: Hard Fault (all unrecoverable errors) */
+  .word MemManage_Handler            /* 4: Memory Management Fault */
+  .word BusFault_Handler             /* 5: Bus Fault (memory access error) */
+  .word UsageFault_Handler           /* 6: Usage Fault (undefined instruction, etc.) */
+  .word 0                            /* 7: Reserved */
+  .word 0                            /* 8: Reserved */
+  .word 0                            /* 9: Reserved */
+  .word 0                            /* 10: Reserved */
+  .word SVC_Handler                  /* 11: Supervisor Call (used by RTOS) */
+  .word DebugMon_Handler             /* 12: Debug Monitor */
+  .word 0                            /* 13: Reserved */
+  .word PendSV_Handler               /* 14: Pendable Service (used by RTOS) */
+  .word SysTick_Handler              /* 15: System Tick Timer */
+  
+  /* STM32F103 Peripheral Interrupts */
+  .word WWDG_IRQHandler              /* 16: Window Watchdog */
+  .word PVD_IRQHandler               /* 17: Programmable Voltage Detector */
+  .word TAMPER_IRQHandler            /* 18: Tamper (RTC intrusion detection) */
+  .word RTC_IRQHandler               /* 19: Real-Time Clock */
+  .word FLASH_IRQHandler             /* 20: Flash Memory */
+  .word RCC_IRQHandler               /* 21: Reset and Clock Control */
+  .word EXTI0_IRQHandler             /* 22: External Interrupt Line 0 */
+  .word EXTI1_IRQHandler             /* 23: External Interrupt Line 1 */
+  .word EXTI2_IRQHandler             /* 24: External Interrupt Line 2 */
+  .word EXTI3_IRQHandler             /* 25: External Interrupt Line 3 */
+  .word EXTI4_IRQHandler             /* 26: External Interrupt Line 4 */
+  .word DMA1_Channel1_IRQHandler     /* 27: DMA1 Channel 1 */
+  .word DMA1_Channel2_IRQHandler     /* 28: DMA1 Channel 2 */
+  .word DMA1_Channel3_IRQHandler     /* 29: DMA1 Channel 3 */
+  .word DMA1_Channel4_IRQHandler     /* 30: DMA1 Channel 4 */
+  .word DMA1_Channel5_IRQHandler     /* 31: DMA1 Channel 5 */
+  .word DMA1_Channel6_IRQHandler     /* 32: DMA1 Channel 6 */
+  .word DMA1_Channel7_IRQHandler     /* 33: DMA1 Channel 7 */
+  .word ADC1_2_IRQHandler            /* 34: ADC1 and ADC2 */
+  .word USB_HP_CAN1_TX_IRQHandler    /* 35: USB High Priority or CAN TX */
+  .word USB_LP_CAN1_RX0_IRQHandler   /* 36: USB Low Priority or CAN RX0 */
+  .word CAN1_RX1_IRQHandler          /* 37: CAN RX1 */
+  .word CAN1_SCE_IRQHandler          /* 38: CAN SCE (Status Change Error) */
+  .word EXTI9_5_IRQHandler           /* 39: External Interrupts 9-5 */
+  .word TIM1_BRK_IRQHandler          /* 40: Timer 1 Break */
+  .word TIM1_UP_IRQHandler           /* 41: Timer 1 Update */
+  .word TIM1_TRG_COM_IRQHandler      /* 42: Timer 1 Trigger/Commutation */
+  .word TIM1_CC_IRQHandler           /* 43: Timer 1 Capture/Compare */
+  .word TIM2_IRQHandler              /* 44: Timer 2 */
+  .word TIM3_IRQHandler              /* 45: Timer 3 */
+  .word TIM4_IRQHandler              /* 46: Timer 4 */
+  .word I2C1_EV_IRQHandler           /* 47: I2C1 Event */
+  .word I2C1_ER_IRQHandler           /* 48: I2C1 Error */
+  .word I2C2_EV_IRQHandler           /* 49: I2C2 Event */
+  .word I2C2_ER_IRQHandler           /* 50: I2C2 Error */
+  .word SPI1_IRQHandler              /* 51: SPI1 */
+  .word SPI2_IRQHandler              /* 52: SPI2 */
+  .word USART1_IRQHandler            /* 53: USART1 */
+  .word USART2_IRQHandler            /* 54: USART2 */
+  .word USART3_IRQHandler            /* 55: USART3 */
+  .word EXTI15_10_IRQHandler         /* 56: External Interrupts 15-10 */
+  .word RTC_Alarm_IRQHandler         /* 57: RTC Alarm through EXTI */
+  .word USBWakeUp_IRQHandler         /* 58: USB Wakeup from suspend */
+  .word 0                            /* 59: Reserved */
+  .word 0                            /* 60: Reserved */
+  .word 0                            /* 61: Reserved */
+  .word 0                            /* 62: Reserved */
+  .word 0                            /* 63: Reserved */
+  .word 0                            /* 64: Reserved */
+  .word 0                            /* 65: Reserved */
+  .word BootRAM                      /* 66: Boot from RAM configuration */
 
-/*******************************************************************************
-*
-* Provide weak aliases for each Exception handler to the Default_Handler.
-*
-*******************************************************************************/
+/**
+ ******************************************************************************
+ * Weak aliases for interrupt handlers
+ *
+ * All interrupt handlers are "weakly" aliased to Default_Handler.
+ * This means if you don't define a specific handler, it will use
+ * Default_Handler by default.
+ *
+ * To implement your own handler, simply define a function with the same
+ * name (e.g., void TIM2_IRQHandler(void)) and it will override the weak alias.
+ ******************************************************************************
+ */
 
+/* Cortex-M3 Core Exception Handlers */
   .weak NMI_Handler
   .thumb_set NMI_Handler,Default_Handler
 
@@ -4472,6 +4567,7 @@ g_pfnVectors:
   .weak SysTick_Handler
   .thumb_set SysTick_Handler,Default_Handler
 
+/* STM32F103 Peripheral Interrupt Handlers */
   .weak WWDG_IRQHandler
   .thumb_set WWDG_IRQHandler,Default_Handler
 
@@ -4600,6 +4696,12 @@ g_pfnVectors:
 
   .weak USBWakeUp_IRQHandler
   .thumb_set USBWakeUp_IRQHandler,Default_Handler
+
+/**
+ ******************************************************************************
+ * End of startup code
+ ******************************************************************************
+ */
 STARTUP_S
 
         cat << LINKER_SCRIPT >STM32F103XB_FLASH.ld
@@ -4726,7 +4828,6 @@ SECTIONS
   } >RAM
 }
 LINKER_SCRIPT
-        #sed -i 's/bl __libc_init_array/@  call was disabled/' startup_stm32f103xb.s
         sed -i 's/^LDFLAGS = /&-nostartfiles /' Makefile
         break
     fi
