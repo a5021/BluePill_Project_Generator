@@ -945,7 +945,7 @@ cat <<MAIN_H >main.h
 #include "stm32f1xx.h"
 
 #ifdef __cplusplus
- extern C {
+ extern "C" {
 #endif
 
 #define NO  0
@@ -3941,7 +3941,7 @@ const char *build_msg  = ""
   #if defined(USE_FLASH) && (USE_FLASH != 0)
     " USE_FLASH"
   #endif
-  #if defined(USE_USE_SWD) && (USE_USE_SWD != 0)
+  #if defined(USE_SWD) && (USE_SWD != 0)
     " USE_SWD"
   #endif
   #if defined(USE_OVRCLK) && (USE_OVRCLK != 0)
