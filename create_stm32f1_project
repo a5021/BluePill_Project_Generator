@@ -2144,9 +2144,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
    *          Assumes HSI clock is already verified by caller.
    */
   __STATIC_INLINE unsigned flash_erase_page(uint32_t addr) {
-    /* Clear previous operation flags */
-    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    /* Wait for previous operation to complete, then clear flags */
     while (FLASH->SR & FLASH_SR_BSY);  /* Wait until ready */
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
     
     /* Setup page erase */
     FLASH->CR |= FLASH_CR_PER;         /* Enable page erase mode */
@@ -2210,15 +2210,18 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     unsigned n = len >> 1;  /* Half-words count (unsigned, countdown) */
     unsigned st = 0;
     
-    /* Prepare for programming */
-    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
+    /* Prepare for programming: wait for previous operation, then clear flags */
     while (FLASH->SR & FLASH_SR_BSY);
+    FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
     
     FLASH->CR |= FLASH_CR_PG;          /* Enable programming mode */
     
     /* Program half-words with interrupts disabled */
     const uint32_t primask = __get_PRIMASK();
     __disable_irq();
+    
+    /* Save original source pointer for verification */
+    const uint16_t *__restrict src_orig = src;
     
     /* Countdown loop: write each half-word to Flash */
     do {
@@ -2234,7 +2237,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     FLASH->SR = FLASH_SR_EOP | FLASH_SR_PGERR | FLASH_SR_WRPRTERR;
     
     /* Verify programmed data */
-    return st ? st : flash_verify_data(addr, src, len);
+    return st ? st : flash_verify_data(addr, src_orig, len);
   }
   
   /**
@@ -2384,7 +2387,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
       SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
     }
 
-    if (ud_1 != NULL) {                                       /* if user byte #0 is passed          */
+    if (ud_1 != NULL) {                                       /* if user byte #1 is passed          */
       OB->Data1 = *ud_1;                                      /* write it to OPT BYTE               */
       while (!READ_REG_BIT(FLASH->SR, FLASH_SR_EOP)) {/* */}  /* wait until write op completes      */
       SET_REG_BIT(FLASH->SR, FLASH_SR_EOP);                   /* clear OPERATION COMPLETE flag      */
@@ -2502,7 +2505,7 @@ __STATIC_INLINE void init(void) {
 
   #define APB2_CONFIG (                           \\
     0        * GATE_CLOCK(APB2, TIM1)             |           /* Enable clock for Timer 1           */\\
-    0        * GATE_CLOCK(APB2, ADC2)             |           /* Enable clock for ADC 1             */\\
+    0        * GATE_CLOCK(APB2, ADC2)             |           /* Enable clock for ADC 2             */\\
     USART_EN * GATE_CLOCK(APB2, USART1)           |           /* Enable clock for USART 1           */\\
     SPI_EN   * GATE_CLOCK(APB2, SPI1)             |           /* Enable clock for SPI 1             */\\
     ADC_EN   * GATE_CLOCK(APB2, ADC1)             |           /* Enable clock for ADC 1             */\\
@@ -3735,10 +3738,10 @@ static void demo(void) {
 
     i = snprintf(BUF, "Test@%uMHz", (uint8_t)(SystemCoreClock / 1000000));
     #if RNG_EN
-      i += snprintf(BUF, " #0x%02X", rnd() % UINT8_MAX);
+      i += snprintf(BUF, " #0x%02X", rnd() % (UINT8_MAX + 1));
     #else
       {
-        static char loop_counter;
+        static unsigned char loop_counter;
         i += snprintf(BUF, " #0x%02X", ++loop_counter);
       }
     #endif
@@ -3865,11 +3868,11 @@ static void demo(void) {
     rnext ^= rnext << 5;
     return rnext;
   #endif
-  } /* rng() */
+  } /* rnd() */
 
   void srnd(unsigned seed) {
     rnext = seed;
-  } /* srng() */
+  } /* srnd() */
 #endif
 
 
