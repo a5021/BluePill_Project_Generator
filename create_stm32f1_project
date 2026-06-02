@@ -2446,7 +2446,7 @@ __STATIC_INLINE void init(void) {
     USART_EN * PIN_CFG(10, I_PULL)                |           /* PA10: USART1 RX, input, pull-down  */\\
     SWD_EN   * PIN_CFG(13, I_PULL)                |           /* PA13: SWDIO, input, pull-up        */\\
     SWD_EN   * PIN_CFG(14, I_PULL)                |           /* PA14: SWCLK, input, pull-down      */\\
-    TIM2_EN  * PIN_CFG(15, O_AF + O_10MHZ)                    /* PA15: TIM2 CH2, alternate, 10MHz   */\\
+    TIM2_EN  * PIN_CFG(15, O_AF + O_10MHZ)                    /* PA15: TIM2 CH1, alternate, 10MHz   */\\
   )
 
   #define PORT_A_STATE (                          \\
@@ -2559,7 +2559,12 @@ __STATIC_INLINE void init(void) {
 
   #if HSE_EN
     SET_REG_BIT(RCC->CR, RCC_CR_HSEON);                       /* Switch HSE on                      */
-    while(!READ_REG_BIT(RCC->CR, RCC_CR_HSERDY)) {/* */}      /* Wait until HSE becomes ready       */
+    {                                                         /* HSE startup timeout: ~5 ms @ 8 MHz HSI */
+      volatile unsigned hse_tmo = 40000;                      /* (volatile prevents -O3 from optimizing away) */
+      while(!READ_REG_BIT(RCC->CR, RCC_CR_HSERDY)) {          /* Wait until HSE becomes ready       */
+        if (--hse_tmo == 0) break;
+      }
+    }
 
     #if defined OVRCLK && OVRCLK != 0
       #define _RCC_CFGR (                                     /* 112 MHz:                           */\\
@@ -2588,7 +2593,12 @@ __STATIC_INLINE void init(void) {
 
     RCC->CFGR = _RCC_CFGR;                                    /* Configure PLL                      */
     RCC->CR = _RCC_CR;                                        /* Switch PLL on                      */
-    while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) { /* */}     /* Wait until PLL becomes ready       */
+    {                                                         /* PLL lock timeout: ~1 ms @ 8 MHz HSI */
+      volatile unsigned pll_tmo = 8000;                       /* (volatile prevents -O3 from optimizing away) */
+      while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) {         /* Wait until PLL becomes ready       */
+        if (--pll_tmo == 0) break;
+      }
+    }
     FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
     RCC->CFGR = (
       _RCC_CFGR            |
