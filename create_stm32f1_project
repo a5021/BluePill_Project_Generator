@@ -2559,8 +2559,8 @@ __STATIC_INLINE void init(void) {
 
   #if HSE_EN
     SET_REG_BIT(RCC->CR, RCC_CR_HSEON);                       /* Switch HSE on                      */
-    {                                                         /* HSE startup timeout: ~5 ms @ 8 MHz HSI */
-      volatile unsigned hse_tmo = 40000;                      /* (volatile prevents -O3 from optimizing away) */
+    {                                                         /* HSE startup timeout: ~5 ms         */
+      volatile unsigned hse_tmo = 40000;                      /* volatile: keeps loop alive at -O3  */
       while(!READ_REG_BIT(RCC->CR, RCC_CR_HSERDY)) {          /* Wait until HSE becomes ready       */
         if (--hse_tmo == 0) break;
       }
@@ -2593,9 +2593,9 @@ __STATIC_INLINE void init(void) {
 
     RCC->CFGR = _RCC_CFGR;                                    /* Configure PLL                      */
     RCC->CR = _RCC_CR;                                        /* Switch PLL on                      */
-    {                                                         /* PLL lock timeout: ~1 ms @ 8 MHz HSI */
-      volatile unsigned pll_tmo = 8000;                       /* (volatile prevents -O3 from optimizing away) */
-      while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) {         /* Wait until PLL becomes ready       */
+    {                                                         /* PLL lock timeout: ~1 ms @ 8 MHz    */
+      volatile unsigned pll_tmo = 8000;                       /* volatile: keeps loop alive at -O3  */
+      while(!READ_REG_BIT(RCC->CR, RCC_CR_PLLRDY)) {          /* Wait until PLL becomes ready       */
         if (--pll_tmo == 0) break;
       }
     }
