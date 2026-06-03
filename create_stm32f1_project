@@ -2921,8 +2921,11 @@ __STATIC_INLINE void init(void) {
   #if IWDG_EN
 
     SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                     /* Enable LSI oscillator              */
-    while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {
-      /* wait until LSI oscillations become stable */
+    {                                                         /* LSI startup timeout: ~100 ms       */
+      volatile unsigned lsi_tmo = 800000;                     /* (LSI typical ~40 us, generous)     */
+      while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {       /* wait until LSI oscillations stable */
+        if (--lsi_tmo == 0) break;
+      }
     }
 
     IWDG->KR = 0x5555;
@@ -3212,13 +3215,23 @@ __STATIC_INLINE void init(void) {
 
       #if LSE_EN
         SET_REG_BIT(RCC->BDCR, RCC_BDCR_LSEON);               /* Enable LSE oscillator              */
-        while(!READ_REG_BIT(RCC->BDCR, RCC_BDCR_LSERDY)) {  } /* Wait untill LSE becomes stable     */
+        {                                                     /* LSE startup timeout: ~500 ms       */
+          volatile unsigned lse_tmo = 4000000;                /* (LSE is slow, worst-case ~1 sec)   */
+          while(!READ_REG_BIT(RCC->BDCR, RCC_BDCR_LSERDY)) { /* Wait untill LSE becomes stable     */
+            if (--lse_tmo == 0) break;
+          }
+        }
         SET_REG_BIT(RCC->BDCR, RCC_BDCR_RTCSEL_LSE);          /* Use LSE as RTC clock               */
       #elif HSE_EN
         RCC->BDCR = RCC_BDCR_RTCSEL_HSE;                      /* Use (HSE / 128) as RTC clock       */
       #else
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
-        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSE becomes stable     */
+        {                                                     /* LSI startup timeout: ~100 ms       */
+          volatile unsigned lsi_tmo = 800000;                 /* (LSI typical ~40 us, generous)     */
+          while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {   /* Wait untill LSI becomes stable     */
+            if (--lsi_tmo == 0) break;
+          }
+        }
         SET_REG_BIT(RCC->BDCR, RCC_BDCR_RTCSEL_LSI);          /* Use LSI as RTC clock               */
       #endif
 
@@ -3256,7 +3269,12 @@ __STATIC_INLINE void init(void) {
         /* if LSI is used as RTC clock source the oscillator has to be started after system reset   */
 
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
-        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {  }   /* Wait untill LSI becomes stable     */
+        {                                                     /* LSI startup timeout: ~100 ms       */
+          volatile unsigned lsi_tmo = 800000;                 /* (LSI typical ~40 us, generous)     */
+          while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) {   /* Wait untill LSI becomes stable     */
+            if (--lsi_tmo == 0) break;
+          }
+        }
 
       #endif
     }
