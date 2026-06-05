@@ -7,13 +7,14 @@
 ## Features
 
 - **One-command project** — `bash create_stm32f1_project`
-- **17 peripherals** pre-configured (HSE/PLL @ 72 MHz, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, TIM2, EXTI, CRC, RNG, FLASH, SWD, BTN)
+- **14 MCU peripherals** pre-configured (RCC, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, TIM2, EXTI, CRC, FLASH, SWD)
 - **HCLK-independent timings** — SysTick, USART baud, I2C timing, TIM2 prescaler all computed from `HCLK`; works at 8/64/72/112 MHz unchanged
 - **DMA** — circular for TIM2→GPIO (LED breathing), one-shot for USART TX
 - **RTC** — selectable LSE/LSI source, second counter mode
 - **I2C** — repeated START, timeouts, bus recovery on error (PE cycle)
 - **OZONE debugger config** — `project.jdebug` with SWD, SVD, ELF auto-setup
 - **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
+- **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
 - **`lock_firmware()`** — sets RDP Level 1 to disable debug access
 - **Optimized startup** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words), minimal footprint (7.4 KB text)
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
@@ -50,8 +51,6 @@ bash create_stm32f1_project [opt] [mdk] [ses] [pdf]
 | `pdf` | Download RM0008 reference manual + STM32F103C8 datasheet PDFs |
 
 Arguments can be combined: `bash create_stm32f1_project opt mdk`
-
-**Note:** generated source files (`main.h`, `main.c`, `Makefile`, `startup_stm32f103xb.s`, `system_stm32f1xx.c`) are **not committed** — only the generator script lives in version control.
 
 ## Generated project structure
 
@@ -97,10 +96,39 @@ Additionally:
 ## Build system
 
 ```bash
-make          # Build project.elf, .hex, .bin
-make program  # Flash via OpenOCD + ST-Link
-make jprogram # Flash via J-Link
-make clean    # Remove build artifacts
+make              # Build with minimal configuration (all peripherals disabled)
+make test         # Build with -DUSE_ALL=1 (enable all peripherals)
+make debug        # Build with debug symbols (-Og -g3) and SWD enabled
+make program      # Flash via ST-Link
+make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
+make clean        # Remove build artifacts
+make gccversion   # Show compiler version
+```
+
+### Make variables
+
+Peripherals and features can be toggled from the command line:
+
+```bash
+make USE_ALL=1 USE_I2C=0 USE_SPI=0   # All peripherals except I2C and SPI
+make USE_USART=1 USE_I2C=1           # Minimal: only USART and I2C
+make OVRCLK=1                        # Overclock to 112 MHz (HSE × 14, ADCCLK = 14 MHz)
+```
+
+Available variables: `USE_ALL`, `USE_PLL`, `USE_HSE`, `USE_LSE`, `USE_ADC`,
+`USE_USART`, `USE_I2C`, `USE_SPI`, `USE_BTN`, `USE_RTC`, `USE_TIM2`,
+`USE_DMA`, `USE_CRC`, `USE_RNG`, `USE_IWDG`, `USE_WWDG`, `USE_EXTI`,
+`USE_FLASH`, `USE_SWD`, `OVRCLK`.
+
+Set a variable to `1` to enable (e.g. `USE_I2C=1`) or `0` to disable
+(e.g. `USE_HSE=0`). Command-line values override `#ifndef` defaults from
+`main.h`; they do **not** override explicit `#define` written directly into
+`main.h`.
+
+Extra compiler flags can be passed via `EXT`:
+
+```bash
+make EXT="-save-temps -ftime-report"
 ```
 
 ## Programming
@@ -115,7 +143,7 @@ Connect ST-Link to the Blue Pill:
 | 3.3V    | 3.3V |
 
 ```bash
-make program   # ST-Link + OpenOCD
+make program   # ST-Link utility
 ```
 
 ## Hardware references
