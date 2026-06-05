@@ -2573,6 +2573,7 @@ __STATIC_INLINE void init(void) {
                 RCC_CFGR_ADCPRE_DIV8                          /*   ADC clock divider is 8           */\\
               )
       #define HCLK     112000000UL
+      _Static_assert(HCLK / 8 <= 14000000, "ADCCLK > 14 MHz");
     #else
       #define _RCC_CFGR (                                     /* 72 MHz:                            */\\
                 RCC_CFGR_PLLSRC                  |            /*   PLL Source is HSE                */\\
@@ -2580,13 +2581,18 @@ __STATIC_INLINE void init(void) {
                 RCC_CFGR_ADCPRE_DIV6                          /*   ADC clock divider is 6           */\\
               )
       #define HCLK     72000000UL
+      _Static_assert(HCLK / 6 <= 14000000, "ADCCLK > 14 MHz");
     #endif
 
     #define _RCC_CR   RCC_CR_PLLON | RCC_CR_HSEON
   #else
-    #define _RCC_CFGR RCC_CFGR_PLLMULL16                      /* 64 MHz: PLLSrc = HSI / 2, Mul = 16 */
+    #define _RCC_CFGR (                                         /* 64 MHz:                            */\\
+              RCC_CFGR_PLLMULL16               |                /*   PLLSrc = HSI/2, Mul = 16         */\\
+              RCC_CFGR_ADCPRE_DIV8                              /*   ADC clock divider is 8           */\\
+            )
     #define _RCC_CR   RCC_CR_PLLON
     #define HCLK     64000000UL
+    _Static_assert(HCLK / 8 <= 14000000, "ADCCLK > 14 MHz");
   #endif
 
   #if PLL_EN
@@ -2613,6 +2619,7 @@ __STATIC_INLINE void init(void) {
     #undef  HCLK
     #define HCLK     8000000UL
     #define APB1_CLK HCLK
+    _Static_assert(HCLK / 2 <= 14000000, "ADCCLK > 14 MHz");
 
   #endif
 
@@ -2652,6 +2659,7 @@ __STATIC_INLINE void init(void) {
   #endif
 
   #if ADC_EN
+    ADC1->SMPR2 = _ADC_SMPR2(0, 55);                           /* CH0 (PA0): 55.5 cycle sampling     */
     ADC1->CR2 = ADC_CR2_ADON | ADC_CR2_TSVREFE | ADC_CR2_CONT;/* ADC enable, VrefInt enable, count  */
 
     DELAY_MS(2);                                              /* Before starting a calibration,
