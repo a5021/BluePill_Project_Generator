@@ -1,5 +1,7 @@
 # BluePill Project Generator
 
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+
 **Bare-metal STM32F103 (Blue Pill) project generator** — one bash script, one `make`, zero bloat. Generates a complete C project with CMSIS headers, startup code, linker script, and Makefile, ready to compile and flash.
 
 ## Features
@@ -128,7 +130,3 @@ make program   # ST-Link + OpenOCD
 - STM32CubeF1 (CMSIS headers) — [Repo](https://github.com/STMicroelectronics/STM32CubeF1)
 - cmsis_device_f1 (device headers, startup, system) — [Repo](https://github.com/STMicroelectronics/cmsis_device_f1)
 - SVD (device description) — [Repo](https://github.com/cmsis-svd/cmsis-svd-data)
-
-## License
-
-MIT
