@@ -1,50 +1,116 @@
 # BluePill Project Generator
 
-[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+**Bare-metal STM32F103 (Blue Pill) project generator** — one bash script, one `make`, zero bloat. Generates a complete C project with CMSIS headers, startup code, linker script, and Makefile, ready to compile and flash.
 
-This is a simple shell script to generate a bare-metal Makefile project for the "Blue Pill" STM32F103C8 development board.
+## Features
 
-Run the script in any convenient way:
+- **One-command project** — `bash create_stm32f1_project`
+- **17 peripherals** pre-configured (HSE/PLL @ 72 MHz, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, TIM2, EXTI, CRC, RNG, FLASH, SWD, BTN)
+- **HCLK-independent timings** — SysTick, USART baud, I2C timing, TIM2 prescaler all computed from `HCLK`; works at 8/64/72/112 MHz unchanged
+- **DMA** — circular for TIM2→GPIO (LED breathing), one-shot for USART TX
+- **RTC** — selectable LSE/LSI source, second counter mode
+- **I2C** — repeated START, timeouts, bus recovery on error (PE cycle)
+- **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
+- **`lock_firmware()`** — sets RDP Level 1 to disable debug access
+- **Optimized startup** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words), minimal footprint (7.4 KB text)
+- **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
-  ```console
-  sh create_stm32f1_project
-  ```
+## Requirements
 
-The script will fetch all necessary CMSIS files from the STMicro repository, generate main.h and main.c source files, and build them using the GNU ARM toolchain. Both Linux and Windows (with Cygwin) are supported.
+| Tool | Version |
+|------|---------|
+| bash | 4+ |
+| arm-none-eabi-gcc | ≥ 12 (tested with 15.2.1) |
+| curl | Any |
+| make | Any |
 
-Optionally, the script can be run with the parameter `mdk` to generate a Keil MDK-ARM project.
+## Quick start
 
-  ```console
-  sh create_stm32f1_project mdk
-  ```
+```bash
+git clone https://github.com/a5021/BluePill_Project_Generator.git
+cd BluePill_Project_Generator
+bash create_stm32f1_project
+```
 
-If you specify the `pdf` parameter at the command line, the script will retrieve the description and datasheet from the STMicro website.
+## Usage
 
-  ```console
-  sh create_stm32f1_project pdf
-  ```
+```bash
+bash create_stm32f1_project [opt] [mdk] [ses] [pdf]
+```
 
-After the sources have built successfully, to upload firmware to the 'Blue Pill' microcontroller, simply type:
+| Argument | Effect |
+|----------|--------|
+| *(none)* | Generate project with CMSIS startup, build with `make` |
+| `opt` | Use custom optimized startup (block-transfer .data/.bss) |
+| `mdk` | Generate Keil MDK-ARM project (`project.uvprojx`) |
+| `ses` | Generate SEGGER Embedded Studio project (`project.emProject`) |
+| `pdf` | Download RM0008 reference manual + STM32F103C8 datasheet PDFs |
 
-  ```console
-  make program
-  ```
-  
-_Note: An ST-Link programmer and the ST-Link utility are required._
-                                                                 
-If it is necessary to rebuild the sources with debug information, just run the make utility as follows:
+Arguments can be combined: `bash create_stm32f1_project opt mdk`
 
-  ```console
-  make debug
-  ```
-  
-Configuration macro names (those from the top of main.h) can be used as command line parameters for the make utility:
+**Note:** generated source files (`main.h`, `main.c`, `Makefile`, `startup_stm32f103xb.s`, `system_stm32f1xx.c`) are **not committed** — only the generator script lives in version control.
 
-  ```console
-  make USE_ALL=1 USE_HSE=0 USE_PLL=0
-  ``` 
-  
-In the example above, all configuration macros are enabled except for USE_HSE and USE_PLL, which are disabled.
+## Generated project structure
+
+```
+.
+├── main.c                    # Application entry, init + demo loop
+├── main.h                    # All peripheral configuration macros
+├── Makefile                  # Build system (cross-platform)
+├── startup_stm32f103xb.s     # Startup code (CMSIS or opt)
+├── system_stm32f1xx.c        # SystemInit() stub
+├── STM32F103XB_FLASH.ld      # Linker script
+├── build/
+│   ├── project.elf           # ELF binary
+│   ├── project.hex           # HEX (for flashing)
+│   └── project.bin           # Binary (for flashing)
+└── cmsis/                    # CMSIS headers (downloaded)
+```
+
+## Peripherals
+
+| Peripheral | Configuration |
+|------------|---------------|
+| **HSE/PLL** | 72 MHz system clock (overclock to 128 MHz via `OVRCLK`) |
+| **SysTick** | 1 ms period |
+| **USART1** | TX (PA9) / RX (PA10), 115200 baud |
+| **SPI1** | SCK (PA5) / MISO (PA6) / MOSI (PA7), full-duplex master |
+| **I2C1** | SCL (PB6) / SDA (PB7), 100 kHz standard mode |
+| **ADC1** | CH0 (PA0), continuous scan |
+| **DMA1** | CH2 (TIM2 UP) circular, CH4 (USART1 TX) normal |
+| **TIM2** | 100 Hz update, DMA-triggered BSRR for LED breathing |
+| **RTC** | LSE or LSI, second counter |
+| **IWDG** | ~4 s timeout (LSI 40 kHz / 256 prescaler) |
+| **EXTI** | PA0 falling edge |
+| **CRC** | Default polynomial |
+| **RNG** | Noise-driven seed from ADC+RTC+TIM2 |
+| **FLASH** | 2 wait states (72 MHz), prefetch enabled |
+| **SWD** | PA13/PA14 preserved |
+| **BTN** | PB0/PB1 (BUTTON 1/2, input, pull-up) |
+
+## Build system
+
+```bash
+make          # Build project.elf, .hex, .bin
+make program  # Flash via OpenOCD + ST-Link
+make jprogram # Flash via J-Link
+make clean    # Remove build artifacts
+```
+
+## Programming
+
+Connect ST-Link to the Blue Pill:
+
+| ST-Link | Blue Pill |
+|---------|-----------|
+| SWCLK   | PA14 (SWCLK) |
+| SWDIO   | PA13 (SWDIO) |
+| GND     | GND |
+| 3.3V    | 3.3V |
+
+```bash
+make program   # ST-Link + OpenOCD
+```
 
 ## Hardware references
 
@@ -55,21 +121,10 @@ In the example above, all configuration macros are enabled except for USE_HSE an
 
 ## Other useful links
 
-- STM32CubeF1 (CMSIS headers)
-  - Repo: https://github.com/STMicroelectronics/STM32CubeF1
-  - Raw CMSIS include path used by the script:
-    https://raw.githubusercontent.com/STMicroelectronics/STM32CubeF1/master/Drivers/CMSIS/Include/
+- STM32CubeF1 (CMSIS headers) — [Repo](https://github.com/STMicroelectronics/STM32CubeF1)
+- cmsis_device_f1 (device headers, startup, system) — [Repo](https://github.com/STMicroelectronics/cmsis_device_f1)
+- SVD (device description) — [Repo](https://github.com/cmsis-svd/cmsis-svd-data)
 
-- cmsis_device_f1 (device headers, startup, system files for STM32F1 series)
-  - Repo: https://github.com/STMicroelectronics/cmsis_device_f1
-  - Raw files used by the script (examples):
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/stm32f1xx.h
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/stm32f103xb.h
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Include/system_stm32f1xx.h
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/system_stm32f1xx.c
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/gcc/startup_stm32f103xb.s
-    - https://raw.githubusercontent.com/STMicroelectronics/cmsis_device_f1/master/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld
+## License
 
-- SVD (device description) used by the script:
-  - Repo: https://github.com/cmsis-svd/cmsis-svd-data
-  - Raw file: https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/refs/heads/main/data/STMicro/STM32F103xx.svd
+MIT

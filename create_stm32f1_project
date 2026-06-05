@@ -2605,7 +2605,7 @@ __STATIC_INLINE void init(void) {
         if (--pll_tmo == 0) break;
       }
     }
-    FLASH->ACR = FLASH_ACR_LATENCY_1;                         /* Set flash latency to 2             */
+    FLASH->ACR = FLASH_ACR_LATENCY_2 | FLASH_ACR_PRFTBE;      /* Set flash latency to 2, prefetch   */
     RCC->CFGR = (
       _RCC_CFGR            |
       RCC_CFGR_SW_PLL      |                                  /* Set PLL as system clock source     */
