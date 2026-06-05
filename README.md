@@ -10,6 +10,7 @@
 - **DMA** — circular for TIM2→GPIO (LED breathing), one-shot for USART TX
 - **RTC** — selectable LSE/LSI source, second counter mode
 - **I2C** — repeated START, timeouts, bus recovery on error (PE cycle)
+- **OZONE debugger config** — `project.jdebug` with SWD, SVD, ELF auto-setup
 - **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
 - **`lock_firmware()`** — sets RDP Level 1 to disable debug access
 - **Optimized startup** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words), minimal footprint (7.4 KB text)
@@ -59,6 +60,7 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk`
 ├── Makefile                  # Build system (cross-platform)
 ├── startup_stm32f103xb.s     # Startup code (CMSIS or opt)
 ├── system_stm32f1xx.c        # SystemInit() stub
+├── project.jdebug            # OZONE debugger configuration
 ├── STM32F103XB_FLASH.ld      # Linker script
 ├── build/
 │   ├── project.elf           # ELF binary
