@@ -948,6 +948,13 @@ cat <<MAIN_H >main.h
  extern "C" {
 #endif
 
+/** @defgroup USE_CONFIG Configuration Macros
+ *  @brief Feature selection macros for the BluePill firmware.
+ *
+ *  Each USE_xxx macro controls the inclusion of a peripheral or feature.
+ *  Define @c USE_ALL in your build flags to enable everything, or define
+ *  individual macros to enable only what you need.
+ *  @{ */
 #define NO  0
 #define YES (!NO)
 
@@ -957,81 +964,82 @@ cat <<MAIN_H >main.h
 #if defined(USE_ALL)                       /*                                          */
 
   #ifndef USE_HSE
-    #define USE_HSE                     1  /* Use crystal oscillator as clock source   */
+    #define USE_HSE                     1  /**< @brief Use crystal oscillator as clock source */
   #endif
 
   #ifndef USE_PLL
-    #define USE_PLL                     1  /* Use PLL as system clock source           */
+    #define USE_PLL                     1  /**< @brief Use PLL as system clock source */
   #endif
 
   #ifndef USE_LSE
-    #define USE_LSE                     1  /* Use LSE as RTC clock source              */
+    #define USE_LSE                     1  /**< @brief Use LSE as RTC clock source */
   #endif
 
   #ifndef USE_ADC
-    #define USE_ADC                     1  /* Configure ADC1 peripheral                */
+    #define USE_ADC                     1  /**< @brief Configure ADC1 peripheral */
   #endif
 
   #ifndef USE_USART
-    #define USE_USART                   1  /* Configure USART1 for transmit/receive    */
+    #define USE_USART                   1  /**< @brief Configure USART1 for transmit/receive */
   #endif
 
   #ifndef USE_I2C
-    #define USE_I2C                     1  /* Configure I2C1 with 100 kHz clock speed  */
-  #endif                                                                    
+    #define USE_I2C                     1  /**< @brief Configure I2C1 with 100 kHz clock speed */
+  #endif
 
   #ifndef USE_SPI
-    #define USE_SPI                     1  /* Configure SPI1                           */
+    #define USE_SPI                     1  /**< @brief Configure SPI1 */
   #endif
 
   #ifndef USE_BTN
-    #define USE_BTN                     1  /* Handle buttons connected to PB1 and PB2  */
+    #define USE_BTN                     1  /**< @brief Handle buttons connected to PB1 and PB2 */
   #endif
 
   #ifndef USE_RTC
-    #define USE_RTC                     1  /* Configure and run RTC                    */
+    #define USE_RTC                     1  /**< @brief Configure and run RTC */
   #endif
 
   #ifndef USE_TIM2
-    #define USE_TIM2                    1  /* Configure and run TIM2                   */
+    #define USE_TIM2                    1  /**< @brief Configure and run TIM2 */
   #endif
 
   #ifndef USE_DMA
-    #define USE_DMA                     1  /* Use DMA where it is possible             */
+    #define USE_DMA                     1  /**< @brief Use DMA where possible */
   #endif
 
   #ifndef USE_CRC
-    #define USE_CRC                     1  /* Enable CRC computation                   */
+    #define USE_CRC                     1  /**< @brief Enable CRC computation */
   #endif
 
   #ifndef USE_RNG
-    #define USE_RNG                     1  /* Enable random number generation          */
+    #define USE_RNG                     1  /**< @brief Enable random number generation */
   #endif
 
   #ifndef USE_IWDG
-    #define USE_IWDG                    1  /* Enable independent hardware watchdog     */
+    #define USE_IWDG                    1  /**< @brief Enable independent hardware watchdog */
   #endif
 
   #ifndef USE_WWDG
-    #define USE_WWDG                    0  /* Enable window hardware watchdog          */
+    #define USE_WWDG                    0  /**< @brief Enable window hardware watchdog */
   #endif
 
   #ifndef USE_EXTI
-    #define USE_EXTI                    1  /* Use external interrupt                   */
+    #define USE_EXTI                    1  /**< @brief Use external interrupt */
   #endif
 
   #ifndef USE_FLASH
-    #define USE_FLASH                   1  /* Add feature to write data to flash       */
+    #define USE_FLASH                   1  /**< @brief Add feature to write data to flash */
   #endif
 
   #ifndef USE_SWD
-    #define USE_SWD                     1  /* Use SWD pins for debugging               */
+    #define USE_SWD                     1  /**< @brief Use SWD pins for debugging */
   #endif
 
   #ifndef OVRCLK
-    #define OVRCLK                      1  /* Overclock microcontroller (112 MHz)      */
+    #define OVRCLK                      1  /**< @brief Overclock microcontroller (112 MHz) */
   #endif
 #endif                                     /*                                          */
+/** @} */
 /* *********************************************************************************** */
 /* ********  Alternatively, define them as command-line parameters in Makefile  ****** */
 /* *********************************************************************************** */
@@ -1513,25 +1521,25 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 
 #if defined USE_HSE && USE_HSE != 0
-  #define HSE_EN                        YES
+  #define HSE_EN                        1
 #else
-  #define HSE_EN                        NO
+  #define HSE_EN                        0
 #endif
 
 #if defined USE_PLL && USE_PLL != 0
-  #define PLL_EN                        YES
+  #define PLL_EN                        1
 #else
-  #define PLL_EN                        NO
+  #define PLL_EN                        0
 #endif
 
 #if defined USE_LSE && USE_LSE != 0
-  #define LSE_EN                        YES
+  #define LSE_EN                        1
 #else
-  #define LSE_EN                        NO
+  #define LSE_EN                        0
 #endif
 
 #if defined USE_BTN && USE_BTN != 0
-  #define BTN_EN                        YES
+  #define BTN_EN                        1
   enum {
     BUTTON_1_PRESSED  = (1 << 0),
     BUTTON_2_PRESSED  = (1 << 1),
@@ -1539,49 +1547,49 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     BUTTON_2_RELEASED = (1 << 17)
   };
 #else
-  #define BTN_EN                        NO
+  #define BTN_EN                        0
 #endif
 
 #if defined USE_TIM2 && USE_TIM2 != 0
-  #define TIM2_EN                       YES
+  #define TIM2_EN                       1
 #else
-  #define TIM2_EN                       NO
+  #define TIM2_EN                       0
 #endif
 
 #if defined USE_DMA && USE_DMA != 0
-  #define DMA_EN                        YES
+  #define DMA_EN                        1
 #else
-  #define DMA_EN                        NO
+  #define DMA_EN                        0
 #endif
 
 #if defined USE_EXTI && USE_EXTI != 0
-  #define EXTI_EN                       YES
+  #define EXTI_EN                       1
 #else
-  #define EXTI_EN                       NO
+  #define EXTI_EN                       0
 #endif
 
 #if defined USE_IWDG && USE_IWDG != 0
-  #define IWDG_EN                       YES
+  #define IWDG_EN                       1
 #else
-  #define IWDG_EN                       NO
+  #define IWDG_EN                       0
 #endif
 
 #if defined USE_WWDG && USE_WWDG != 0
-  #define WWDG_EN                       YES
+  #define WWDG_EN                       1
   #define WWDG_COUNTER                  0x7F
   #define WWDG_WINDOW                   0x60
 #else
-  #define WWDG_EN                       NO
+  #define WWDG_EN                       0
 #endif
 
 #if defined USE_SWD && USE_SWD != 0
-  #define SWD_EN                        YES
+  #define SWD_EN                        1
 #else
-  #define SWD_EN                        NO
+  #define SWD_EN                        0
 #endif
 
 #if defined USE_RTC && USE_RTC != 0
-  #define RTC_EN                        YES
+  #define RTC_EN                        1
 
   typedef struct {
     uint16_t year;
@@ -1706,12 +1714,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     RCC->APB1ENR = apb1enr;
   } /* rtc_set_counter() */
 #else
-  #define RTC_EN                        NO
+  #define RTC_EN                        0
 #endif
 
 #if defined USE_ADC && USE_ADC != 0
 
-  #define ADC_EN                        YES
+  #define ADC_EN                        1
 
   #define ADC_CHANNEL_0                 0x00000000U
   #define ADC_CHANNEL_1                 (                                                                        ADC_CR1_AWDCH_0)
@@ -1814,18 +1822,18 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 #else
-  #define ADC_EN                        NO
+  #define ADC_EN                        0
 #endif
 
 #if defined USE_USART && USE_USART != 0
-  #define USART_EN                      YES
+  #define USART_EN                      1
   #define BAUDRATE 115200
 #else
-  #define USART_EN                      NO
+  #define USART_EN                      0
 #endif
 
 #if defined USE_I2C && USE_I2C != 0
-  #define I2C_EN                        YES
+  #define I2C_EN                        1
   #define I2C_SPEED_STANDARD            100000
   #define I2C_SPEED_FAST                400000
 
@@ -1838,12 +1846,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #endif
 
 #else
-  #define I2C_EN                        NO
+  #define I2C_EN                        0
 #endif
 
 #if defined USE_SPI && USE_SPI != 0
 
-  #define SPI_EN                        YES
+  #define SPI_EN                        1
 
   __STATIC_INLINE char spi_xfer(char d) {
     while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE))  { /* Wait for the TX buffer to become empty    */ }
@@ -1859,11 +1867,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define CS_HIGH()                     CS(1)
 
 #else
-  #define SPI_EN                        NO
+  #define SPI_EN                        0
 #endif
 
 #if defined USE_CRC && USE_CRC != 0
-  #define CRC_EN                        YES
+  #define CRC_EN                        1
   __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
 
     unsigned i, result;
@@ -1882,12 +1890,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return ~result;
   }
 #else
-  #define CRC_EN                        NO
+  #define CRC_EN                        0
 #endif
 
 #if defined USE_RNG && USE_RNG != 0
 
-  #define RNG_EN                        YES
+  #define RNG_EN                        1
 
     unsigned rnd(void);
     void srnd(unsigned);
@@ -1926,12 +1934,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 #else
-  #define RNG_EN                        NO
+  #define RNG_EN                        0
 #endif
 
 #if defined USE_FLASH && USE_FLASH != 0
 
-  #define FLASH_EN                      YES
+  #define FLASH_EN                      1
 
  /**
    * @brief   Flash programming routines for STM32F103 (auto-detects C4/C6/C8/CB)
@@ -3540,12 +3548,37 @@ MAIN_H
 #
 
 cat <<MAIN_C >main.c
+/** @defgroup MAIN Application
+ *  @brief Main application firmware for the BluePill board.
+ *
+ *  Runs system initialisation, configures peripherals, and
+ *  enters the main loop to service them.
+ *  @{ */
+
 #include <stdio.h>
 #include <string.h>
 #include "main.h"
 
 static void demo(void);
 
+/** @brief Application entry point.
+ *  @details Initialises the system clock, configures requested
+ *           peripherals (GPIO, ADC, USART, I2C, SPI, RTC, TIM2,
+ *           DMA, CRC, IWDG, WWDG, EXTI, FLASH, USB, etc.), then
+ *           enters the main service loop.
+ *  @return @c 0 on success (never reached in practice).
+ *  @note If @c USE_BTN is enabled, the loop checks button state
+ *        each cycle; if @c USE_WWDG is enabled, the watchdog is
+ *        refreshed every iteration.
+ *  @par ISRs (when the corresponding peripheral is enabled)
+ *       - SysTick_Handler
+ *       - RTC_IRQHandler
+ *       - TIM2_IRQHandler
+ *       - ADC1_2_IRQHandler
+ *       - EXTI9_5_IRQHandler
+ *       - WWDG_IRQHandler
+ *       - HardFault_Handler
+ */
 int main(void) {
 
   init();
@@ -3566,6 +3599,11 @@ int main(void) {
 #endif
 
 
+/** @brief SysTick interrupt handler (1 kHz tick).
+ *  @details Increments a global millisecond counter used for
+ *           timeouts (@c USE_TIM2) and for sub-second timing
+ *           (@c USE_RTC).
+ */
 void SysTick_Handler(void) {
 
   #if TIM2_EN && DMA_EN
@@ -3608,7 +3646,11 @@ void SysTick_Handler(void) {
 #if RTC_EN
   static volatile unsigned rtc_flag;
 
-  void RTC_IRQHandler(void) {                   /* RTC global interrupt handler  */
+/** @brief RTC global interrupt handler.
+ *  @details Checks the second and alarm flags and sets
+ *           @c rtc_flag bits so the main loop can act.
+ */
+  void RTC_IRQHandler(void) {
 
     if (READ_REG_BIT(RT.CRL, RTC_CRL_ALRF)) {
       CLEAR_REG_BIT(RT.CRL, RTC_CRL_ALRF);
@@ -3622,7 +3664,11 @@ void SysTick_Handler(void) {
 
   } /* RTC_IRQHandler() */
 
-  void RTC_Alarm_IRQHandler(void) {             /* RTC alarm interrupt handler   */
+/** @brief RTC alarm interrupt via EXTI line 17.
+ *  @details Clears the EXTI pending bit and sets @c rtc_flag
+ *           so the main loop can handle the alarm event.
+ */
+  void RTC_Alarm_IRQHandler(void) {
 
     if (READ_REG_BIT(E.PR, EXTI_PR_PR17)) {
       SET_REG_BIT(E.PR, EXTI_PR_PR17);
@@ -3636,6 +3682,10 @@ void SysTick_Handler(void) {
 #if TIM2_EN
   static volatile unsigned tim2_counter;
 
+/** @brief TIM2 update / capture-compare interrupt handler.
+ *  @details Clears all pending flags (UIF, CC1IF–CC4IF) and
+ *           increments a free-running counter for the main loop.
+ */
   void TIM2_IRQHandler(void) {
 
     if (READ_REG_BIT(T2.SR, TIM_SR_UIF)) {
@@ -3655,6 +3705,9 @@ void SysTick_Handler(void) {
 
 
 #if ADC_EN
+/** @brief ADC1 / ADC2 interrupt handler.
+ *  @details Clears the status register on conversion complete.
+ */
   void ADC1_2_IRQHandler(void) {
     A1.SR = 0;
   } /* ADC1_2_IRQHandler() */
@@ -3662,7 +3715,10 @@ void SysTick_Handler(void) {
 
 
 #if EXTI_EN
-  void EXTI9_5_IRQHandler(void) {                               /* EXTI line 8 interrupt handler      */
+/** @brief EXTI lines 5–9 interrupt handler.
+ *  @details Clears the EXTI_PR_PR8 pending bit (used for button IRQ).
+ */
+  void EXTI9_5_IRQHandler(void) {
     if (READ_REG_BIT(E.PR, EXTI_PR_PR8)) {
       SET_REG_BIT(E.PR, EXTI_PR_PR8);
     }
@@ -3671,6 +3727,10 @@ void SysTick_Handler(void) {
 
 
 #if WWDG_EN
+/** @brief Window watchdog early-warning interrupt handler.
+ *  @details Clears the status register and resets the counter
+ *           to prevent a system reset.
+ */
   void WWDG_IRQHandler(void) {
     W.SR = 0;                                                   /* 0x40002C08: WWDG Status register   */
     W.CR = 0x7F;                                                /* 0x40002C00: WWDG Control register  */
@@ -3679,6 +3739,12 @@ void SysTick_Handler(void) {
 
 
 #if !defined NO_HF_IRQ
+/** @brief HardFault exception handler.
+ *  @details Blinks the built-in LED (PC13) with 60 ms on/off
+ *           cycles in an infinite loop. Provides a visual
+ *           indication of a crash.
+ *  @note @c __NO_RETURN — never returns to the main loop.
+ */
   void __NO_RETURN HardFault_Handler(void) {
     for(;;) {
       SW_PIN(C, 13, DOWN);
@@ -3695,6 +3761,12 @@ void SysTick_Handler(void) {
 #endif
 
 
+/** @brief Demo / diagnostic output.
+ *  @details Prints a line to USART with current system status:
+ *           clocks, ADC temperature/voltage, RTC time, TIM2
+ *           counter, CRC32, and RNG value.
+ *  @note Only compiled when @c USE_USART is enabled.
+ */
 static void demo(void) {
 
   #if FLASH_EN
@@ -3900,6 +3972,11 @@ static void demo(void) {
 
 #if RNG_EN
   static unsigned rnext; /* = 2463534242;  */
+/** @brief Return a pseudo-random 32-bit value.
+ *  @details Uses xorshift32 (Marsaglia) seeded by @ref srnd().
+ *  @return Next pseudo-random value.
+ *  @note Only available when @ref USE_RNG is enabled.
+ */
   unsigned rnd(void) {
 
   #if 0
@@ -3913,6 +3990,10 @@ static void demo(void) {
   #endif
   } /* rnd() */
 
+/** @brief Seed the pseudo-random generator.
+ *  @param seed Initial value for the xorshift32 PRNG state.
+ *  @note Only available when @ref USE_RNG is enabled.
+ */
   void srnd(unsigned seed) {
     rnext = seed;
   } /* srnd() */
@@ -4000,6 +4081,7 @@ const char *build_msg  = ""
 #endif
 "\\n";
 
+/** @} */
 MAIN_C
 
 #
@@ -4170,6 +4252,15 @@ debug: all
 gccversion :
 	@\$(CC) --version
 
+# Doxygen executable (override if not in PATH).
+DOXYGEN ?= doxygen
+
+# Generate Doxygen documentation.
+.PHONY: docs
+docs: Doxyfile
+	mkdir -p docs
+	\$(DOXYGEN) Doxyfile
+
 # Program the device using st-link.
 program: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(STLINK) \$(STLINK_FLAGS)
@@ -4188,6 +4279,25 @@ clean:
 
 # *** EOF ***
 MAKEFILE
+
+cat <<DOXYFILE >Doxyfile
+PROJECT_NAME           = "$(basename "$(pwd)")"
+OUTPUT_DIRECTORY       = docs
+INPUT                  = main.h main.c
+RECURSIVE              = NO
+GENERATE_LATEX         = NO
+EXTRACT_ALL            = YES
+EXTRACT_STATIC         = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+PREDEFINED             = USE_ALL \
+                         HSE_EN=1 PLL_EN=1 LSE_EN=1 \
+                         BTN_EN=1 TIM2_EN=1 DMA_EN=1 EXTI_EN=1 \
+                         IWDG_EN=1 WWDG_EN=1 SWD_EN=1 RTC_EN=1 \
+                         ADC_EN=1 USART_EN=1 I2C_EN=1 SPI_EN=1 \
+                         CRC_EN=1 RNG_EN=1 FLASH_EN=1
+DOXYFILE
 
 cat <<DEBUG_JLINK >project.jdebug
 void OnProjectLoad (void) {
