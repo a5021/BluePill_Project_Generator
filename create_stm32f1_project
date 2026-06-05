@@ -4313,7 +4313,6 @@ for arg in "$@"; do
 /**
  ******************************************************************************
  * @file      startup_stm32f103c8t6.s
- * @author    Your Name
  * @brief     STM32F103C8T6 startup code - Optimized version
  *            - Uses block transfer instructions (ldmia/stmia) for fast copy
  *            - Handles .data and .bss sections efficiently
@@ -4321,10 +4320,10 @@ for arg in "$@"; do
  ******************************************************************************
  */
 
-.syntax unified              /* Use unified ARM/Thumb syntax */
-.cpu cortex-m3              /* Target CPU: ARM Cortex-M3 */
-.fpu softvfp                /* No hardware FPU, use software floating point */
-.thumb                      /* Use Thumb instruction set */
+.syntax unified          /* Use unified ARM/Thumb syntax */
+.cpu cortex-m3           /* Target CPU: ARM Cortex-M3 */
+.fpu softvfp             /* No hardware FPU, use software floating point */
+.thumb                   /* Use Thumb instruction set */
 
 /* Make vector table and default handler visible to linker */
 .global g_pfnVectors
@@ -4338,7 +4337,7 @@ for arg in "$@"; do
 .word _ebss                 /* End address of .bss in SRAM */
 
 /* Special boot configuration for STM32 */
-.equ  BootRAM, 0xF108F85F   /* Boot from RAM configuration value */
+.equ BootRAM, 0xF108F85F    /* Boot from RAM configuration value */
 
 /**
  ******************************************************************************
@@ -4467,7 +4466,7 @@ Infinite_Loop:
  * during development and debugging.
  ******************************************************************************
  */
-    .section .text.Default_Handler,"ax",%progbits
+  .section .text.Default_Handler,"ax",%progbits
 Default_Handler:
 Infinite_Loop_Default:
   b Infinite_Loop_Default   /* Trap unhandled interrupts here */
