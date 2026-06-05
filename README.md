@@ -1,6 +1,7 @@
 # BluePill Project Generator
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![CI](https://img.shields.io/github/actions/workflow/status/a5021/BluePill_Project_Generator/ci.yml?label=CI&logo=github)](https://github.com/a5021/BluePill_Project_Generator/actions/workflows/ci.yml)
 
 **Bare-metal STM32F103 (Blue Pill) project generator** — one bash script, one `make`, zero bloat. Generates a complete C project with CMSIS headers, startup code, linker script, and Makefile, ready to compile and flash.
 
