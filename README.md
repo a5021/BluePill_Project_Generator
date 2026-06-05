@@ -85,10 +85,12 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk`
 | **IWDG** | ~4 s timeout (LSI 40 kHz / 256 prescaler) |
 | **EXTI** | PA0 falling edge |
 | **CRC** | Default polynomial |
-| **RNG** | Noise-driven seed from ADC+RTC+TIM2 |
 | **FLASH** | 2 wait states (72 MHz), prefetch enabled |
 | **SWD** | PA13/PA14 preserved |
-| **BTN** | PB0/PB1 (BUTTON 1/2, input, pull-up) |
+
+Additionally:
+- **RNG** — software entropy from ADC noise, RTC phase, and TIM2 jitter
+- **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
 
 ## Build system
 
