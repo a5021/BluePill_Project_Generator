@@ -3841,6 +3841,8 @@ static void demo(void) {
         D14.CNDTR = strlen(build_msg);   /* 0x40020048: */
         D14.CMAR = (unsigned) build_msg; /* 0x40020050: */
         D14.CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
+        while(!(DMA1->ISR & DMA_ISR_TCIF4)) {}
+        DMA1->IFCR = DMA_IFCR_CTCIF4;
       #else
         uputs(build_msg);
       #endif
