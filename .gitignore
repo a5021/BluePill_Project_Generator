@@ -1,0 +1,13 @@
+build/
+docs/
+cmsis/
+jflash.log
+*.hex
+*.bin
+*.elf
+*.map
+*.o
+*.d
+*.lst
+project.jdebug
+stm32f103cb.jflash

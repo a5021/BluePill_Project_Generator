@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 if [ "$1" = "--help" ]
   then
@@ -961,7 +962,7 @@ cat <<MAIN_H >main.h
 /* *********************************************************************************** */
 /* ******** Uncomment lines below if these features are required ********************* */
 /* *********************************************************************************** */
-#if defined(USE_ALL)                       /*                                          */
+#if USE_ALL                                 /*                                          */
 
   #ifndef USE_HSE
     #define USE_HSE                     1  /**< @brief Use crystal oscillator as clock source */
@@ -1601,47 +1602,74 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     uint8_t  second;
   } time_struct_t;
 
-  #define JD0 2440588
+/** @brief Converts a broken-down time structure to a Unix timestamp.
+ *  @param t Pointer to the time structure.
+ *  @retval Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+ */
+  __STATIC_INLINE uint32_t time_to_unixtime(const time_struct_t * t) {
+    uint32_t y = t->year;
+    uint32_t m = t->month;
+    uint32_t d = t->day;
 
-  __STATIC_INLINE unsigned time_to_unixtime(time_struct_t * t) {
+    // Adjust year and month if the date is in January or February
+    uint32_t a = (m < 3) ? 1 : 0;
+    
+    y = y + 4800 - a;
+    m = m + (12 * a) - 3;
 
-    uint8_t a = (14 - t->month) / 12;
-    uint16_t y = t->year + 4800 - a;
-    uint8_t m = t->month + (12 * a) - 3;
-    uint32_t counter = t->day;
+    uint32_t counter = d;
+    counter += (153 * m + 2) / 5;      // Calculates days contributed by the full months
+    counter += 365 * y;                // Adds days contributed by full years
+    counter += (y >> 2);               // Adds leap days for years divisible by 4
+    counter -= (y / 100);              // Subtracts century years (which are not leap years)
+    counter += (y / 400);              // Adds quadricentennial years (which are leap years)
+    counter -= 32045;                  // Adjusts the count to the Julian Day epoch
+    counter -= 2440588;                // Subtracts the Julian Day number of 1970-01-01 (JD0)
 
-    counter += (153 * m + 2) / 5;
-    counter += 365 * y;
-    counter += y / 4;
-    counter -= y / 100;
-    counter += y / 400;
-    counter -= 32045;
-    counter -= JD0;
-    counter *= 86400;
-    counter += (t->hour * 3600);
-    counter += (t->minute * 60);
-    counter += (t->second);
+    counter *= 86400;                  // Converts total days to seconds
+    counter += (t->hour * 3600U);      // Adds hours converted to seconds
+    counter += (t->minute * 60U);      // Adds minutes converted to seconds
+    counter += t->second;
 
     return counter;
   }
 
-
+/** @brief Converts a Unix timestamp to a broken-down time structure.
+ *  @param utime Unix timestamp (seconds since 1970-01-01 00:00:00 UTC).
+ *  @param t Pointer to the time structure to be populated.
+ */
   __STATIC_INLINE void unixtime_to_time(uint32_t utime, time_struct_t * t) {
+    // Calculates total days since the epoch and remaining seconds in the current day
+    uint32_t days = utime / 86400;
+    uint32_t day_seconds = utime - (days * 86400);
 
-    uint32_t ace, b, d, m;
+    // Extracts hours, minutes, and seconds from the remaining seconds
+    t->hour   = (uint8_t)(day_seconds / 3600);
+    day_seconds -= t->hour * 3600;
+    t->minute = (uint8_t)(day_seconds / 60);
+    t->second = (uint8_t)(day_seconds - (t->minute * 60));
 
-    ace = (utime / 86400) + 32044 + JD0;
-    b = (4 * ace + 3) / 146097;
+    // Applies algorithm offset and base Julian Day to the total days
+    uint32_t ace = days + 2472632; // 32044 (algorithm constant) + 2440588 (JD0)
+    // Calculates centuries and adjusts the remaining days
+    uint32_t b = (4 * ace + 3) / 146097;
     ace = ace - ((146097 * b) / 4);
-    d = (4 * ace + 3) / 1461;
+
+    // Calculates years within the current century and adjusts remaining days
+    uint32_t d = (4 * ace + 3) / 1461;
     ace = ace - ((1461 * d) / 4);
-    m = (5 * ace + 2) / 153;
-    t->day = (uint8_t)(ace - ((153 * m + 2) / 5) + 1);
-    t->month = (uint8_t) (m + 3 - (12 * (m / 10)));
-    t->year = (uint16_t) (100 * b + d - 4800 + (m / 10));
-    t->hour = (utime / 3600) % 24;
-    t->minute = (utime / 60) % 60;
-    t->second = (utime % 60);
+
+    // Calculates months within the current year
+    uint32_t m = (5 * ace + 2) / 153;
+
+    // Assigns the calculated day, month, and year to the structure
+    t->day   = (uint8_t)(ace - ((153 * m + 2) / 5) + 1);
+    t->month = (uint8_t)(m + 3 - (12 * (m / 10)));
+    t->year  = (uint16_t)(100 * b + d - 4800 + (m / 10));
+
+    // Calculates the day of the week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+    // January 1, 1970 was a Thursday, providing a base offset of 4
+    t->wday  = (uint8_t)((days + 4) % 7);
   }
 
 
@@ -1669,8 +1697,8 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
 
-    RTC->ALRH = (unsigned short)(alarm_time >> 16);           /* Set RTC Alarm value MS half-word   */
-    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC Alarm value LS half-word*/
+    RTC->ALRH = (unsigned short)(alarm_time >> 16);              /* Set RTC Alarm value MS half-word */
+    RTC->ALRL = (unsigned short)(alarm_time & RTC_ALRL_RTC_ALR); /* Set RTC Alarm value LS half-word */
 
     SET_REG_BIT(RTC->CRH, RTC_CRH_ALRIE);                     /* Alarm interrupt enable             */
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
@@ -1700,8 +1728,8 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     SET_REG_BIT(RTC->CRL, RTC_CRL_CNF);                       /* Enter configuration mode           */
 
-    RTC->CNTH = (unsigned short)(counter >> 16);              /* Set RTC counter MSB word           */
-    RTC->CNTL = (unsigned short)(counter & RTC_CNTL_RTC_CNT); /* Set RTC counter LSB word           */
+    RTC->CNTH = (unsigned short)(counter >> 16);                 /* Set RTC counter MSB word */
+    RTC->CNTL = (unsigned short)(counter & RTC_CNTL_RTC_CNT);    /* Set RTC counter LSB word */
 
     CLEAR_REG_BIT(RTC->CRL, RTC_CRL_CNF);                     /* The write operation only executes  */
                                                               /* when the CNF bit is cleared; it    */
@@ -1767,10 +1795,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   __STATIC_INLINE unsigned adc_get_random_bit(void) {
     unsigned a;
-    do {
+    for (unsigned i = 32; i; i--) {
       a = adc_get_bit();
-    } while (a == adc_get_bit());
-    return a;
+      if (a != adc_get_bit()) return a;
+    }
+    return 0;
   }
 
   __STATIC_INLINE unsigned adc_get_average(unsigned count) {
@@ -2438,7 +2467,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     NVIC_SystemReset();                                       /* Reboot                             */
   }
 #else
-  #define FLASH_EN                      NO
+  #define FLASH_EN                      0
 #endif
 
 
@@ -4071,7 +4100,7 @@ const char *build_msg  = ""
   #if defined(USE_SWD) && (USE_SWD != 0)
     " USE_SWD"
   #endif
-  #if defined(USE_OVRCLK) && (USE_OVRCLK != 0)
+  #if defined(OVRCLK) && (OVRCLK != 0)
     " OVRCLK"
   #endif
   #if !defined(__clang__)
