@@ -16,7 +16,17 @@ jobs:
         with:
           path: /var/cache/apt
           key: apt-arm-gcc-${{ runner.os }}
-      - name: Install ARM GCC
-        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+      - name: Install packages
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi clang-format
       - name: Generate project
         run: bash create_stm32f1_project
+      - name: Format with clang-format
+        run: clang-format -i main.h main.c
+      - name: CodeQL Init
+        uses: github/codeql-action/init@v3
+        with:
+          languages: cpp
+      - name: Clean & rebuild for CodeQL
+        run: make clean && make test
+      - name: CodeQL Analyze
+        uses: github/codeql-action/analyze@v3
