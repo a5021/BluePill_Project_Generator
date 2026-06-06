@@ -2786,10 +2786,10 @@ __STATIC_INLINE void init(void) {
     {
       extern const unsigned blink_pattern[30];
 
-      DMA1_Channel2->CMAR  = (unsigned)&blink_pattern;                               /* 0x40020028  */
-      DMA1_Channel2->CNDTR = sizeof(blink_pattern) / sizeof(blink_pattern[0]);       /* 0x40020020  */
-      DMA1_Channel2->CPAR  = (unsigned)&GPIOC->BSRR;                                 /* 0x40020024  */
-      DMA1_Channel2->CCR   = DMA1_Channel2_CCR;                                      /* 0x4002001C  */
+      DMA1_Channel2->CMAR  = (unsigned)&blink_pattern;                               /* 0x40020028: Memory source address                 */
+      DMA1_Channel2->CNDTR = sizeof(blink_pattern) / sizeof(blink_pattern[0]);       /* 0x40020020: Number of data items                  */
+      DMA1_Channel2->CPAR  = (unsigned)&GPIOC->BSRR;                                 /* 0x40020024: Peripheral destination address         */
+      DMA1_Channel2->CCR   = DMA1_Channel2_CCR;                                      /* 0x4002001C: Apply channel config and start        */
     }
 
     #define DMA1_Channel4_CCR (\\
@@ -2813,7 +2813,7 @@ __STATIC_INLINE void init(void) {
       0 * DMA_CCR_MEM2MEM    /* (1 << 14)          Memory to memory mode                0x00004000  */\\
     )
 
-    DMA1_Channel4->CPAR  = (unsigned)&USART1->DR;                                    /* 0x4002004C  */
+    DMA1_Channel4->CPAR  = (unsigned)&USART1->DR;                                    /* 0x4002004C: Peripheral destination address         */
 
   #endif
 
@@ -3838,9 +3838,9 @@ static void demo(void) {
       #endif
       #if DMA_EN
         D14.CCR = 0;
-        D14.CNDTR = strlen(build_msg);   /* 0x40020048: */
-        D14.CMAR = (unsigned) build_msg; /* 0x40020050: */
-        D14.CCR = DMA1_Channel4_CCR;     /* 0x40020044: */
+        D14.CNDTR = strlen(build_msg);   /* 0x40020048: Number of data items                  */
+        D14.CMAR = (unsigned) build_msg; /* 0x40020050: Memory source address                 */
+        D14.CCR = DMA1_Channel4_CCR;     /* 0x40020044: Apply channel config and start        */
         while(!(DMA1->ISR & DMA_ISR_TCIF4)) {}
         DMA1->IFCR = DMA_IFCR_CTCIF4;
       #else
