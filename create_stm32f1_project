@@ -3645,6 +3645,7 @@ cat <<MAIN_C >main.c
 #include <string.h>
 #include "main.h"
 
+/** @brief Demo/diagnostic output */
 static void demo(void);
 
 /** @brief Application entry point.
@@ -3730,6 +3731,7 @@ void SysTick_Handler(void) {
 
 
 #if RTC_EN
+  /** @brief RTC status flags */
   static volatile unsigned rtc_flag;
 
 /** @brief RTC global interrupt handler.
@@ -3766,6 +3768,7 @@ void SysTick_Handler(void) {
 
 
 #if TIM2_EN
+  /** @brief TIM2 free-running counter */
   static volatile unsigned tim2_counter;
 
 /** @brief TIM2 update / capture-compare interrupt handler.
@@ -3843,6 +3846,7 @@ void SysTick_Handler(void) {
 
 
 #if I2C_EN
+  /** @brief I2C error/status code */
   unsigned short i2c_status = 0;
 #endif
 
