@@ -4129,68 +4129,72 @@ static void demo(void) {
 
 #if defined DEBUG
 const char *build_msg  = ""
-  "\\nThe firmware is built with following MACROs used:"
+  "\nFirmware macros:\n  "
   #if defined(USE_HSE) && (USE_HSE != 0)
-    " USE_HSE"
+    "USE_HSE "
   #endif
   #if defined(USE_PLL) && (USE_PLL != 0)
-    " USE_PLL"
+    "USE_PLL "
   #endif
   #if defined(USE_LSE) && (USE_LSE != 0)
-    " USE_LSE"
-  #endif
-  #if defined(USE_ADC) && (USE_ADC!= 0)
-    " USE_ADC"
-  #endif
-  #if defined(USE_USART) && (USE_USART!= 0)
-    " USE_USART"
-  #endif
-  #if defined(USE_I2C) && (USE_I2C != 0)
-    " USE_I2C"
-  #endif
-  #if defined(USE_SPI) && (USE_SPI != 0)
-    " USE_SPI"
-  #endif
-  #if defined(USE_BTN) && (USE_BTN != 0)
-    " USE_BTN"
-  #endif
-  #if defined(USE_RTC) && (USE_RTC != 0)
-    " USE_RTC"
-  #endif
-  #if defined(USE_TIM2) && (USE_TIM2 != 0)
-    " USE_TIM2"
-  #endif
-  #if defined(USE_DMA) && (USE_DMA != 0)
-    " USE_DMA"
-  #endif
-  #if defined(USE_CRC) && (USE_CRC != 0)
-    " USE_CRC"
-  #endif
-  #if defined(USE_RNG) && (USE_RNG != 0)
-    " USE_RNG"
-  #endif
-  #if defined(USE_IWDG) && (USE_IWDG != 0)
-    " USE_IWDG"
-  #endif
-  #if defined(USE_WWDG) && (USE_WWDG != 0)
-    " USE_WWDG"
-  #endif
-  #if defined(USE_EXTI) && (USE_EXTI != 0)
-    " USE_EXTI"
-  #endif
-  #if defined(USE_FLASH) && (USE_FLASH != 0)
-    " USE_FLASH"
-  #endif
-  #if defined(USE_SWD) && (USE_SWD != 0)
-    " USE_SWD"
+    "USE_LSE "
   #endif
   #if defined(OVRCLK) && (OVRCLK != 0)
-    " OVRCLK"
+    "OVRCLK"
+  #endif
+  "\n  "
+  #if defined(USE_ADC) && (USE_ADC != 0)
+    "USE_ADC "
+  #endif
+  #if defined(USE_USART) && (USE_USART != 0)
+    "USE_USART "
+  #endif
+  #if defined(USE_I2C) && (USE_I2C != 0)
+    "USE_I2C "
+  #endif
+  #if defined(USE_SPI) && (USE_SPI != 0)
+    "USE_SPI"
+  #endif
+  "\n  "
+  #if defined(USE_BTN) && (USE_BTN != 0)
+    "USE_BTN "
+  #endif
+  #if defined(USE_RTC) && (USE_RTC != 0)
+    "USE_RTC "
+  #endif
+  #if defined(USE_TIM2) && (USE_TIM2 != 0)
+    "USE_TIM2 "
+  #endif
+  #if defined(USE_DMA) && (USE_DMA != 0)
+    "USE_DMA"
+  #endif
+  "\n  "
+  #if defined(USE_CRC) && (USE_CRC != 0)
+    "USE_CRC "
+  #endif
+  #if defined(USE_RNG) && (USE_RNG != 0)
+    "USE_RNG "
+  #endif
+  #if defined(USE_IWDG) && (USE_IWDG != 0)
+    "USE_IWDG "
+  #endif
+  #if defined(USE_WWDG) && (USE_WWDG != 0)
+    "USE_WWDG"
+  #endif
+  "\n  "
+  #if defined(USE_EXTI) && (USE_EXTI != 0)
+    "USE_EXTI "
+  #endif
+  #if defined(USE_FLASH) && (USE_FLASH != 0)
+    "USE_FLASH "
+  #endif
+  #if defined(USE_SWD) && (USE_SWD != 0)
+    "USE_SWD"
   #endif
   #if !defined(__clang__)
-  " ["__DATE__"]"
+  "\n  Built: " __DATE__
   #endif
-  ".\n"
+  "\n"
 ;
 #endif
 
