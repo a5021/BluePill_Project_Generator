@@ -1592,6 +1592,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #endif
 
 #if defined USE_EXTI && USE_EXTI != 0
+/** @brief EXTI enable */
   #define EXTI_EN                       1
 #else
   #define EXTI_EN                       0
@@ -1701,6 +1702,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 
+/** @brief Read RTC counter value */
   __STATIC_INLINE unsigned rtc_read_counter(void) {
     unsigned a = RTC->CNTH, b = RTC->CNTL, c = RTC->CNTH;
     if (a != c) {
@@ -1711,6 +1713,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return a;
   }
 
+/** @brief Set RTC alarm */
   __STATIC_INLINE void rtc_set_alarm(unsigned alarm_time) {
 
     unsigned apb1enr = RCC->APB1ENR, pwr_cr_dbp;
@@ -1742,6 +1745,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   } /* rtc_set_alarm() */
 
 
+/** @brief Set RTC counter value */
   __STATIC_INLINE void rtc_set_counter(unsigned counter) {
 
     unsigned apb1enr = RCC->APB1ENR, pwr_cr_dbp;
@@ -1919,6 +1923,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   #define SPI_EN                        1
 
+/** @brief SPI transmit and receive one byte */
   __STATIC_INLINE char spi_xfer(char d) {
     while(!READ_REG_BIT(SPI1->SR, SPI_SR_TXE))  { /* Wait for the TX buffer to become empty    */ }
     *((__IO char *)&SPI1->DR) = d;
@@ -1928,6 +1933,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   #define CS_PORT                       GPIOA
   #define CS_PIN                        4
+/** @brief SPI chip-select macros */
   #define CS(STATE)                     CS_PORT->BSRR = (1UL << ((!STATE) * 16 + CS_PIN))
   #define CS_LOW()                      CS(0)
   #define CS_HIGH()                     CS(1)
@@ -1938,6 +1944,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
 #if defined USE_CRC && USE_CRC != 0
   #define CRC_EN                        1
+/** @brief Compute CRC-32/ZLIB checksum */
   __STATIC_INLINE unsigned crc32_zlib(const unsigned *data, unsigned short cnt) {
 
     unsigned i, result;
@@ -1963,9 +1970,12 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   #define RNG_EN                        1
 
+/** @brief Pseudo-random number generator */
     unsigned rnd(void);
+/** @brief Seed the pseudo-random generator */
     void srnd(unsigned);
 
+/** @brief Pseudo-random number from CRC noise */
   __STATIC_INLINE unsigned prnd(void) {
 
     for (unsigned i = 0; i < 0x2000; i++) {
@@ -2437,6 +2447,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define OB_RDP_LEVEL_0            ((uint8_t)0xA5)
   #define OB_RDP_LEVEL_1            ((uint8_t)0x00)
 
+/** @brief Lock firmware with read protection and user data */
   __STATIC_INLINE void __NO_RETURN lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
 
     while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
@@ -2552,6 +2563,7 @@ __STATIC_INLINE void init(void) {
   #define PORT_C_STATE PIN_HIGH(13)                           /* Set PC13 pin HIGH (LED off)        */
   #define IOPC_EN (PORT_C_CONFIG != 0)
 
+/** @brief Resolve RCC clock enable bit for a peripheral */
   #define GATE_CLOCK(BUS, PER)      RCC_ ## BUS ## ENR_ ## PER ## EN
 
   #define AHB_CONFIG (                            \\
@@ -3435,33 +3447,35 @@ __STATIC_INLINE void init(void) {
 
 }  /* init() */
 
+/** @brief Convert nibble to hex character */
 #define HEX(NIBBLE) (((NIBBLE) < 10) ? (NIBBLE) + '0' : (NIBBLE) + '7')
 
 #if USART_EN
+/** @brief Send one char over UART */
   __STATIC_INLINE void uputc(const char c) {
-    /*** Send char using USART1 ***/
     while (!READ_REG_BIT(USART1->SR, USART_SR_TXE)) {}        /* Wait until TX reg becomes empty    */
     USART1->DR = c;
   }
 
+/** @brief Send string over UART */
   __STATIC_INLINE void uputs(const char *c) {
-    /*** Send string using UART ***/
     while(*c) {
       uputc(*c++);
     }
   }
 
+/** @brief Send nibble as hex char over UART */
   __STATIC_INLINE void uput_x(const uint8_t c) {
-    /*** Convert a nibble to HEX and send it via UART ***/
     uputc(HEX(c));
   }
 
+/** @brief Send byte as two hex chars over UART */
   __STATIC_INLINE void uputx(const uint8_t c) {
-    /* Convert a byte to HEX and send it via UART */
     uput_x(c >> 4);
     uput_x(c & 0x0F);
   }
 
+/** @brief Printf over UART */
   #define uprintf(...) do{char _[200]; snprintf(_, sizeof(_), __VA_ARGS__); uputs(_);}while(0)
 #else
   #define uprintf(...)
@@ -3471,6 +3485,7 @@ __STATIC_INLINE void init(void) {
 
   #define I2C_TIMEOUT     10
   #define I2C_ERR_TIMEOUT 1
+/** @brief I2C error flags bitmask */
   #define I2C_ERROR       (                                                            \\
                             I2C_SR1_BERR  |  /*  Bus Error            (0x00000100)   */\\
                             I2C_SR1_ARLO  |  /*  Arbitration Lost     (0x00000200)   */\\
@@ -3478,6 +3493,7 @@ __STATIC_INLINE void init(void) {
                             I2C_SR1_OVR      /*  Overrun/Underrun     (0x00000800)   */\\
                           )
 
+/** @brief Wait for I2C flag or error/timeout */
   __STATIC_INLINE ErrorStatus i2c_check(const unsigned bitFlag) {
     extern unsigned short i2c_status;
     unsigned t_out = I2C_TIMEOUT;
@@ -3511,6 +3527,7 @@ __STATIC_INLINE void init(void) {
   }  /* i2c_check() */
 
 
+/** @brief Write data to I2C slave */
   __STATIC_INLINE ErrorStatus i2c_write(const char addr, const char *data, unsigned len) {
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
@@ -3533,6 +3550,7 @@ __STATIC_INLINE void init(void) {
   }  /* i2c_write() */
 
 
+/** @brief Read data from I2C slave */
   __STATIC_INLINE ErrorStatus i2c_read(const char addr, char *data, unsigned len) {
 
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE;
@@ -3558,6 +3576,7 @@ __STATIC_INLINE void init(void) {
   }  /* i2c_read() */
 
 
+/** @brief Read I2C slave register */
   __STATIC_INLINE ErrorStatus i2c_read_reg(const char addr, char *data, char reg, unsigned len) {
     I2C1->CR1 = I2C_CR1_START | I2C_CR1_ACK | I2C_CR1_PE; /* generate START             */
     if (i2c_check(I2C_SR1_SB) == ERROR) return ERROR;
@@ -3598,6 +3617,7 @@ __STATIC_INLINE void init(void) {
 
 
 #if defined(__GNUC__) && ! defined(__clang__)
+/** @brief Newlib syscall stubs */
   void _close_r(void){} void _close(void){} void _lseek_r(void){} void _lseek(void){} void _read_r(void){} void _read(void){} void _write_r(void){}
 #endif
 
