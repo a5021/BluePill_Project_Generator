@@ -1271,31 +1271,37 @@ cat <<MAIN_H >main.h
 /** @brief Clear single bit in peripheral register to 0 via bit-banding */
 #define CLEAR_REG_BIT(REG, BIT)         WRITE_REG_BIT(REG, BIT, 0)
 
+/** @brief Read SysTick COUNTFLAG (clears on read) */
 #define GET_TICK()                      (SysTick->CTRL >> SysTick_CTRL_COUNTFLAG_Pos)
+/** @brief Blocking delay in milliseconds */
 #define DELAY_MS(MS)                    for (unsigned _ = (SysTick->CTRL, (MS)); _; _ -= GET_TICK()) (void)0
 
+/** @brief Initialise DWT cycle counter */
 #define STOPWATCH_INIT()                do {                                              \\
                                           CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; \\
                                           DWT->CYCCNT = 0;                                \\
                                           DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            \\
                                         } while (0)
 
+/** @brief Start DWT cycle counter stopwatch */
 #define STOPWATCH_START(VAR)            do { (VAR) = DWT->CYCCNT; } while(0)
+/** @brief Stop DWT cycle counter stopwatch */
 #define STOPWATCH_STOP(VAR)             do { (VAR) = DWT->CYCCNT - (VAR); } while(0)
 
+/** @brief Reset DWT cycle counter (re-initialise) */
 __STATIC_INLINE void stopwatch_reset(void) {
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk; /* Enable Data Watchpoint and Trace */
   DWT->CYCCNT = 0;                                /* Reset CPU cycle counter          */
   DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;            /* Enable CPU cycle counter         */
 }
 
-// Delay for a specific number of CPU cycles (minimum ~5 cycles overhead)
+/** @brief Spin-wait for N CPU cycles */
 #define DELAY_CYCLES(N)                 for(unsigned _ = DWT->CYCCNT; (DWT->CYCCNT - _) < (N);) (void)0
 
-// Nanoseconds delay (minimum ~100ns due to overhead)
+/** @brief Spin-wait for N nanoseconds */
 #define DELAY_NS(NS)                    DELAY_CYCLES((uint32_t)(((uint64_t)(NS) * HCLK) / 1000000000UL))
 
-// Microseconds delay (minimum ~1Р’Вµs recommended)
+/** @brief Spin-wait for N microseconds */
 #define DELAY_US(US)                    DELAY_CYCLES((uint32_t)(((uint64_t)(US) * HCLK) / 1000000UL))
 
 #if 0
@@ -1303,9 +1309,11 @@ __STATIC_INLINE void stopwatch_reset(void) {
 #define DELAY_MS(MS)                    DELAY_CYCLES((uint32_t)((MS) * (HCLK / 1000UL)))
 #endif
 
+/** @brief Blocking millisecond delay using SysTick */
 __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
 
 
+/** @brief Wait for register flag with timeout (returns ERROR on timeout) */
 #define WAIT_FOR_FLAG(REG, FLAG, TIMEOUT) do {                                  \\
           unsigned timeout = SysTick->CTRL >> (SysTick_CTRL_COUNTFLAG_Pos + 1); \\
           while(((REG) & (FLAG)) != (FLAG)) {                                   \\
