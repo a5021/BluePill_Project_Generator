@@ -29,6 +29,8 @@ $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/cor
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
     $f1/Source/Templates/gcc/startup_stm32f103xb.s $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld $svd
 
+sed -i 's/_estack = 0x20004FFF;/_estack = ORIGIN(RAM) + LENGTH(RAM);    \/* end of RAM *\//' STM32F103XB_FLASH.ld
+
 for arg in "$@"; do
     if [ "$arg" = "pdf" ]; then
         $wg "https://web.archive.org/web/20240717135940/https://www.st.com/resource/en/reference_manual/rm0008-stm32f101xx-stm32f102xx-stm32f103xx-stm32f105xx-and-stm32f107xx-advanced-armbased-32bit-mcus-stmicroelectronics.pdf" -O rm0008.pdf
