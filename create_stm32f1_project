@@ -3909,7 +3909,7 @@ static void demo(void) {
     rtc_set_alarm(rtc_read_counter() + 30);
   #endif
 
-  {
+  #if defined DEBUG
     extern const char *build_msg;
     #if USART_EN
       #if WWDG_EN
@@ -3930,7 +3930,7 @@ static void demo(void) {
     #else
       (void) build_msg;
     #endif
-  }
+  #endif
 
 #if USART_EN || SPI_EN || I2C_EN || BTN_EN || RTC_EN || TIM2_EN || CRC_EN || ADC_EN || RNG_EN
   for(int i = 0; i <= INT32_MAX;) {
@@ -4127,8 +4127,8 @@ static void demo(void) {
 #endif
 
 
-const char *build_msg  = ""
 #if defined DEBUG
+const char *build_msg  = ""
   "\\nThe firmware is built with following MACROs used:"
   #if defined(USE_HSE) && (USE_HSE != 0)
     " USE_HSE"
@@ -4191,8 +4191,8 @@ const char *build_msg  = ""
   " ["__DATE__"]"
   #endif
   ".\n"
+;
 #endif
-"\\n";
 
 /** @} */
 MAIN_C
@@ -4356,9 +4356,9 @@ vpath %.s \$(sort \$(dir \$(ASM))) # Set the search path for assembly source fil
 test:  FLAG += -DUSE_ALL=1
 test:  all
 
-# Perform the 'debug' target, which enables SWD and debug symbols and builds the project
+# Perform the 'debug' target, which enables SWD, debug symbols, DEBUG macro, and builds the project
 debug: OPT = -Og -g3 -gdwarf
-debug: FLAG += -DUSE_SWD=1
+debug: FLAG += -DUSE_SWD=1 -DDEBUG
 debug: all
 
 # Display compiler version information.
