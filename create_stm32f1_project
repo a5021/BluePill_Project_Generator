@@ -1866,15 +1866,15 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     unsigned temp_data, vcc_data, vcc;
 
-    temp_data = adc_get_average(ADC_SAMPLE_COUNT);
+    vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
-    ADC1->SQR3 = _ADC_SQR3(1, 17);
+    ADC1->SQR3 = _ADC_SQR3(1, 16);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
-    vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
+    temp_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
@@ -1884,7 +1884,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     vcc = 1200UL * 4095UL / vcc_data;
     {
-      int temp = temp_data * vcc / 4095L;
+      int temp = temp_data * 1200L / vcc_data;
       temp = ((1430L - temp) * 10L / 43L) + 25L;
       if (t != NULL) *t = (short) temp;
       if (v != NULL) *v = (unsigned short) vcc;
@@ -4194,7 +4194,7 @@ const char *build_msg  = ""
   #if !defined(__clang__)
   "\n  Built: " __DATE__
   #endif
-  "\n"
+  "\n\n"
 ;
 #endif
 
