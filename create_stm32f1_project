@@ -1777,6 +1777,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
   #define ADC_EN                        1
 
+  /** @brief ADC channel selection values */
   #define ADC_CHANNEL_0                 0x00000000U
   #define ADC_CHANNEL_1                 (                                                                        ADC_CR1_AWDCH_0)
   #define ADC_CHANNEL_2                 (                                                      ADC_CR1_AWDCH_1                  )
@@ -1796,24 +1797,28 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define ADC_CHANNEL_16                (ADC_CR1_AWDCH_4                                                                        )
   #define ADC_CHANNEL_17                (ADC_CR1_AWDCH_4                                                       | ADC_CR1_AWDCH_0)
 
-  #define ADC_SAMPLING_TIME_1_5         (0x00000000U                                           ) /* Sampling time   1.5 ADC clock cycle  */
-  #define ADC_SAMPLING_TIME_7_5         (                                      ADC_SMPR2_SMP0_0) /* Sampling time   7.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_13_5        (                   ADC_SMPR2_SMP0_1                   ) /* Sampling time  13.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_28_5        (                   ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP0_0) /* Sampling time  28.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_41_5        (ADC_SMPR2_SMP0_2                                      ) /* Sampling time  41.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_55_5        (ADC_SMPR2_SMP0_2 |                    ADC_SMPR2_SMP0_0) /* Sampling time  55.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_71_5        (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1                   ) /* Sampling time  71.5 ADC clock cycles */
-  #define ADC_SAMPLING_TIME_239_5       (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP0_0) /* Sampling time 239.5 ADC clock cycles */
+  /** @brief ADC sampling time values */
+  #define ADC_SAMPLING_TIME_1_5         (0x00000000U                                           )
+  #define ADC_SAMPLING_TIME_7_5         (                                      ADC_SMPR2_SMP0_0)
+  #define ADC_SAMPLING_TIME_13_5        (                   ADC_SMPR2_SMP0_1                   )
+  #define ADC_SAMPLING_TIME_28_5        (                   ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP0_0)
+  #define ADC_SAMPLING_TIME_41_5        (ADC_SMPR2_SMP0_2                                      )
+  #define ADC_SAMPLING_TIME_55_5        (ADC_SMPR2_SMP0_2 |                    ADC_SMPR2_SMP0_0)
+  #define ADC_SAMPLING_TIME_71_5        (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1                   )
+  #define ADC_SAMPLING_TIME_239_5       (ADC_SMPR2_SMP0_2 | ADC_SMPR2_SMP0_1 | ADC_SMPR2_SMP0_0)
 
+  /** @brief Build ADC SQR register value for a sequence position */
   #define _ADC_SQR1(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR1_SQ ## SEQ_NUM ##_Pos) & ADC_SQR1_SQ ## SEQ_NUM)
   #define _ADC_SQR2(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR2_SQ ## SEQ_NUM ##_Pos) & ADC_SQR2_SQ ## SEQ_NUM)
   #define _ADC_SQR3(SEQ_NUM, CH_NUM)    ((ADC_CHANNEL_ ## CH_NUM << ADC_SQR3_SQ ## SEQ_NUM ##_Pos) & ADC_SQR3_SQ ## SEQ_NUM)
   #define _ADC_SQR1_LEN(LEN)            (((uint32_t)((LEN) - 1) << ADC_SQR1_L_Pos) & ADC_SQR1_L)
 
+  /** @brief Build ADC SMPR register value for a sequence position */
   #define _ADC_SMPR1(SEQ_NUM, CYCLES)   ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR1_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR1_SMP ## SEQ_NUM)
   #define _ADC_SMPR2(SEQ_NUM, CYCLES)   ((ADC_SAMPLING_TIME_ ## CYCLES ## _5 << ADC_SMPR2_SMP ## SEQ_NUM ## _Pos) & ADC_SMPR2_SMP ## SEQ_NUM)
 
 
+  /** @brief Read one ADC bit */
   __STATIC_INLINE unsigned adc_get_bit(void) {
     while (!READ_REG_BIT(ADC1->SR, ADC_SR_EOC)) {
     }
@@ -1821,6 +1826,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 
+  /** @brief Get a random bit from ADC noise */
   __STATIC_INLINE unsigned adc_get_random_bit(void) {
     unsigned a;
     for (unsigned i = 32; i; i--) {
@@ -1830,6 +1836,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     return 0;
   }
 
+  /** @brief Average multiple ADC readings */
   __STATIC_INLINE unsigned adc_get_average(unsigned count) {
     unsigned average = 0;
     for(unsigned i = 0; i < count; i++) {
@@ -1847,8 +1854,10 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   }
 
 
+  /** @brief Read internal temperature and Vref */
   __STATIC_INLINE void get_adc_internals(short *t, unsigned short *v) {
 
+    /** @brief Number of ADC samples for averaging */
     enum { ADC_SAMPLE_COUNT = 128 + (4096 - 128) * PLL_EN };
 
     unsigned temp_data, vcc_data, vcc;
