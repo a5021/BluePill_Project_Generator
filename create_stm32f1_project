@@ -1325,11 +1325,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
         } while(NO)
 
 
-// --- Universal BITS Macro ---
-// Helper macro: paste together PREFIX_, REG, and BF to form a bitfield macro name
+/** @brief BITS variadic argument counting and dispatching */
 #define _BITS_ONE(PREFIX_, REG, BF) PREFIX_##REG##_##BF
 
-// Recursive macros to combine 1Р’вЂ“16 bitfields using the '|' operator
 #define _BITS_1(PREFIX_, REG, BF) _BITS_ONE(PREFIX_, REG, BF)
 #define _BITS_2(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_1(PREFIX_, REG, __VA_ARGS__)
 #define _BITS_3(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_2(PREFIX_, REG, __VA_ARGS__)
@@ -1347,51 +1345,41 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define _BITS_15(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_14(PREFIX_, REG, __VA_ARGS__)
 #define _BITS_16(PREFIX_, REG, BF, ...) _BITS_ONE(PREFIX_, REG, BF) | _BITS_15(PREFIX_, REG, __VA_ARGS__)
 
-// Macro to count the number of variadic arguments (up to 16)
 #define _BITS_NARG(...) _BITS_NARG_(__VA_ARGS__,16,15,14,13,12,11,10,9,8,7,6,5,4,3,2,1)
 #define _BITS_NARG_(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,_11,_12,_13,_14,_15,_16,N,...) N
 
-// Macro dispatcher: chooses the correct _BITS_n macro based on argument count
 #define _BITS_CHOOSER2(count) _BITS_##count
 #define _BITS_CHOOSER1(count) _BITS_CHOOSER2(count)
 #define _BITS_CHOOSER(count)  _BITS_CHOOSER1(count)
 
-// Main macro: expands to a mask of all requested bitfields for a given peripheral register
+/** @brief Build bitmask from register bitfield names */
 #define BITS(PREFIX_, REG, ...)     (_BITS_CHOOSER(_BITS_NARG(__VA_ARGS__))(PREFIX_, REG, __VA_ARGS__))
 
-// --- Peripheral Type Wrappers ---
-// These wrappers make it easy to use the BITS macro for each peripheral type.
-// Example: RCC_BITS(APB2ENR, IOPAEN, AFIOEN) expands to (RCC_APB2ENR_IOPAEN | RCC_APB2ENR_AFIOEN)
+/** @brief BITS wrappers for each peripheral */
+#define RCC_BITS(reg, ...)      BITS(RCC_, reg, __VA_ARGS__)
+#define GPIO_BITS(reg, ...)     BITS(GPIO_, reg, __VA_ARGS__)
+#define AFIO_BITS(reg, ...)     BITS(AFIO_, reg, __VA_ARGS__)
+#define TIM_BITS(reg, ...)      BITS(TIM_, reg, __VA_ARGS__)
+#define USART_BITS(reg, ...)    BITS(USART_, reg, __VA_ARGS__)
+#define UART_BITS(reg, ...)     BITS(UART_, reg, __VA_ARGS__)
+#define SPI_BITS(reg, ...)      BITS(SPI_, reg, __VA_ARGS__)
+#define I2C_BITS(reg, ...)      BITS(I2C_, reg, __VA_ARGS__)
+#define CAN_BITS(reg, ...)      BITS(CAN_, reg, __VA_ARGS__)
+#define ADC_BITS(reg, ...)      BITS(ADC_, reg, __VA_ARGS__)
+#define DAC_BITS(reg, ...)      BITS(DAC_, reg, __VA_ARGS__)
+#define CRC_BITS(reg, ...)      BITS(CRC_, reg, __VA_ARGS__)
+#define USB_BITS(reg, ...)      BITS(USB_, reg, __VA_ARGS__)
+#define BKP_BITS(reg, ...)      BITS(BKP_, reg, __VA_ARGS__)
+#define PWR_BITS(reg, ...)      BITS(PWR_, reg, __VA_ARGS__)
+#define FLASH_BITS(reg, ...)    BITS(FLASH_, reg, __VA_ARGS__)
+#define DBGMCU_BITS(reg, ...)   BITS(DBGMCU_, reg, __VA_ARGS__)
+#define WWDG_BITS(reg, ...)     BITS(WWDG_, reg, __VA_ARGS__)
+#define IWDG_BITS(reg, ...)     BITS(IWDG_, reg, __VA_ARGS__)
+#define RTC_BITS(reg, ...)      BITS(RTC_, reg, __VA_ARGS__)
+#define EXTI_BITS(reg, ...)     BITS(EXTI_, reg, __VA_ARGS__)
+#define DMA_BITS(reg, ...)      BITS(DMA_, reg, __VA_ARGS__)
 
-#define RCC_BITS(reg, ...)      BITS(RCC_, reg, __VA_ARGS__)    // For RCC registers
-#define GPIO_BITS(reg, ...)     BITS(GPIO_, reg, __VA_ARGS__)   // For GPIO registers
-#define AFIO_BITS(reg, ...)     BITS(AFIO_, reg, __VA_ARGS__)   // For AFIO registers
-#define TIM_BITS(reg, ...)      BITS(TIM_, reg, __VA_ARGS__)    // For TIM registers
-#define USART_BITS(reg, ...)    BITS(USART_, reg, __VA_ARGS__)  // For USART registers
-#define UART_BITS(reg, ...)     BITS(UART_, reg, __VA_ARGS__)   // For UART registers
-#define SPI_BITS(reg, ...)      BITS(SPI_, reg, __VA_ARGS__)    // For SPI registers
-#define I2C_BITS(reg, ...)      BITS(I2C_, reg, __VA_ARGS__)    // For I2C registers
-#define CAN_BITS(reg, ...)      BITS(CAN_, reg, __VA_ARGS__)    // For CAN registers
-#define ADC_BITS(reg, ...)      BITS(ADC_, reg, __VA_ARGS__)    // For ADC registers
-#define DAC_BITS(reg, ...)      BITS(DAC_, reg, __VA_ARGS__)    // For DAC registers
-#define CRC_BITS(reg, ...)      BITS(CRC_, reg, __VA_ARGS__)    // For CRC registers
-#define USB_BITS(reg, ...)      BITS(USB_, reg, __VA_ARGS__)    // For USB registers
-#define BKP_BITS(reg, ...)      BITS(BKP_, reg, __VA_ARGS__)    // For BKP registers
-#define PWR_BITS(reg, ...)      BITS(PWR_, reg, __VA_ARGS__)    // For PWR registers
-#define FLASH_BITS(reg, ...)    BITS(FLASH_, reg, __VA_ARGS__)  // For FLASH registers
-#define DBGMCU_BITS(reg, ...)   BITS(DBGMCU_, reg, __VA_ARGS__) // For DBGMCU registers
-#define WWDG_BITS(reg, ...)     BITS(WWDG_, reg, __VA_ARGS__)   // For WWDG registers
-#define IWDG_BITS(reg, ...)     BITS(IWDG_, reg, __VA_ARGS__)   // For IWDG registers
-#define RTC_BITS(reg, ...)      BITS(RTC_, reg, __VA_ARGS__)    // For RTC registers
-#define EXTI_BITS(reg, ...)     BITS(EXTI_, reg, __VA_ARGS__)   // For EXTI registers
-#define DMA_BITS(reg, ...)      BITS(DMA_, reg, __VA_ARGS__)    // For DMA registers
-
-// === Register Shortcuts ===
-// The following are convenient macros for common registers,
-// reducing the need to repeat BITS(...) explicitly.
-// Grouped per peripheral type for organization.
-
-// --- RCC ---
+/** @brief RCC register shortcut macros */
 #define RCC_CR(...)           BITS(RCC_, CR, __VA_ARGS__)
 #define RCC_CFGR(...)         BITS(RCC_, CFGR, __VA_ARGS__)
 #define RCC_CIR(...)          BITS(RCC_, CIR, __VA_ARGS__)
@@ -1403,7 +1391,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define RCC_BDCR(...)         BITS(RCC_, BDCR, __VA_ARGS__)
 #define RCC_CSR(...)          BITS(RCC_, CSR, __VA_ARGS__)
 
-// --- GPIO ---
+/** @brief GPIO register shortcut macros */
 #define GPIO_CRL(...)         BITS(GPIO_, CRL, __VA_ARGS__)
 #define GPIO_CRH(...)         BITS(GPIO_, CRH, __VA_ARGS__)
 #define GPIO_IDR(...)         BITS(GPIO_, IDR, __VA_ARGS__)
@@ -1412,7 +1400,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define GPIO_BRR(...)         BITS(GPIO_, BRR, __VA_ARGS__)
 #define GPIO_LCKR(...)        BITS(GPIO_, LCKR, __VA_ARGS__)
 
-// --- AFIO ---
+/** @brief AFIO register shortcut macros */
 #define AFIO_EVCR(...)        BITS(AFIO_, EVCR, __VA_ARGS__)
 #define AFIO_MAPR(...)        BITS(AFIO_, MAPR, __VA_ARGS__)
 #define AFIO_EXTICR1(...)     BITS(AFIO_, EXTICR1, __VA_ARGS__)
@@ -1421,7 +1409,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define AFIO_EXTICR4(...)     BITS(AFIO_, EXTICR4, __VA_ARGS__)
 #define AFIO_MAPR2(...)       BITS(AFIO_, MAPR2, __VA_ARGS__)
 
-// --- TIM (general purpose and advanced) ---
+/** @brief TIM register shortcut macros */
 #define TIM_CR1(...)          BITS(TIM_, CR1, __VA_ARGS__)
 #define TIM_CR2(...)          BITS(TIM_, CR2, __VA_ARGS__)
 #define TIM_SMCR(...)         BITS(TIM_, SMCR, __VA_ARGS__)
@@ -1442,7 +1430,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define TIM_DCR(...)          BITS(TIM_, DCR, __VA_ARGS__)
 #define TIM_DMAR(...)         BITS(TIM_, DMAR, __VA_ARGS__)
 
-// --- USART ---
+/** @brief USART register shortcut macros */
 #define USART_SR(...)         BITS(USART_, SR, __VA_ARGS__)
 #define USART_DR(...)         BITS(USART_, DR, __VA_ARGS__)
 #define USART_BRR(...)        BITS(USART_, BRR, __VA_ARGS__)
@@ -1451,7 +1439,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define USART_CR3(...)        BITS(USART_, CR3, __VA_ARGS__)
 #define USART_GTPR(...)       BITS(USART_, GTPR, __VA_ARGS__)
 
-// --- SPI ---
+/** @brief SPI register shortcut macros */
 #define SPI_CR1(...)          BITS(SPI_, CR1, __VA_ARGS__)
 #define SPI_CR2(...)          BITS(SPI_, CR2, __VA_ARGS__)
 #define SPI_SR(...)           BITS(SPI_, SR, __VA_ARGS__)
@@ -1462,7 +1450,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define SPI_I2SCFGR(...)      BITS(SPI_, I2SCFGR, __VA_ARGS__)
 #define SPI_I2SPR(...)        BITS(SPI_, I2SPR, __VA_ARGS__)
 
-// --- I2C ---
+/** @brief I2C register shortcut macros */
 #define I2C_CR1(...)          BITS(I2C_, CR1, __VA_ARGS__)
 #define I2C_CR2(...)          BITS(I2C_, CR2, __VA_ARGS__)
 #define I2C_OAR1(...)         BITS(I2C_, OAR1, __VA_ARGS__)
@@ -1473,7 +1461,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define I2C_CCR(...)          BITS(I2C_, CCR, __VA_ARGS__)
 #define I2C_TRISE(...)        BITS(I2C_, TRISE, __VA_ARGS__)
 
-// --- ADC ---
+/** @brief ADC register shortcut macros */
 #define ADC_SR(...)           BITS(ADC_, SR, __VA_ARGS__)
 #define ADC_CR1(...)          BITS(ADC_, CR1, __VA_ARGS__)
 #define ADC_CR2(...)          BITS(ADC_, CR2, __VA_ARGS__)
@@ -1495,7 +1483,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define ADC_JDR4(...)         BITS(ADC_, JDR4, __VA_ARGS__)
 #define ADC_DR(...)           BITS(ADC_, DR, __VA_ARGS__)
 
-// --- EXTI ---
+/** @brief EXTI register shortcut macros */
 #define EXTI_IMR(...)         BITS(EXTI_, IMR, __VA_ARGS__)
 #define EXTI_EMR(...)         BITS(EXTI_, EMR, __VA_ARGS__)
 #define EXTI_RTSR(...)        BITS(EXTI_, RTSR, __VA_ARGS__)
@@ -1503,11 +1491,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define EXTI_SWIER(...)       BITS(EXTI_, SWIER, __VA_ARGS__)
 #define EXTI_PR(...)          BITS(EXTI_, PR, __VA_ARGS__)
 
-// --- PWR ---
+/** @brief PWR register shortcut macros */
 #define PWR_CR(...)           BITS(PWR_, CR, __VA_ARGS__)
 #define PWR_CSR(...)          BITS(PWR_, CSR, __VA_ARGS__)
 
-// --- FLASH ---
+/** @brief FLASH register shortcut macros */
 #define FLASH_ACR(...)        BITS(FLASH_, ACR, __VA_ARGS__)
 #define FLASH_KEYR(...)       BITS(FLASH_, KEYR, __VA_ARGS__)
 #define FLASH_OPTKEYR(...)    BITS(FLASH_, OPTKEYR, __VA_ARGS__)
@@ -1517,28 +1505,28 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define FLASH_OBR(...)        BITS(FLASH_, OBR, __VA_ARGS__)
 #define FLASH_WRPR(...)       BITS(FLASH_, WRPR, __VA_ARGS__)
 
-// --- BKP ---
+/** @brief BKP register shortcut macros */
 #define BKP_RTCCR(...)        BITS(BKP_, RTCCR, __VA_ARGS__)
 #define BKP_CR(...)           BITS(BKP_, CR, __VA_ARGS__)
 #define BKP_CSR(...)          BITS(BKP_, CSR, __VA_ARGS__)
 
-// --- CRC ---
+/** @brief CRC register shortcut macros */
 #define CRC_DR(...)           BITS(CRC_, DR, __VA_ARGS__)
 #define CRC_IDR(...)          BITS(CRC_, IDR, __VA_ARGS__)
 #define CRC_CR(...)           BITS(CRC_, CR, __VA_ARGS__)
 
-// --- WWDG ---
+/** @brief WWDG register shortcut macros */
 #define WWDG_CR(...)          BITS(WWDG_, CR, __VA_ARGS__)
 #define WWDG_CFR(...)         BITS(WWDG_, CFR, __VA_ARGS__)
 #define WWDG_SR(...)          BITS(WWDG_, SR, __VA_ARGS__)
 
-// --- IWDG ---
+/** @brief IWDG register shortcut macros */
 #define IWDG_KR(...)          BITS(IWDG_, KR, __VA_ARGS__)
 #define IWDG_PR(...)          BITS(IWDG_, PR, __VA_ARGS__)
 #define IWDG_RLR(...)         BITS(IWDG_, RLR, __VA_ARGS__)
 #define IWDG_SR(...)          BITS(IWDG_, SR, __VA_ARGS__)
 
-// --- RTC ---
+/** @brief RTC register shortcut macros */
 #define RTC_CRH(...)          BITS(RTC_, CRH, __VA_ARGS__)
 #define RTC_CRL(...)          BITS(RTC_, CRL, __VA_ARGS__)
 #define RTC_PRLH(...)         BITS(RTC_, PRLH, __VA_ARGS__)
@@ -1550,13 +1538,13 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 #define RTC_ALRH(...)         BITS(RTC_, ALRH, __VA_ARGS__)
 #define RTC_ALRL(...)         BITS(RTC_, ALRL, __VA_ARGS__)
 
-// --- DMA Channel Registers (common to all channels) ---
+/** @brief DMA channel register shortcut macros */
 #define DMA_CCR(...)           BITS(DMA_, CCR, __VA_ARGS__)
 #define DMA_CNDTR(...)         BITS(DMA_, CNDTR, __VA_ARGS__)
 #define DMA_CPAR(...)          BITS(DMA_, CPAR, __VA_ARGS__)
 #define DMA_CMAR(...)          BITS(DMA_, CMAR, __VA_ARGS__)
 
-// --- DMA Interrupt and Status Registers ---
+/** @brief DMA interrupt and status register shortcut macros */
 #define DMA_ISR(...)           BITS(DMA_, ISR, __VA_ARGS__)
 #define DMA_IFCR(...)          BITS(DMA_, IFCR, __VA_ARGS__)
 
