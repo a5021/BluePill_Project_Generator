@@ -1097,37 +1097,46 @@ cat <<MAIN_H >main.h
 #define W   (*WWDG)
 
 
+/** @brief Write 64-bit configuration to GPIO port */
 #define PORT_CFG(PORT, CFG)             *(__IO uint64_t*) GPIO##PORT##_BASE = (CFG)
 
+/** @brief Configure and set GPIO port state */
 #define PORT_CONFIG(PORT, CFG, STATE)   if (YES) {                                      \\
                                           if (CFG) { PORT_CFG(PORT, CFG); }             \\
                                           if (STATE) { GPIO##PORT->BSRR = (STATE); }    \\
                                         } else (void) NO
 
+/** @brief Build 4-bit pin configuration field */
 #define PIN_CFG(PIN, MODE)              ((MODE) << ((PIN) * 4))
-                                                                                       /*
+                                                                                        /*
     In input mode (MODE[1:0] = 00):
 
   00: Analog mode
   01: Floating input (reset state)
   10: Input with pull-up / pull-down
   11: Reserved
-                                                                                       */
+                                                                                        */
+/** @brief Input mode: analog */
 #define I_ANALOG                        (0ULL << 2)
+/** @brief Input mode: floating */
 #define I_FLOAT                         (1ULL << 2)
+/** @brief Input mode: pull-up/down */
 #define I_PULL                          (2ULL << 2)
-                                                                                       /*
+                                                                                        /*
     In output mode (MODE[1:0] > 00):
 
   00: General purpose output push-pull
   01: General purpose output Open-drain
   10: Alternate function output Push-pull
   11: Alternate function output Open-drain
-                                                                                       */
+                                                                                        */
+/** @brief Output type: push-pull */
 #define O_PP                            (0ULL << 2)
+/** @brief Output type: open-drain */
 #define O_OD                            (1ULL << 2)
+/** @brief Output type: alternate function */
 #define O_AF                            (2ULL << 2)
-                                                                                       /*
+                                                                                        /*
   MODEy[1:0]: Port x mode bits (y = 0 .. 7)
   These bits are written by software to configure the corresponding I/O port.
   Refer to Table 20: Port bit configuration table.
@@ -1136,33 +1145,55 @@ cat <<MAIN_H >main.h
   01: Output mode, max speed 10 MHz.
   10: Output mode, max speed 2 MHz.
   11: Output mode, max speed 50 MHz.
-                                                                                       */
+                                                                                        */
+/** @brief Output speed: 10 MHz */
 #define O_10MHZ                         1ULL
+/** @brief Output speed: 2 MHz */
 #define O_2MHZ                          2ULL
+/** @brief Output speed: 50 MHz */
 #define O_50MHZ                         3ULL
 
+/** @brief BSRR bit reset mask */
 #define DOWN                            GPIO_BSRR_BR
+/** @brief BSRR bit set mask */
 #define UP                              GPIO_BSRR_BS
 
+/** @brief Token pasting helper */
 #define CAT(A, B)                       A ## B
+/** @brief Set GPIO pin state via BSRR */
 #define SW_PIN(PORT, PIN, STATE)        GPIO ## PORT->BSRR = CAT(STATE, PIN)
+/** @brief Resolve BSRR bit mask for pin */
 #define PULL(PIN, STATE)                CAT(STATE, PIN)
+/** @brief BSRR set mask for pin */
 #define HIGH(PIN)                       GPIO_BSRR_BS ## PIN
+/** @brief BSRR reset mask for pin */
 #define LOW(PIN)                        GPIO_BSRR_BR ## PIN
 
+/** @brief BSRR set mask for pin */
 #define PIN_HIGH(PIN)                   GPIO_BSRR_BS ## PIN
+/** @brief BSRR reset mask for pin */
 #define PIN_LOW(PIN)                    GPIO_BSRR_BR ## PIN
+/** @brief BSRR set mask for pin (pull-up) */
 #define PULL_UP(PIN)                    GPIO_BSRR_BS ## PIN
+/** @brief BSRR reset mask for pin (pull-down) */
 #define PULL_DOWN(PIN)                  GPIO_BSRR_BR ## PIN
 
+/** @brief BSRR reset mask for pin (internal) */
 #define _BR(PIN)                        GPIO_BSRR_BR ## PIN
+/** @brief BSRR reset mask for pin */
 #define BR(PIN)                         _BR(PIN)
+/** @brief BSRR set mask for pin (internal) */
 #define _BS(PIN)                        GPIO_BSRR_BS ## PIN
+/** @brief BSRR set mask for pin */
 #define BS(PIN)                         _BS(PIN)
+/** @brief ODR bit mask for pin (internal) */
 #define _ODR(PIN)                       GPIO_ODR_ODR ## PIN
+/** @brief ODR bit mask for pin */
 #define ODR(PIN)                        _ODR(PIN)
 
+/** @brief Atomic BSRR write (lower 16 bits set, upper 16 reset) */
 #define ATOMIC_OUT(PORT, DATA)          PORT->BSRR = 0x00FF0000 | (DATA)
+/** @brief Read GPIO pin state */
 #define READ_PIN(PORT, PIN)             (GPIO ## PORT->IDR & GPIO_IDR_IDR ## PIN)
 
 /**
