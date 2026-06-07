@@ -104,8 +104,8 @@ make test         # Build with -DUSE_ALL=1 (enable all peripherals)
 make debug        # Build with debug symbols (-Og -g3) and SWD enabled
 make program      # Flash via ST-Link
 make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
-make clean        # Remove build artifacts
 make docs         # Generate Doxygen documentation
+make clean        # Remove build artifacts
 make gccversion   # Show compiler version
 ```
 
