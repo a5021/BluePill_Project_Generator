@@ -145,6 +145,12 @@ SECTIONS
   /* Critical check: Generate a link error if RAM overflows */
   ASSERT(_estack >= ., "Error: No room left for Heap and Stack in RAM!")
 
+  ASSERT(!(DEFINED(malloc) || DEFINED(free) || DEFINED(realloc) || DEFINED(calloc)),
+         "Error: _Min_Heap_Size=0, dynamic allocation not available!")
+
+  ASSERT(!(DEFINED(_Znwj) || DEFINED(_Znaj) || DEFINED(__cxa_atexit)),
+         "Error: C++ support not configured in linker script (no .init_array, etc.)")
+
   /* Remove unused debugging information from standard libraries */
   /DISCARD/ :
   {
