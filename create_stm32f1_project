@@ -4355,7 +4355,7 @@ vpath %.s \$(sort \$(dir \$(ASM))) # Set the search path for assembly source fil
 
 # Create the build directory if it doesn't exist
 \$(BUILD_DIR):
-	mkdir \$@
+	mkdir -p \$@
 
 # Perform the 'test' target, which enables all conditional definitions and builds the project
 test:  FLAG += -DUSE_ALL=1
@@ -4585,7 +4585,7 @@ for arg in "$@"; do
       "label": "Build (Debug)",
       "type": "shell",
       "command": "make",
-      "args": ["debug"],
+      "args": ["-B", "debug"],
       "group": "build",
       "problemMatcher": []
     },
