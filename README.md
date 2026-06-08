@@ -19,7 +19,7 @@
 - **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
 - **`lock_firmware()`** — sets RDP Level 1 to disable debug access
-- **Optimized startup** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words), minimal footprint (7.4 KB text)
+- **Optimized startup + linker script** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT`s against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
 ## Requirements
