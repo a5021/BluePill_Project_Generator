@@ -42,7 +42,7 @@ bash create_stm32f1_project
 ## Usage
 
 ```bash
-bash create_stm32f1_project [opt] [mdk] [ses] [pdf]
+bash create_stm32f1_project [opt] [mdk] [ses] [vsc] [pdf]
 ```
 
 | Argument | Effect |
@@ -51,9 +51,10 @@ bash create_stm32f1_project [opt] [mdk] [ses] [pdf]
 | `opt` | Use custom optimized startup (block-transfer .data/.bss) |
 | `mdk` | Generate Keil MDK-ARM project (`project.uvprojx`) |
 | `ses` | Generate SEGGER Embedded Studio project (`project.emProject`) |
+| `vsc` | Generate VSCode workspace (`tasks.json`, `launch.json`, `c_cpp_properties.json`) |
 | `pdf` | Download RM0008 reference manual + STM32F103C8 datasheet PDFs |
 
-Arguments can be combined: `bash create_stm32f1_project opt mdk`
+Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
 
 ## Generated project structure
 

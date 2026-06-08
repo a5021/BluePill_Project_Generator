@@ -13,6 +13,7 @@ if [ "$1" = "--help" ]
       echo "Commands:"
       echo "        mdk  generate simple Keil MDK-ARM config"
       echo "        pdf  fetch stm32f10x datasheet and reference manual (rm0008)"
+      echo "        vsc  generate VSCode workspace (Cortex-Debug)"
       echo "        opt  perform more optimizations"               
       exit
 fi
@@ -4541,6 +4542,117 @@ cat << JFLASH_CONFIG >stm32f103cb.jflash
   PerfromBlankCheckPriorEraseChip = 0x00000001
   PerfromBlankCheckPriorEraseSelectedSectors = 0x00000001
 JFLASH_CONFIG
+
+for arg in "$@"; do
+    if [ "$arg" = "vsc" ]; then
+        mkdir -p .vscode
+
+        cat << 'VSC_TASKS' >.vscode/tasks.json
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build (Release)",
+      "type": "shell",
+      "command": "make",
+      "args": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": ["relative", "${workspaceFolder}"],
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    },
+    {
+      "label": "Build (Test)",
+      "type": "shell",
+      "command": "make",
+      "args": ["test"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Build (Debug)",
+      "type": "shell",
+      "command": "make",
+      "args": ["debug"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean",
+      "type": "shell",
+      "command": "make",
+      "args": ["clean"],
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Program (J-Link)",
+      "type": "shell",
+      "command": "make",
+      "args": ["jprogram"],
+      "group": "none",
+      "problemMatcher": []
+    }
+  ]
+}
+VSC_TASKS
+
+        cat << 'VSC_LAUNCH' >.vscode/launch.json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "J-Link Debug (STM32F103CB)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "servertype": "jlink",
+      "cwd": "${workspaceRoot}",
+      "executable": "${workspaceRoot}/build/project.elf",
+      "preLaunchTask": "Build (Debug)",
+      "device": "STM32F103CB",
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "svdFile": "${workspaceRoot}/STM32F103xx.svd"
+    }
+  ]
+}
+VSC_LAUNCH
+
+        cat << 'VSC_CPP' >.vscode/c_cpp_properties.json
+{
+  "configurations": [
+    {
+      "name": "ARM GCC (STM32F103xB)",
+      "intelliSenseMode": "gcc-arm",
+      "cStandard": "c17",
+      "defines": [
+        "STM32F103xB",
+        "USE_SWD=1"
+      ],
+      "includePath": [
+        "${workspaceFolder}"
+      ]
+    }
+  ],
+  "version": 4
+}
+VSC_CPP
+
+        break
+    fi
+done
 
 for arg in "$@"; do
     if [ "$arg" = "opt" ]; then
