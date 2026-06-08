@@ -4624,8 +4624,7 @@ VSC_TASKS
       "device": "STM32F103CB",
       "interface": "swd",
       "runToEntryPoint": "main",
-      "svdFile": "${workspaceRoot}/STM32F103xx.svd",
-      "showDevDebugOutput": "raw"
+      "svdFile": "${workspaceRoot}/STM32F103xx.svd"
     }
   ]
 }
@@ -4640,6 +4639,7 @@ VSC_LAUNCH
       "cStandard": "c17",
       "defines": [
         "STM32F103xB",
+        "USE_ALL=1",
         "USE_SWD=1"
       ],
       "includePath": [
