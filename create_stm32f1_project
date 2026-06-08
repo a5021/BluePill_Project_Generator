@@ -4585,7 +4585,7 @@ for arg in "$@"; do
       "label": "Build (Debug)",
       "type": "shell",
       "command": "make",
-      "args": ["-B", "debug"],
+      "args": ["-B", "USE_ALL=1", "debug"],
       "group": "build",
       "problemMatcher": []
     },
@@ -4624,7 +4624,8 @@ VSC_TASKS
       "device": "STM32F103CB",
       "interface": "swd",
       "runToEntryPoint": "main",
-      "svdFile": "${workspaceRoot}/STM32F103xx.svd"
+      "svdFile": "${workspaceRoot}/STM32F103xx.svd",
+      "showDevDebugOutput": "raw"
     }
   ]
 }
