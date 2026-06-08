@@ -4639,8 +4639,7 @@ VSC_LAUNCH
       "cStandard": "c17",
       "defines": [
         "STM32F103xB",
-        "USE_ALL=1",
-        "USE_SWD=1"
+        "USE_ALL=1"
       ],
       "includePath": [
         "${workspaceFolder}"
