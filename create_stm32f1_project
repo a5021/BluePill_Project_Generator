@@ -4,7 +4,7 @@ set -e
 if [ "$1" = "--help" ]
   then
       echo ""
-      echo "    STM32F1 Project Creator v0.06";
+      echo "    STM32F1 Project Creator v0.07";
       echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
       echo
       echo "Usage:"
@@ -1867,6 +1867,9 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 
     unsigned temp_data, vcc_data, vcc;
 
+    ADC1->SQR3 = _ADC_SQR3(1, 17);
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
+    SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     vcc_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
@@ -1874,12 +1877,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
     ADC1->SQR3 = _ADC_SQR3(1, 16);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
-
     temp_data = adc_get_average(ADC_SAMPLE_COUNT);
     CLEAR_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     while (READ_REG_BIT(ADC1->CR2, ADC_CR2_ADON)) { }
 
-    ADC1->SQR3 = _ADC_SQR3(1, 16);
+    ADC1->SQR3 = _ADC_SQR3(1, 17);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
     SET_REG_BIT(ADC1->CR2, ADC_CR2_ADON);
 
@@ -1974,7 +1976,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 /** @brief Pseudo-random number generator */
     unsigned rnd(void);
 /** @brief Seed the pseudo-random generator */
-    void srnd(unsigned);
+    void srnd(uint32_t);
 
 /** @brief Pseudo-random number from CRC noise */
   __STATIC_INLINE unsigned prnd(void) {
@@ -2766,7 +2768,7 @@ __STATIC_INLINE void init(void) {
       as injected or regular channels.                                                              */
 
     ADC1->SMPR1 = _ADC_SMPR1(16, 239) | _ADC_SMPR1(17, 239);
-    ADC1->SQR3  = _ADC_SQR3(1, 16);
+    ADC1->SQR3  = _ADC_SQR3(1, 17);
     ADC1->SQR1  = _ADC_SQR1_LEN(1);
                                                                                                     /*
       If any other bit in this register apart from ADON is changed at the same time,
@@ -4084,31 +4086,54 @@ static void demo(void) {
 
 
 #if RNG_EN
-  static unsigned rnext; /* = 2463534242;  */
+  static uint32_t xsh_s[4];
+/** @brief  32-bit left rotation (barrel shift).
+ *  @param x Value to rotate.
+ *  @param k Shift count (0–31), masked implicitly by compiler.
+ *  @return x rotated left by k bits.
+ */
+  static inline uint32_t xsh_rotl(uint32_t x, int k) {
+    return (x << k) | (x >> (32 - k));
+  }
+/** @brief  SplitMix32 seed mixer (Pelle Evensen / MurmurHash3 finalizer).
+ *  @details Expands a 32-bit seed into well-distributed 32-bit output.
+ *           Used to initialise the 128-bit xoshiro state from a single seed.
+ *  @param[in,out] state  Seed counter, updated in place.
+ *  @return Next pseudo-random 32-bit value.
+ */
+  static uint32_t xsh_splitmix32(uint32_t *state) {
+    uint32_t z = (*state += 0x9E3779B9);
+    z = (z ^ (z >> 16)) * 0x85EBCA6B;
+    z = (z ^ (z >> 13)) * 0xC2B2AE35;
+    z = z ^ (z >> 16);
+    return z;
+  }
 /** @brief Return a pseudo-random 32-bit value.
- *  @details Uses xorshift32 (Marsaglia) seeded by @ref srnd().
+ *  @details Uses xoshiro128** (Blackman & Vigna) seeded by @ref srnd().
  *  @return Next pseudo-random value.
  *  @note Only available when @ref USE_RNG is enabled.
  */
   unsigned rnd(void) {
-
-  #if 0
-    rnext = rnext * 1103515245 + 12345;
-    return rnext / 65536 % (UINT16_MAX / 2 + 1);
-  #else
-    rnext ^= rnext << 13;
-    rnext ^= rnext >> 17;
-    rnext ^= rnext << 5;
-    return rnext;
-  #endif
+    uint32_t result = xsh_rotl(xsh_s[1] * 5, 7) * 9;
+    uint32_t t = xsh_s[1] << 9;
+    xsh_s[2] ^= xsh_s[0];
+    xsh_s[3] ^= xsh_s[1];
+    xsh_s[1] ^= xsh_s[2];
+    xsh_s[0] ^= xsh_s[3];
+    xsh_s[2] ^= t;
+    xsh_s[3] = xsh_rotl(xsh_s[3], 11);
+    return result;
   } /* rnd() */
 
-/** @brief Seed the pseudo-random generator.
- *  @param seed Initial value for the xorshift32 PRNG state.
+/** @brief Seed the pseudo-random generator (SplitMix32 expansion).
+ *  @param seed Initial value (32-bit), expanded to 128-bit state.
  *  @note Only available when @ref USE_RNG is enabled.
  */
-  void srnd(unsigned seed) {
-    rnext = seed;
+  void srnd(uint32_t seed) {
+    xsh_s[0] = xsh_splitmix32(&seed);
+    xsh_s[1] = xsh_splitmix32(&seed);
+    xsh_s[2] = xsh_splitmix32(&seed);
+    xsh_s[3] = xsh_splitmix32(&seed);
   } /* srnd() */
 #endif
 
@@ -4783,12 +4808,50 @@ FillZeroWord:
 SkipBssZero:
 
 /*----------------------------------------------------------------------------*/
-/* STEP 3: Call main() function                                               */
+/* STEP 3a: Collect entropy into CRC for PRNG seeding                         */
 /*----------------------------------------------------------------------------*/
-/* At this point, the C runtime environment is fully initialized:             */
-/*   - Stack pointer was set by hardware from vector table                    */
-/*   - .data section is copied from Flash to SRAM                             */
-/*   - .bss section is zero-initialized                                       */
+/* Feed UID (unique per chip) and full RAM contents through CRC.              */
+/* CRC->DR will be read by srnd() in init() for high-quality PRNG seed.       */
+/*----------------------------------------------------------------------------*/
+
+  ldr r0, =0x40021000          /* RCC base address */
+  ldr r1, [r0, #0x14]         /* RCC->AHBENR */
+  orr r1, r1, #(1 << 6)       /* Set CRCEN bit */
+  str r1, [r0, #0x14]         /* Enable CRC clock */
+  dsb
+
+  ldr r0, =0x40023000          /* CRC base address */
+  mov r1, #1
+  str r1, [r0]                 /* CRC->CR = 1 (Reset) */
+  dsb
+
+  ldr r2, =0x1FFFF7E8          /* UID base address */
+  ldr r3, [r2, #0]
+  str r3, [r0, #0x04]          /* CRC->DR = UID[0] */
+  dsb
+  ldr r3, [r2, #4]
+  str r3, [r0, #0x04]          /* CRC->DR = UID[1] */
+  dsb
+  ldr r3, [r2, #8]
+  str r3, [r0, #0x04]          /* CRC->DR = UID[2] */
+  dsb
+
+  ldr r2, =0x20000000          /* SRAM base address */
+  ldr r4, =_estack             /* End of RAM */
+Entropy_RamLoop:
+  cmp r2, r4
+  bhs Entropy_Done
+  ldr r3, [r2], #4
+  str r3, [r0, #0x04]         /* CRC->DR = RAM word */
+  dsb
+  b Entropy_RamLoop
+Entropy_Done:
+
+/*----------------------------------------------------------------------------*/
+/* STEP 3b: Call main() function                                              */
+/*----------------------------------------------------------------------------*/
+/* At this point, the C runtime environment is fully initialized.             */
+/* Entropy has been collected, .data copied, .bss zeroed.                     */
 /* Now it's safe to call the main application code.                           */
 /*----------------------------------------------------------------------------*/
 
