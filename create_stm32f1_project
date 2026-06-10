@@ -4709,8 +4709,7 @@ for arg in "$@"; do
 .word _sbss                 /* Start address of .bss in SRAM */
 .word _ebss                 /* End address of .bss in SRAM */
 
-/* Special boot configuration for STM32 */
-.equ BootRAM, 0xF108F85F    /* Boot from RAM configuration value */
+/* Boot from RAM value (unused in normal Flash boot) */
 
 /**
  ******************************************************************************
@@ -4843,9 +4842,9 @@ Entropy_RamLoop:
   bhs Entropy_Done
   ldr r3, [r2], #4
   str r3, [r0, #0x04]         /* CRC->DR = RAM word */
-  dsb
   b Entropy_RamLoop
 Entropy_Done:
+  dsb                           /* Ensure all CRC writes complete before proceeding */
 
 /*----------------------------------------------------------------------------*/
 /* STEP 3b: Call main() function                                              */
@@ -4900,7 +4899,6 @@ Infinite_Loop_Default:
  */
   .section .isr_vector,"a",%progbits
   .type g_pfnVectors, %object
-  .size g_pfnVectors, .-g_pfnVectors
 
 g_pfnVectors:
   /* Cortex-M3 Core Exceptions */
@@ -4973,6 +4971,7 @@ g_pfnVectors:
   .word 0                            /* 64: Reserved */
   .word 0                            /* 65: Reserved */
   .word BootRAM                      /* 66: Boot from RAM configuration */
+  .size g_pfnVectors, .-g_pfnVectors
 
 /**
  ******************************************************************************
@@ -5157,7 +5156,7 @@ STARTUP_S
 *****************************************************************************
 **  File        : STM32F103XB_FLASH.ld
 **  Abstract    : Linker script for STM32F103xB (128KByte FLASH, 20KByte RAM)
-**                Pure C, no heap, production-ready
+**                Pure C, no heap, production-ready with .noinit section
 *****************************************************************************
 */
 
@@ -5176,7 +5175,7 @@ _estack = ORIGIN(RAM) + LENGTH(RAM);
 
 /* Generate a link error if heap and stack don't fit into RAM */
 _Min_Heap_Size  = 0x0;     /* Set to 0 since dynamic allocation (malloc) is not used */
-_Min_Stack_Size = 0x400;   /* Minimum required amount of stack for the application */
+_Min_Stack_Size = 0x800;   /* Minimum required amount of stack for the application */
 
 /* Define output sections */
 SECTIONS
@@ -5230,7 +5229,7 @@ SECTIONS
   _sidata = LOADADDR(.data);
 
   /* Initialized data sections go into RAM, load LMA copy after code in FLASH */
-  .data : 
+  .data :
   {
     . = ALIGN(4);
     _sdata = .;            /* Create a global symbol at data start */
@@ -5254,6 +5253,14 @@ SECTIONS
     __bss_end__ = _ebss;
   } >RAM
 
+  /* Non-zeroized data section (preserved across reset, e.g., reset counters) */
+  .noinit (NOLOAD) :
+  {
+    . = ALIGN(4);
+    *(.noinit*)
+    . = ALIGN(4);
+  } >RAM
+
   /* User heap and stack section, used to check that there is enough RAM left */
   ._user_heap_stack :
   {
@@ -5266,21 +5273,13 @@ SECTIONS
   } >RAM
 
   /* Critical check: Generate a link error if RAM overflows */
-  ASSERT(_estack >= ., "Error: No room left for Heap and Stack in RAM!")
+  ASSERT(_estack >= ABSOLUTE(.), "Error: No room left for Heap and Stack in RAM!")
 
   ASSERT(!(DEFINED(malloc) || DEFINED(free) || DEFINED(realloc) || DEFINED(calloc)),
          "Error: _Min_Heap_Size=0, dynamic allocation not available!")
 
   ASSERT(!(DEFINED(_Znwj) || DEFINED(_Znaj) || DEFINED(__cxa_atexit)),
          "Error: C++ support not configured in linker script (no .init_array, etc.)")
-
-  /* Remove unused debugging information from standard libraries */
-  /DISCARD/ :
-  {
-    libc.a ( * )
-    libm.a ( * )
-    libgcc.a ( * )
-  }
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
