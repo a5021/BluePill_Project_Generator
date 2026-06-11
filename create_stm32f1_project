@@ -4730,87 +4730,11 @@ for arg in "$@"; do
 Reset_Handler:
 
 /*----------------------------------------------------------------------------*/
-/* STEP 1: Copy .data section from Flash to SRAM                              */
+/* STEP 1: Collect entropy into CRC for PRNG seeding                          */
 /*----------------------------------------------------------------------------*/
-/* The .data section contains initialized global/static variables.            */
-/* Their initial values are stored in Flash and must be copied to SRAM.       */
-/*----------------------------------------------------------------------------*/
-
-  ldr r0, =_sdata           /* R0 = Destination start address (SRAM) */
-  ldr r1, =_edata           /* R1 = Destination end address (SRAM) */
-  ldr r2, =_sidata          /* R2 = Source start address (Flash) */
-  subs r3, r1, r0           /* R3 = Size of .data section in bytes */
-  ble SkipDataCopy          /* Skip if .data is empty (size <= 0) */
-
-/* Main copy loop: Process 32 bytes (8 words) per iteration using block transfer */
-CopyDataInit:
-  subs r3, r3, #32          /* Decrement counter by 32 bytes */
-  blt CopyDataRemainder     /* If less than 32 bytes remain, handle remainder */
-  ldmia r2!, {r4-r11}       /* Load 8 words (32 bytes) from Flash, auto-increment R2 */
-  stmia r0!, {r4-r11}       /* Store 8 words (32 bytes) to SRAM, auto-increment R0 */
-  b CopyDataInit            /* Continue main loop */
-
-/* Handle remaining bytes when less than 32 bytes left */
-CopyDataRemainder:
-  adds r3, r3, #32          /* Restore the actual remainder count */
-  cbz r3, SkipDataCopy      /* If remainder is zero, we're done */
-
-/* Copy remainder word-by-word (4 bytes at a time) */
-CopyDataWord:
-  subs r3, r3, #4           /* Decrement counter by 4 bytes (1 word) */
-  ldr r4, [r2], #4          /* Load 1 word from Flash, auto-increment R2 */
-  str r4, [r0], #4          /* Store 1 word to SRAM, auto-increment R0 */
-  bne CopyDataWord          /* Continue if more bytes remain */
-
-SkipDataCopy:
-
-/*----------------------------------------------------------------------------*/
-/* STEP 2: Zero-fill .bss section in SRAM                                     */
-/*----------------------------------------------------------------------------*/
-/* The .bss section contains uninitialized global/static variables.           */
-/* C standard requires these to be zero-initialized before main() is called.  */
-/*----------------------------------------------------------------------------*/
-
-  ldr r0, =_sbss            /* R0 = Start address of .bss section */
-  ldr r1, =_ebss            /* R1 = End address of .bss section */
-  subs r6, r1, r0           /* R6 = Size of .bss section in bytes */
-  ble SkipBssZero           /* Skip if .bss is empty (size <= 0) */
-
-  /* Initialize 8 registers with zero - done ONCE before loop for efficiency */
-  movs r2, #0               /* R2 = 0 */
-  movs r3, #0               /* R3 = 0 */
-  movs r4, #0               /* R4 = 0 */
-  movs r5, #0               /* R5 = 0 */
-  movs r7, #0               /* R7 = 0 (skip R6, it's our counter) */
-  movs r8, #0               /* R8 = 0 */
-  movs r9, #0               /* R9 = 0 */
-  movs r10, #0              /* R10 = 0 */
-
-/* Main zeroing loop: Process 32 bytes (8 words) per iteration using block transfer */
-FillZerobss:
-  subs r6, r6, #32          /* Decrement counter by 32 bytes */
-  blt FillZeroRemainder     /* If less than 32 bytes remain, handle remainder */
-  stmia r0!, {r2-r5, r7-r10} /* Store 8 zero words (32 bytes) to SRAM, auto-increment R0 */
-  b FillZerobss             /* Continue main loop */
-
-/* Handle remaining bytes when less than 32 bytes left */
-FillZeroRemainder:
-  adds r6, r6, #32          /* Restore the actual remainder count */
-  cbz r6, SkipBssZero       /* If remainder is zero, we're done */
-
-/* Zero remainder word-by-word (4 bytes at a time) */
-FillZeroWord:
-  subs r6, r6, #4           /* Decrement counter by 4 bytes (1 word) */
-  str r2, [r0], #4          /* Store zero to SRAM, auto-increment R0 */
-  bne FillZeroWord          /* Continue if more bytes remain */
-
-SkipBssZero:
-
-/*----------------------------------------------------------------------------*/
-/* STEP 3a: Collect entropy into CRC for PRNG seeding                         */
-/*----------------------------------------------------------------------------*/
-/* Feed UID (unique per chip) and full RAM contents through CRC.              */
-/* CRC->DR will be read by srnd() in init() for high-quality PRNG seed.       */
+/* Run BEFORE .data copy and .bss zero to capture raw power-on SRAM content.  */
+/* UID (unique per chip) + full RAM fed through CRC.                         */
+/* CRC->DR is read by srnd() in main() for the PRNG seed.                    */
 /*----------------------------------------------------------------------------*/
 
   ldr r0, =0x40021000          /* RCC base address */
@@ -4819,42 +4743,99 @@ SkipBssZero:
   str r1, [r0, #0x14]         /* Enable CRC clock */
   dsb
 
-  ldr r0, =0x40023000          /* CRC base address */
+  ldr r0, =0x40023000         /* CRC base address */
   mov r1, #1
-  str r1, [r0]                 /* CRC->CR = 1 (Reset) */
+  str r1, [r0]                /* CRC->CR = 1 (Reset) */
   dsb
 
-  ldr r2, =0x1FFFF7E8          /* UID base address */
+  ldr r2, =0x1FFFF7E8         /* UID base address */
   ldr r3, [r2, #0]
-  str r3, [r0, #0x04]          /* CRC->DR = UID[0] */
-  dsb
+  str r3, [r0, #0x04]         /* CRC->DR = UID[0] */
   ldr r3, [r2, #4]
-  str r3, [r0, #0x04]          /* CRC->DR = UID[1] */
-  dsb
+  str r3, [r0, #0x04]         /* CRC->DR = UID[1] */
   ldr r3, [r2, #8]
-  str r3, [r0, #0x04]          /* CRC->DR = UID[2] */
-  dsb
+  str r3, [r0, #0x04]         /* CRC->DR = UID[2] */
 
-  ldr r2, =0x20000000          /* SRAM base address */
-  ldr r4, =_estack             /* End of RAM */
+  ldr r2, =0x20000000         /* SRAM base address — still raw from power-on */
+  ldr r4, =_estack            /* End of RAM */
 Entropy_RamLoop:
   cmp r2, r4
   bhs Entropy_Done
   ldr r3, [r2], #4
-  str r3, [r0, #0x04]         /* CRC->DR = RAM word */
+  str r3, [r0, #0x04]        /* CRC->DR = RAM word */
   b Entropy_RamLoop
 Entropy_Done:
-  dsb                           /* Ensure all CRC writes complete before proceeding */
+  dsb                          /* Ensure all CRC writes complete */
 
 /*----------------------------------------------------------------------------*/
-/* STEP 3b: Call main() function                                              */
-/*----------------------------------------------------------------------------*/
-/* At this point, the C runtime environment is fully initialized.             */
-/* Entropy has been collected, .data copied, .bss zeroed.                     */
-/* Now it's safe to call the main application code.                           */
+/* STEP 2: Copy .data section from Flash to SRAM                              */
 /*----------------------------------------------------------------------------*/
 
-  bl main                   /* Branch with Link to main() function */
+  ldr r0, =_sdata
+  ldr r1, =_edata
+  ldr r2, =_sidata
+  subs r3, r1, r0
+  ble SkipDataCopy
+
+CopyDataInit:
+  subs r3, r3, #32
+  blt CopyDataRemainder
+  ldmia r2!, {r4-r11}
+  stmia r0!, {r4-r11}
+  b CopyDataInit
+
+CopyDataRemainder:
+  adds r3, r3, #32
+  cbz r3, SkipDataCopy
+
+CopyDataWord:
+  subs r3, r3, #4
+  ldr r4, [r2], #4
+  str r4, [r0], #4
+  bne CopyDataWord
+
+SkipDataCopy:
+
+/*----------------------------------------------------------------------------*/
+/* STEP 3: Zero-fill .bss section in SRAM                                     */
+/*----------------------------------------------------------------------------*/
+
+  ldr r0, =_sbss
+  ldr r1, =_ebss
+  subs r6, r1, r0
+  ble SkipBssZero
+
+  movs r2, #0
+  movs r3, #0
+  movs r4, #0
+  movs r5, #0
+  movs r7, #0
+  movs r8, #0
+  movs r9, #0
+  movs r10, #0
+
+FillZerobss:
+  subs r6, r6, #32
+  blt FillZeroRemainder
+  stmia r0!, {r2-r5, r7-r10}
+  b FillZerobss
+
+FillZeroRemainder:
+  adds r6, r6, #32
+  cbz r6, SkipBssZero
+
+FillZeroWord:
+  subs r6, r6, #4
+  str r2, [r0], #4
+  bne FillZeroWord
+
+SkipBssZero:
+
+/*----------------------------------------------------------------------------*/
+/* STEP 4: Call main()                                                        */
+/*----------------------------------------------------------------------------*/
+
+  bl main
 
 /*----------------------------------------------------------------------------*/
 /* STEP 4: Trap if main() returns (should never happen in embedded systems)   */
