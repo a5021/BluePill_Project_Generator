@@ -4399,7 +4399,6 @@ gccversion :
 DOXYGEN ?= doxygen
 
 # Generate Doxygen documentation.
-.PHONY: docs
 docs: Doxyfile
 	mkdir -p docs
 	\$(DOXYGEN) Doxyfile
@@ -4413,7 +4412,7 @@ jprogram: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(JLINK) \$(JLINK_FLAGS)
 
 # Clean the build directory by removing all object files, dependency files, binaries, and map files
-.PHONY: clean
+.PHONY: all test debug gccversion docs clean program jprogram
 clean:
 	rm -fR \$(BUILD_DIR)
 
@@ -4737,7 +4736,7 @@ Reset_Handler:
 /* CRC->DR is read by srnd() in main() for the PRNG seed.                    */
 /*----------------------------------------------------------------------------*/
 
-  ldr r0, =0x40021000          /* RCC base address */
+  ldr r0, =0x40021000         /* RCC base address */
   ldr r1, [r0, #0x14]         /* RCC->AHBENR */
   orr r1, r1, #(1 << 6)       /* Set CRCEN bit */
   str r1, [r0, #0x14]         /* Enable CRC clock */
@@ -4762,10 +4761,10 @@ Entropy_RamLoop:
   cmp r2, r4
   bhs Entropy_Done
   ldr r3, [r2], #4
-  str r3, [r0, #0x04]        /* CRC->DR = RAM word */
+  str r3, [r0, #0x04]         /* CRC->DR = RAM word */
   b Entropy_RamLoop
 Entropy_Done:
-  dsb                          /* Ensure all CRC writes complete */
+  dsb                         /* Ensure all CRC writes complete */
 
 /*----------------------------------------------------------------------------*/
 /* STEP 2: Copy .data section from Flash to SRAM                              */
