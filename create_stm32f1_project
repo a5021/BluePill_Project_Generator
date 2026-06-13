@@ -28,7 +28,10 @@ svd="https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/refs/heads/main/
 
 $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
-    $f1/Source/Templates/gcc/startup_stm32f103xb.s $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld $svd
+    $svd
+
+wget -O startup_stm32f103xb.s $f1/Source/Templates/gcc/startup_stm32f103xb.s
+wget -O STM32F103XB_FLASH.ld $f1/Source/Templates/gcc/linker/STM32F103XB_FLASH.ld
 
 for arg in "$@"; do
     if [ "$arg" = "pdf" ]; then
@@ -887,7 +890,7 @@ for arg in "$@"; do
       arm_linker_variant="SEGGER"
       arm_target_device_name="STM32F103CB"
       arm_target_interface_type="SWD"
-      c_preprocessor_definitions="STM32F103xB;USE_ALL"
+      c_preprocessor_definitions="STM32F103xB;USE_ALL=1"
       debug_start_from_entry_point_symbol="No"
       debug_target_connection="J-Link"
       gcc_c_language_standard="gnu17"
@@ -899,11 +902,12 @@ for arg in "$@"; do
       link_linker_script_file="\$(StudioDir)/samples/SEGGER_Flash.icf"
       link_map_file="Detailed"
       linker_log_file="Yes"
-      linker_output_format="bin"
+      linker_output_format="hex"
       linker_section_placements_segments="FLASH1 RX 0x08000000 0x00020000;RAM1 RWX 0x20000000 0x00005000;"
       project_type="Executable" />
     <configuration
       Name="Debug"
+      c_preprocessor_definitions="USE_SWD=1"
       gcc_debugging_level="Level 3"
       gcc_dwarf_version="dwarf-5" />
     <configuration
@@ -911,6 +915,7 @@ for arg in "$@"; do
       Name="Internal" />
     <configuration
       Name="Release"
+      c_preprocessor_definitions="USE_SWD=0;NDEBUG"
       gcc_debugging_level="None"
       gcc_dwarf_version="None"
       gcc_optimization_level="Level 2 for size"
@@ -4950,7 +4955,7 @@ g_pfnVectors:
   .word 0                            /* 63: Reserved */
   .word 0                            /* 64: Reserved */
   .word 0                            /* 65: Reserved */
-  .word BootRAM                      /* 66: Boot from RAM configuration */
+  .word 0                            /* 66: Boot from RAM configuration */
   .size g_pfnVectors, .-g_pfnVectors
 
 /**
