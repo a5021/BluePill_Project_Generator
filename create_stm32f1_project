@@ -12,7 +12,6 @@ if [ "$1" = "--help" ]
       echo
       echo "Commands:"
       echo "        mdk  generate simple Keil MDK-ARM config"
-      echo "        ses  generate SEGGER Embedded Studio project"
       echo "        pdf  fetch stm32f10x datasheet and reference manual (rm0008)"
       echo "        vsc  generate VSCode workspace (Cortex-Debug)"
       echo "        opt  perform more optimizations"               
@@ -888,7 +887,7 @@ for arg in "$@"; do
       arm_linker_variant="SEGGER"
       arm_target_device_name="STM32F103CB"
       arm_target_interface_type="SWD"
-      c_preprocessor_definitions="STM32F103xB;USE_ALL=1"
+      c_preprocessor_definitions="STM32F103xB;USE_ALL"
       debug_start_from_entry_point_symbol="No"
       debug_target_connection="J-Link"
       gcc_c_language_standard="gnu17"
@@ -897,16 +896,14 @@ for arg in "$@"; do
       gcc_strict_prototypes_warning="Yes"
       gcc_uninitialized_variables_warning="Yes"
       gcc_unused_variable_warning="Yes"
-      arm_include_paths="."
       link_linker_script_file="\$(StudioDir)/samples/SEGGER_Flash.icf"
       link_map_file="Detailed"
       linker_log_file="Yes"
-      linker_output_format="hex"
+      linker_output_format="bin"
       linker_section_placements_segments="FLASH1 RX 0x08000000 0x00020000;RAM1 RWX 0x20000000 0x00005000;"
       project_type="Executable" />
     <configuration
       Name="Debug"
-      c_preprocessor_definitions="USE_SWD=1"
       gcc_debugging_level="Level 3"
       gcc_dwarf_version="dwarf-5" />
     <configuration
@@ -914,7 +911,6 @@ for arg in "$@"; do
       Name="Internal" />
     <configuration
       Name="Release"
-      c_preprocessor_definitions="USE_SWD=0;NDEBUG"
       gcc_debugging_level="None"
       gcc_dwarf_version="None"
       gcc_optimization_level="Level 2 for size"
