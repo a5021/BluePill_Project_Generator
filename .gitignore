@@ -9,5 +9,3 @@ jflash.log
 *.o
 *.d
 *.lst
-project.jdebug
-stm32f103cb.jflash

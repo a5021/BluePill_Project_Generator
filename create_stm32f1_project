@@ -2572,6 +2572,12 @@ __STATIC_INLINE void init(void) {
   #define PORT_C_STATE PIN_HIGH(13)                           /* Set PC13 pin HIGH (LED off)        */
   #define IOPC_EN (PORT_C_CONFIG != 0)
 
+  /** @brief AFIO MAPR value (remap config) */
+  #define AFIO_MAPR_VALUE ( \\
+      (SWD_EN ? AFIO_MAPR_SWJ_CFG_JTAGDISABLE : AFIO_MAPR_SWJ_CFG_DISABLE) | \\
+      (TIM2_EN * AFIO_MAPR_TIM2_REMAP_PARTIALREMAP1) \\
+    )
+
 /** @brief Resolve RCC clock enable bit for a peripheral */
   #define GATE_CLOCK(BUS, PER)      RCC_ ## BUS ## ENR_ ## PER ## EN
 
@@ -2610,49 +2616,7 @@ __STATIC_INLINE void init(void) {
                GATE_CLOCK(APB2, AFIO)                         /* Enable clock for Alt. Function I/O */\\
   )
 
-  #if AHB_CONFIG
-    RCC->AHBENR = AHB_CONFIG;                                 /* Gate AHB clock if required         */
-  #endif
-
-  #if APB1_CONFIG
-    RCC->APB1ENR = APB1_CONFIG;                               /* Gate APB1 clock if required        */
-  #endif
-
-  #if APB2_CONFIG
-    RCC->APB2ENR = APB2_CONFIG;                               /* Gate APB2 clock if required        */
-  #endif
-
-  #if PORT_A_CONFIG
-    *(__IO uint64_t*) GPIOA_BASE = PORT_A_CONFIG;             /* Init GPIOA if CONFIG is not empty  */
-    #if PORT_A_STATE
-      GPIOA->BSRR = PORT_A_STATE;                             /* Set GPIOA pins state if required   */
-    #endif
-  #endif
-
-  #if PORT_B_CONFIG
-    *(__IO uint64_t*) GPIOB_BASE = PORT_B_CONFIG;             /* Init GPIOB if CONFIG is not empty  */
-    #if PORT_B_STATE
-      GPIOB->BSRR = PORT_B_STATE;                             /* Set GPIOB pins state if required   */
-    #endif
-  #endif
-
-  #if PORT_C_CONFIG
-    *(__IO uint64_t*) GPIOC_BASE = PORT_C_CONFIG;             /* Init GPIOC if CONFIG is not empty  */
-    #if PORT_C_STATE
-      GPIOC->BSRR = PORT_C_STATE;                             /* Set GPIOC pins state if required   */
-    #endif
-  #endif
-
-  /** @brief Configure AFIO multiplexer */
-  AFIO->MAPR = (
-    #if SWD_EN
-      AFIO_MAPR_SWJ_CFG_JTAGDISABLE          |                /* Disable JTAG, enable SWD           */
-    #else
-      AFIO_MAPR_SWJ_CFG_DISABLE              |                /* Disable both JTAG and SWD          */
-    #endif
-    TIM2_EN * AFIO_MAPR_TIM2_REMAP_PARTIALREMAP1       /* Remap CH1/PA15, CH2/PB3, CH3/PA2, CH4/PA3 */
-  );
-
+  /** @brief Configure system clock (HSE/PLL) FIRST - before peripheral init */
   #if HSE_EN
     SET_REG_BIT(RCC->CR, RCC_CR_HSEON);                       /* Switch HSE on                      */
     {                                                         /* HSE startup timeout: ~5 ms         */
@@ -2717,6 +2681,45 @@ __STATIC_INLINE void init(void) {
     #define APB1_CLK HCLK
     _Static_assert(HCLK / 2 <= 14000000, "ADCCLK > 14 MHz");
 
+  #endif
+
+  #if AHB_CONFIG
+    RCC->AHBENR = AHB_CONFIG;                                 /* Gate AHB clock if required         */
+  #endif
+
+  #if APB1_CONFIG
+    RCC->APB1ENR = APB1_CONFIG;                               /* Gate APB1 clock if required        */
+  #endif
+
+  #if APB2_CONFIG
+    RCC->APB2ENR = APB2_CONFIG;                               /* Gate APB2 clock if required        */
+  #endif
+
+  /** @brief Configure AFIO multiplexer (before GPIO modes) */
+  #if AFIO_MAPR_VALUE != 0
+    AFIO->MAPR = AFIO_MAPR_VALUE;
+  #endif
+
+  /* BSRR first: set pull-ups/downs and output levels before enabling pin modes */
+  #if PORT_A_STATE
+    GPIOA->BSRR = PORT_A_STATE;                             /* Set GPIOA pins state if required   */
+  #endif
+  #if PORT_B_STATE
+    GPIOB->BSRR = PORT_B_STATE;                             /* Set GPIOB pins state if required   */
+  #endif
+  #if PORT_C_STATE
+    GPIOC->BSRR = PORT_C_STATE;                             /* Set GPIOC pins state if required   */
+  #endif
+
+  /* CRL/CRH last: enable pin modes (input/output/AF) */
+  #if PORT_A_CONFIG
+    *(__IO uint64_t*) GPIOA_BASE = PORT_A_CONFIG;             /* Init GPIOA if CONFIG is not empty  */
+  #endif
+  #if PORT_B_CONFIG
+    *(__IO uint64_t*) GPIOB_BASE = PORT_B_CONFIG;             /* Init GPIOB if CONFIG is not empty  */
+  #endif
+  #if PORT_C_CONFIG
+    *(__IO uint64_t*) GPIOC_BASE = PORT_C_CONFIG;             /* Init GPIOC if CONFIG is not empty  */
   #endif
 
   #if RNG_EN
