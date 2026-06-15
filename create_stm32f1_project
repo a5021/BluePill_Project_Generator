@@ -2724,19 +2724,16 @@ __STATIC_INLINE void init(void) {
 
   #if RNG_EN
     #if !RTC_EN && !ADC_EN
-      SysTick->LOAD = HCLK / 40000 - 1;                       /* Set SysTick reload register        */
-      SysTick->CTRL = SysTick_CTRL_ENABLE_Msk    |            /* Start SysTick timer (HCLK / 8)     */
-                      SysTick_CTRL_CLKSOURCE_Msk |
-                      SysTick_CTRL_TICKINT_Msk;               /* Enable SysTick exception request   */
+      STOPWATCH_INIT();
 
       for(int i = 0; i < 10000; i++) {
         SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
         while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }    /* wait till oscillator switches on   */
-        CRC->DR = SysTick->VAL;                               /* process counter                    */
+        CRC->DR = DWT->CYCCNT;                               /* process counter                    */
 
         CLEAR_REG_BIT(RCC->CSR, RCC_CSR_LSION);               /* Disable LSI oscillator             */
         while(READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }     /* wait till oscillator switches off  */
-        CRC->DR = SysTick->VAL;                               /* process counter                    */
+        CRC->DR = DWT->CYCCNT;                               /* process counter                    */
       }
     #else
       prnd();
