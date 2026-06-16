@@ -1,0 +1,50 @@
+name: STM32 Build Pipeline
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  pull_request:
+    branches: [ "master", "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Cache Arm Toolchain
+        id: cache-toolchain
+        uses: actions/cache@v3
+        with:
+          path: /opt/gcc-arm-none-eabi
+          key: ${{ runner.os }}-gcc-arm-none-eabi-15.2
+
+      - name: Install Toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p /opt/gcc-arm-none-eabi
+          wget -qO- https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel/arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-eabi.tar.xz | sudo tar -xJv -C /opt/gcc-arm-none-eabi --strip-components=1
+
+      - name: Add Toolchain to PATH
+        run: echo "/opt/gcc-arm-none-eabi/bin" >> $GITHUB_PATH
+
+      - name: Generate Project Sources
+        run: |
+          chmod +x create_stm32f1_project
+          ./create_stm32f1_project
+
+      - name: Build Project
+        run: |
+          mkdir -p build
+          make test
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: stm32-binaries
+          path: |
+            build/*.elf
+            build/*.bin
+            build/*.hex
