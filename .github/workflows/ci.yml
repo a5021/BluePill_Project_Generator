@@ -27,6 +27,6 @@ jobs:
         with:
           languages: cpp
       - name: Clean & rebuild for CodeQL
-        run: make clean && make test
+        run: make clean && make full
       - name: CodeQL Analyze
         uses: github/codeql-action/analyze@v3

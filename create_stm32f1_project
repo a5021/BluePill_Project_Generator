@@ -2724,17 +2724,7 @@ __STATIC_INLINE void init(void) {
 
   #if RNG_EN
     #if !RTC_EN && !ADC_EN
-      STOPWATCH_INIT();
-
-      for(int i = 0; i < 10000; i++) {
-        SET_REG_BIT(RCC->CSR, RCC_CSR_LSION);                 /* Enable LSI oscillator              */
-        while(!READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }    /* wait till oscillator switches on   */
-        CRC->DR = DWT->CYCCNT;                               /* process counter                    */
-
-        CLEAR_REG_BIT(RCC->CSR, RCC_CSR_LSION);               /* Disable LSI oscillator             */
-        while(READ_REG_BIT(RCC->CSR, RCC_CSR_LSIRDY)) { }     /* wait till oscillator switches off  */
-        CRC->DR = DWT->CYCCNT;                               /* process counter                    */
-      }
+      prnd();
     #else
       prnd();
     #endif
@@ -4387,9 +4377,9 @@ vpath %.s \$(sort \$(dir \$(ASM))) # Set the search path for assembly source fil
 \$(BUILD_DIR):
 	mkdir -p \$@
 
-# Perform the 'test' target, which enables all conditional definitions and builds the project
-test:  FLAG += -DUSE_ALL=1
-test:  all
+# Perform the 'full' target, which enables all conditional definitions and builds the project
+full:  FLAG += -DUSE_ALL=1
+full:  all
 
 # Perform the 'debug' target, which enables SWD, debug symbols, DEBUG macro, and builds the project
 debug: OPT = -Og -g3 -gdwarf
@@ -5280,7 +5270,7 @@ done
 # run 'make' utility
 #
 
-make test
+make full
 
 echo
 echo "type \"make program\" or \"make jprogram\" to download the firmware into a chip."

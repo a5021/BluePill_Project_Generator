@@ -9,7 +9,7 @@
 ## Features
 
 - **One-command project** — `bash create_stm32f1_project`
-- **14 MCU peripherals** pre-configured (RCC, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, TIM2, EXTI, CRC, FLASH, SWD)
+- **15 MCU peripherals** available (RCC, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, WWDG, TIM2, EXTI, CRC, FLASH, SWD)
 - **HCLK-independent timings** — SysTick, USART baud, I2C timing, TIM2 prescaler all computed from `HCLK`; works at 8/64/72/112 MHz unchanged
 - **DMA** — circular for TIM2→GPIO (LED breathing), one-shot for USART TX
 - **RTC** — selectable LSE/LSI source, second counter mode
@@ -18,7 +18,7 @@
 - **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
 - **`lock_firmware()`** — sets RDP Level 1 to disable debug access
-- **Optimized startup + linker script** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT`s against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
+- **Optimized startup + linker script** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT` checks against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
 ## Requirements
@@ -77,7 +77,7 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
 
 | Peripheral | Configuration |
 |------------|---------------|
-| **HSE/PLL** | 72 MHz system clock (overclock to 128 MHz via `OVRCLK`) |
+| **HSE/PLL** | 72 MHz system clock (overclock to 112 MHz via `OVRCLK`) |
 | **SysTick** | 1 ms period |
 | **USART1** | TX (PA9) / RX (PA10), 115200 baud |
 | **SPI1** | SCK (PA5) / MISO (PA6) / MOSI (PA7), full-duplex master |
@@ -87,6 +87,7 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
 | **TIM2** | 100 Hz update, DMA-triggered BSRR for LED breathing |
 | **RTC** | LSE or LSI, second counter |
 | **IWDG** | ~4 s timeout (LSI 40 kHz / 256 prescaler) |
+| **WWDG** | Window watchdog, early-wakeup interrupt, ~65 ms window at 72 MHz (PCLK/4096), disabled by default |
 | **EXTI** | PA0 falling edge |
 | **CRC** | Default polynomial |
 | **FLASH** | 2 wait states (72 MHz), prefetch enabled |
@@ -100,7 +101,7 @@ Additionally:
 
 ```bash
 make              # Build with minimal configuration (all peripherals disabled)
-make test         # Build with -DUSE_ALL=1 (enable all peripherals)
+make full         # Build with all peripherals enabled (-DUSE_ALL=1)
 make debug        # Build with debug symbols (-Og -g3) and SWD enabled
 make program      # Flash via ST-Link
 make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
@@ -152,10 +153,10 @@ make program   # ST-Link utility
 
 ## Hardware references
 
-* [STM32F103C8 datasheet](https://www.st.com/resource/en/datasheet/stm32f103c8.pdf)
-* [RM0008: STM32F1 reference manual](https://www.st.com/resource/en/reference_manual/cd00171190.pdf)
-* [PM0056: Cortex-M3 programming manual](https://www.st.com/resource/en/programming_manual/cd00228163.pdf)
-* [PM0075: STM32F1 flash programming manual](https://www.st.com/resource/en/programming_manual/cd00283419.pdf)
+- [STM32F103C8 datasheet](https://www.st.com/resource/en/datasheet/stm32f103c8.pdf)
+- [RM0008: STM32F1 reference manual](https://www.st.com/resource/en/reference_manual/cd00171190.pdf)
+- [PM0056: Cortex-M3 programming manual](https://www.st.com/resource/en/programming_manual/cd00228163.pdf)
+- [PM0075: STM32F1 flash programming manual](https://www.st.com/resource/en/programming_manual/cd00283419.pdf)
 
 ## Other useful links
 
