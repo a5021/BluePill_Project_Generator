@@ -999,7 +999,7 @@ cat <<MAIN_H >main.h
   #endif
 
   #ifndef USE_BTN
-    #define USE_BTN                     1  /**< @brief Handle buttons connected to PB1 and PB2 */
+    #define USE_BTN                     1  /**< @brief Handle buttons connected to PB0 and PB1 */
   #endif
 
   #ifndef USE_RTC
