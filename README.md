@@ -82,13 +82,13 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
 | **USART1** | TX (PA9) / RX (PA10), 115200 baud |
 | **SPI1** | SCK (PA5) / MISO (PA6) / MOSI (PA7), full-duplex master |
 | **I2C1** | SCL (PB6) / SDA (PB7), 100 kHz standard mode |
-| **ADC1** | CH0 (PA0), continuous scan |
+| **ADC1** | Internal channels (Vrefint on CH17, continuous scan) |
 | **DMA1** | CH2 (TIM2 UP) circular, CH4 (USART1 TX) normal |
-| **TIM2** | 100 Hz update, DMA-triggered BSRR for LED breathing |
+| **TIM2** | ~33 Hz update, DMA-triggered BSRR for LED breathing |
 | **RTC** | LSE or LSI, second counter |
-| **IWDG** | ~4 s timeout (LSI 40 kHz / 256 prescaler) |
+| **IWDG** | ~1.6 s timeout (LSI 40 kHz / 16 prescaler) |
 | **WWDG** | Window watchdog, early-wakeup interrupt, ~65 ms window at 72 MHz (PCLK/4096), disabled by default |
-| **EXTI** | PA0 falling edge |
+| **EXTI** | PA8 falling edge (external interrupt) |
 | **CRC** | Default polynomial |
 | **FLASH** | 2 wait states (72 MHz), prefetch enabled |
 | **SWD** | PA13/PA14 preserved |
