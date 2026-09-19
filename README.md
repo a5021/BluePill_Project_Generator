@@ -21,6 +21,16 @@
 - **Optimized startup + linker script** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT` checks against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
+## Why this generator?
+
+- No GUI dependency
+- No HAL/LL abstraction
+- No hidden project files
+- Transparent Makefile
+- Bare-metal startup and linker script
+- Optional IDE configs when needed
+- Peripheral code controlled by simple `USE_*` flags
+
 ## Requirements
 
 | Tool | Version |
