@@ -5,16 +5,20 @@ if [ "$1" = "--help" ]
   then
       echo ""
       echo "    STM32F1 Project Creator v0.07";
-      echo "wget, st-utility and GNU Arm Embedded Toolchain are required"
+      echo "POSIX sh, wget, make and GNU Arm Embedded Toolchain are required"
+      echo "Optional: st-flash or ST-LINK_CLI for programming; SEGGER J-Flash for J-Link"
       echo
       echo "Usage:"
-      echo "        $0 [command] [command] ... [options] [options] ... "
+      echo "        $0 [opt] [mdk] [ses] [vsc] [pdf]"
       echo
       echo "Commands:"
-      echo "        mdk  generate simple Keil MDK-ARM config"
-      echo "        pdf  fetch stm32f10x datasheet and reference manual (rm0008)"
+      echo "        opt  use optimized startup code and linker script"
+      echo "        mdk  generate a Keil MDK-ARM project"
+      echo "        ses  generate a SEGGER Embedded Studio project"
       echo "        vsc  generate VSCode workspace (Cortex-Debug)"
-      echo "        opt  perform more optimizations"               
+      echo "        pdf  download the STM32F1 reference manual and datasheet"
+      echo
+      echo "The script generates the project and runs 'make full'."
       exit
 fi
 
@@ -22,9 +26,12 @@ fi
 wg="wget -c"
 raw=https://raw.githubusercontent.com
 st=$raw/STMicroelectronics/
-cmsis=$st/STM32CubeF1/master/Drivers/CMSIS/Include
-f1=$st/cmsis_device_f1/master
-svd="https://raw.githubusercontent.com/cmsis-svd/cmsis-svd-data/refs/heads/main/data/STMicro/STM32F103xx.svd"
+cube_commit=c7656f1fee178058be2f8ebfc8df9eaf91dc565e
+device_commit=c8e9a4a4f16b6d2cb2a2083cbe5161025280fb22
+svd_commit=c65f8551e57c770344d229dcaa0bf838fa29aff4
+cmsis=$st/STM32CubeF1/$cube_commit/Drivers/CMSIS/Include
+f1=$st/cmsis_device_f1/$device_commit
+svd="$raw/cmsis-svd/cmsis-svd-data/$svd_commit/data/STMicro/STM32F103xx.svd"
 
 $wg $cmsis/cmsis_compiler.h $cmsis/cmsis_gcc.h $cmsis/cmsis_version.h $cmsis/core_cm3.h \
     $f1/Include/stm32f1xx.h $f1/Include/stm32f103xb.h $f1/Include/system_stm32f1xx.h $f1/Source/Templates/system_stm32f1xx.c \
@@ -3644,7 +3651,7 @@ cat <<MAIN_C >main.c
  *
  * Configurable firmware template for the STM32F103C8 (Blue Pill) board.
  * Peripherals (GPIO, ADC, USART, I2C, SPI, RTC, TIM2, DMA, CRC, IWDG,
- * WWDG, EXTI, FLASH, RNG, USB) are enabled by defining @c USE_&lt;PERIPH&gt;
+ * WWDG, EXTI, FLASH, RNG) are enabled by defining @c USE_&lt;PERIPH&gt;
  * before inclusion. The project includes a hardware abstraction layer
  * with bit-banding macros, a universal BITS bitmask builder, register
  * shortcuts, and timing/delay utilities.
@@ -3669,9 +3676,8 @@ static void demo(void);
 /** @brief Application entry point.
  *  @details Initialises the system clock, configures requested
  *           peripherals (GPIO, ADC, USART, I2C, SPI, RTC, TIM2,
- *           DMA, CRC, IWDG, WWDG, EXTI, FLASH, USB, etc.), then
+ *           DMA, CRC, IWDG, WWDG, EXTI, FLASH, etc.), then
  *           enters the main service loop.
- *  @return @c 0 on success (never reached in practice).
  *  @note If @c USE_BTN is enabled, the loop checks button state
  *        each cycle; if @c USE_WWDG is enabled, the watchdog is
  *        refreshed every iteration.
@@ -5263,7 +5269,9 @@ SECTIONS
 }
 LINKER_SCRIPT
 
-        sed -i 's/^LDFLAGS = /&-nostartfiles /' Makefile
+        makefile_tmp=Makefile.tmp.$$
+        sed 's/^LDFLAGS = /&-nostartfiles /' Makefile > "$makefile_tmp"
+        mv "$makefile_tmp" Makefile
         break
     fi
 done

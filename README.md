@@ -2,13 +2,13 @@
 
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![Build](https://img.shields.io/github/actions/workflow/status/a5021/BluePill_Project_Generator/build.yml?label=Build&logo=github)](https://github.com/a5021/BluePill_Project_Generator/actions/workflows/build.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/a5021/BluePill_Project_Generator/build.yml?label=CodeQL&logo=github)](https://github.com/a5021/BluePill_Project_Generator/security/code-scanning)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/a5021/BluePill_Project_Generator/ci.yml?label=CodeQL&logo=github)](https://github.com/a5021/BluePill_Project_Generator/security/code-scanning)
 
-**Bare-metal STM32F103 (Blue Pill) project generator** — one bash script, one `make`, zero bloat. Generates a complete C project with CMSIS headers, startup code, linker script, and Makefile, ready to compile and flash.
+**Bare-metal STM32F103 (Blue Pill) project generator** — one POSIX shell script, one `make`, zero bloat. Generates a complete C project with CMSIS headers, startup code, linker script, and Makefile, ready to compile and flash.
 
 ## Features
 
-- **One-command project** — `bash create_stm32f1_project`
+- **One-command project** — `sh create_stm32f1_project`
 - **15 MCU peripherals** available (RCC, SysTick, USART, I2C, SPI, ADC, DMA, RTC, IWDG, WWDG, TIM2, EXTI, CRC, FLASH, SWD)
 - **HCLK-independent timings** — SysTick, USART baud, I2C timing, TIM2 prescaler all computed from `HCLK`; works at 8/64/72/112 MHz unchanged
 - **DMA** — circular for TIM2→GPIO (LED breathing), one-shot for USART TX
@@ -18,7 +18,7 @@
 - **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
 - **`lock_firmware()`** — sets RDP Level 1 to disable debug access
-- **Optimized startup + linker script** (`bash create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT` checks against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
+- **Optimized startup + linker script** (`sh create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT` checks against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
 ## Why this generator?
@@ -35,23 +35,26 @@
 
 | Tool | Version |
 |------|---------|
-| bash | 4+ |
+| POSIX shell (`sh`) | Any |
 | arm-none-eabi-gcc | ≥ 12 (tested with 15.2.1) |
-| curl | Any |
+| wget | Any |
 | make | Any |
+
+Optional tools: `st-flash` or `ST-LINK_CLI` for `make program`, SEGGER J-Flash for
+`make jprogram`, and Doxygen for `make docs`.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/a5021/BluePill_Project_Generator.git
 cd BluePill_Project_Generator
-bash create_stm32f1_project
+sh create_stm32f1_project
 ```
 
 ## Usage
 
 ```bash
-bash create_stm32f1_project [opt] [mdk] [ses] [vsc] [pdf]
+sh create_stm32f1_project [opt] [mdk] [ses] [vsc] [pdf]
 ```
 
 | Argument | Effect |
@@ -63,7 +66,7 @@ bash create_stm32f1_project [opt] [mdk] [ses] [vsc] [pdf]
 | `vsc` | Generate VSCode workspace (`tasks.json`, `launch.json`, `c_cpp_properties.json`) |
 | `pdf` | Download RM0008 reference manual + STM32F103C8 datasheet PDFs |
 
-Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
+Arguments can be combined: `sh create_stm32f1_project opt mdk vsc`
 
 ## Generated project structure
 
@@ -73,15 +76,26 @@ Arguments can be combined: `bash create_stm32f1_project opt mdk vsc`
 ├── main.h                    # All peripheral configuration macros
 ├── Makefile                  # Build system (cross-platform)
 ├── startup_stm32f103xb.s     # Startup code (CMSIS or opt)
-├── system_stm32f1xx.c        # SystemInit() stub
+├── system_stm32f1xx.c        # CMSIS system initialization
 ├── project.jdebug            # OZONE debugger configuration
 ├── STM32F103XB_FLASH.ld      # Linker script
+├── cmsis_compiler.h          # CMSIS support headers (downloaded)
+├── cmsis_gcc.h
+├── cmsis_version.h
+├── core_cm3.h
+├── stm32f1xx.h               # Device header
+├── stm32f103xb.h             # STM32F103xB register definitions
+├── system_stm32f1xx.h
 ├── build/
 │   ├── project.elf           # ELF binary
 │   ├── project.hex           # HEX (for flashing)
 │   └── project.bin           # Binary (for flashing)
-└── cmsis/                    # CMSIS headers (downloaded)
+└── STM32F103xx.svd            # SVD file (downloaded to the project root)
 ```
+
+CMSIS, device-support, and SVD source files are fetched from GitHub at pinned
+commit revisions; they are placed in the project root rather than a `cmsis/`
+subdirectory.
 
 ## Peripherals
 
@@ -113,7 +127,7 @@ Additionally:
 make              # Build with minimal configuration (all peripherals disabled)
 make full         # Build with all peripherals enabled (-DUSE_ALL=1)
 make debug        # Build with debug symbols (-Og -g3) and SWD enabled
-make program      # Flash via ST-Link
+make program      # Flash via st-flash (Unix) or ST-LINK_CLI (Windows)
 make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
 make docs         # Generate Doxygen documentation
 make clean        # Remove build artifacts
@@ -158,7 +172,7 @@ Connect ST-Link to the Blue Pill:
 | 3.3V    | 3.3V |
 
 ```bash
-make program   # ST-Link utility
+make program   # st-flash (Unix) or ST-LINK_CLI (Windows)
 ```
 
 ## Hardware references
