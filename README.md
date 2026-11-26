@@ -101,7 +101,7 @@ subdirectory.
 
 | Peripheral | Configuration |
 |------------|---------------|
-| **HSE/PLL** | 72 MHz system clock (overclock to 112 MHz via `OVRCLK`) |
+| **HSE/PLL** | 72 MHz by default; 112 MHz overclock is opt-in with `OVRCLK=1` |
 | **SysTick** | 1 ms period |
 | **USART1** | TX (PA9) / RX (PA10), 115200 baud |
 | **SPI1** | SCK (PA5) / MISO (PA6) / MOSI (PA7), full-duplex master |
@@ -117,6 +117,11 @@ subdirectory.
 | **FLASH** | 2 wait states (72 MHz), prefetch enabled |
 | **SWD** | PA13/PA14 preserved |
 
+> **Flash demo warning:** With `USE_FLASH=1` (enabled by `make full` by default),
+> the demo erases and rewrites the last Flash page once on every firmware startup.
+> Repeated resets consume that page's erase-cycle endurance; do not store user
+> data on this page. Disable the demo feature with `make full USE_FLASH=0`.
+
 Additionally:
 - **RNG** — software entropy from ADC noise, RTC phase, and TIM2 jitter
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
@@ -125,7 +130,7 @@ Additionally:
 
 ```bash
 make              # Build with minimal configuration (all peripherals disabled)
-make full         # Build with all peripherals enabled (-DUSE_ALL=1)
+make full         # Build all enabled peripherals; 72 MHz by default
 make debug        # Build with debug symbols (-Og -g3) and SWD enabled
 make program      # Flash via st-flash (Unix) or ST-LINK_CLI (Windows)
 make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
@@ -141,7 +146,7 @@ Peripherals and features can be toggled from the command line:
 ```bash
 make USE_ALL=1 USE_I2C=0 USE_SPI=0   # All peripherals except I2C and SPI
 make USE_USART=1 USE_I2C=1           # Minimal: only USART and I2C
-make OVRCLK=1                        # Overclock to 112 MHz (HSE × 14, ADCCLK = 14 MHz)
+make full OVRCLK=1                   # Opt in to 112 MHz overclock (HSE × 14)
 ```
 
 Available variables: `USE_ALL`, `USE_PLL`, `USE_HSE`, `USE_LSE`, `USE_ADC`,

@@ -1050,7 +1050,7 @@ cat <<MAIN_H >main.h
   #endif
 
   #ifndef OVRCLK
-    #define OVRCLK                      1  /**< @brief Overclock microcontroller (112 MHz) */
+    #define OVRCLK                      0  /**< @brief Opt in to overclocking the MCU to 112 MHz */
   #endif
 #endif                                     /*                                          */
 /** @} */
