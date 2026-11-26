@@ -4381,6 +4381,9 @@ vpath %.s \$(sort \$(dir \$(ASM))) # Set the search path for assembly source fil
 full:  FLAG += -DUSE_ALL=1
 full:  all
 
+# 'test' is a backwards-compatible alias for the full (all-peripherals) build.
+test: full
+
 # Perform the 'debug' target, which enables SWD, debug symbols, DEBUG macro, and builds the project
 debug: OPT = -Og -g3 -gdwarf
 debug: FLAG += -DUSE_SWD=1 -DDEBUG
@@ -4407,7 +4410,7 @@ jprogram: \$(BUILD_DIR)/\$(TARGET).hex
 	\$(JLINK) \$(JLINK_FLAGS)
 
 # Clean the build directory by removing all object files, dependency files, binaries, and map files
-.PHONY: all test debug gccversion docs clean program jprogram
+.PHONY: all full test debug gccversion docs clean program jprogram
 clean:
 	rm -fR \$(BUILD_DIR)
 
@@ -4596,7 +4599,7 @@ for arg in "$@"; do
       "label": "Build (Test)",
       "type": "shell",
       "command": "make",
-      "args": ["test"],
+      "args": ["full"],
       "group": "build",
       "problemMatcher": []
     },
