@@ -55,7 +55,7 @@ for arg in "$@"; do
         cd MDK-ARM
         $wg $f1/Source/Templates/arm/startup_stm32f103xb.s
         def_set1="<Define>STM32F103xB,"
-        def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_CRC=0, USE_ADC=0, USE_FLASH=0, USE_IWDG=0, USE_WWDG=0, USE_EXTI=0, USE_RNG=0</Define>"
+        def_set2="USE_HSE=0, USE_PLL=0, USE_USART=1, USE_I2C=0, USE_SPI=0, USE_RTC=0, USE_LSE=0, USE_BTN=0, USE_TIM2=0, USE_DMA=0, USE_CRC=0, USE_ADC=0, USE_FLASH=0, USE_IWDG=0, USE_WWDG=0, USE_EXTI=0, USE_RNG=0</Define>"
         cat << MDK_CONFIG > project.uvprojx
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="project_projx.xsd">
@@ -1323,7 +1323,12 @@ __STATIC_INLINE void stopwatch_reset(void) {
 #endif
 
 /** @brief Blocking millisecond delay using SysTick */
-__STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -= GET_TICK());}
+__STATIC_FORCEINLINE void delay_ms(unsigned ms) {
+  (void)SysTick->CTRL;
+  while (ms != 0u) {
+    if (GET_TICK()) --ms;
+  }
+}
 
 
 /** @brief Wait for register flag with timeout (returns ERROR on timeout) */
@@ -1990,7 +1995,7 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
 /** @brief Seed the pseudo-random generator */
     void srnd(uint32_t);
 
-/** @brief Pseudo-random number from CRC noise */
+/** @brief Mix peripheral and memory state into the CRC for PRNG seeding */
   __STATIC_INLINE unsigned prnd(void) {
 
     for (unsigned i = 0; i < 0x2000; i++) {
@@ -2462,7 +2467,11 @@ __STATIC_FORCEINLINE void delay_ms(unsigned ms) {(void)SysTick->CTRL; while(ms -
   #define OB_RDP_LEVEL_0            ((uint8_t)0xA5)
   #define OB_RDP_LEVEL_1            ((uint8_t)0x00)
 
-/** @brief Lock firmware with read protection and user data */
+/** @brief Enable readout protection and Flash write-protection option bytes.
+ *  @warning RDP Level 1 restricts debug/readout access. Returning to RDP Level 0
+ *           requires a main-Flash mass erase, which destroys the application
+ *           and stored data. Enable only after the firmware has been validated.
+ */
   __STATIC_INLINE void __NO_RETURN lock_firmware(uint8_t *ud_0, uint8_t *ud_1) {
 
     while (READ_REG_BIT(FLASH->SR, FLASH_SR_BSY)) {/* */}     /* Wait till no operation is on going */
@@ -4692,7 +4701,7 @@ for arg in "$@"; do
  * @brief     STM32F103C8T6 startup code - Optimized version
  *            - Uses block transfer instructions (ldmia/stmia) for fast copy
  *            - Handles .data and .bss sections efficiently
- *            - No SystemInit() call (configure clocks in main if needed)
+ *            - No SystemInit() call; generated init() configures system clocks
  ******************************************************************************
  */
 
@@ -4733,10 +4742,11 @@ for arg in "$@"; do
 Reset_Handler:
 
 /*----------------------------------------------------------------------------*/
-/* STEP 1: Collect entropy into CRC for PRNG seeding                          */
+/* STEP 1: Mix startup state into CRC as one PRNG seed component              */
 /*----------------------------------------------------------------------------*/
-/* Run BEFORE .data copy and .bss zero to capture raw power-on SRAM content.  */
-/* UID (unique per chip) + full RAM fed through CRC.                         */
+/* Run BEFORE .data copy and .bss zero to include raw SRAM startup contents.  */
+/* UID (unique per chip) + full RAM are mixed through CRC. This is not a       */
+/* cryptographic entropy guarantee.                                          */
 /* CRC->DR is read by srnd() in main() for the PRNG seed.                    */
 /*----------------------------------------------------------------------------*/
 

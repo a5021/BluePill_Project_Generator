@@ -15,9 +15,9 @@
 - **RTC** — selectable LSE/LSI source, second counter mode
 - **I2C** — repeated START, timeouts, bus recovery on error (PE cycle)
 - **OZONE debugger config** — `project.jdebug` with SWD, SVD, ELF auto-setup
-- **RNG** — entropy from multiple analog sources (ADC noise, RTC phase, TIM2 jitter)
+- **PRNG (`USE_RNG`)** — xoshiro128** software generator; not a hardware or cryptographic RNG. ADC samples may contribute when ADC is enabled; TIM2 jitter is not used.
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
-- **`lock_firmware()`** — sets RDP Level 1 to disable debug access
+- **`lock_firmware()`** — optional readout and write protection via STM32 option bytes
 - **Optimized startup + linker script** (`sh create_stm32f1_project opt`) — block-transfer `.data`/`.bss` (ldmia/stmia × 8 words); computed `_estack` (8-byte AAPCS alignment), `ASSERT` checks against malloc/C++ misuse, explicit `.ARM.exidx` placement, zero-heap safety
 - **0 warnings** at `-Wall -Werror -Wextra -Wpedantic -O3 -flto`
 
@@ -74,7 +74,7 @@ Arguments can be combined: `sh create_stm32f1_project opt mdk vsc`
 .
 ├── main.c                    # Application entry, init + demo loop
 ├── main.h                    # All peripheral configuration macros
-├── Makefile                  # Build system (cross-platform)
+├── Makefile                  # GNU Make build system
 ├── startup_stm32f103xb.s     # Startup code (CMSIS or opt)
 ├── system_stm32f1xx.c        # CMSIS system initialization
 ├── project.jdebug            # OZONE debugger configuration
@@ -96,6 +96,18 @@ Arguments can be combined: `sh create_stm32f1_project opt mdk vsc`
 CMSIS, device-support, and SVD source files are fetched from GitHub at pinned
 commit revisions; they are placed in the project root rather than a `cmsis/`
 subdirectory.
+
+The generator writes files into the **current directory** and overwrites files
+with matching generated names. Run it in a directory intended for the project.
+
+## Target memory and Flash capacity
+
+The generated linker and IDE configurations target the STM32F103xB memory map
+with 128 KiB of Flash. The official STM32F103C8 specification guarantees only
+64 KiB. Some chips marked C8 may expose an additional 64 KiB, but ST does not
+guarantee this capacity for the C8. Using addresses above 64 KiB on a C8 is
+unsupported and at your own risk; images that use the extra area may not run on
+all C8 devices. Keep the image within 64 KiB for guaranteed C8 compatibility.
 
 ## Peripherals
 
@@ -123,15 +135,33 @@ subdirectory.
 > data on this page. Disable the demo feature with `make full USE_FLASH=0`.
 
 Additionally:
-- **RNG** — software entropy from ADC noise, RTC phase, and TIM2 jitter
 - **BTN** — PB0/PB1 (BUTTON 1/2, input with pull-up, debounced via 32-sample shift register)
+
+`USE_RNG` provides a software pseudo-random generator (xoshiro128**), not a
+cryptographic random-number source. The F103 has no hardware RNG; the generator
+mixes peripheral/memory state, may sample ADC noise when ADC is enabled, and
+may mix in the RTC counter when ADC is disabled and RTC is enabled. The current
+implementation does not use TIM2 jitter as an entropy source.
+
+## Flash protection (RDP/WRP)
+
+`lock_firmware()` is an optional STM32 readout-protection operation, enabled at
+compile time with `LOCK_FIRMWARE`. It programs option bytes for RDP Level 1 and
+Flash write protection, then resets the MCU. RDP Level 1 restricts debug/readout
+access; returning to RDP Level 0 requires a mass erase, which erases the
+application and stored Flash data. Write-protected pages also cannot be updated
+normally. Enable this only after validating the final firmware and accepting
+that recovery requires erasing the device.
+
+For example, `make full EXT="-DLOCK_FIRMWARE=1"` enables the operation in the
+generated demo. It is not enabled by default.
 
 ## Build system
 
 ```bash
-make              # Build with minimal configuration (all peripherals disabled)
-make full         # Build all enabled peripherals; 72 MHz by default
-make debug        # Build with debug symbols (-Og -g3) and SWD enabled
+make              # Minimal build: HSI at 8 MHz; peripherals and SWD disabled
+make full         # Build with USE_ALL defaults; 72 MHz by default
+make debug        # Debug symbols (-Og -g3), SWD enabled; otherwise minimal config
 make program      # Flash via st-flash (Unix) or ST-LINK_CLI (Windows)
 make jprogram     # Flash via J-Link (requires SEGGER J-Flash)
 make docs         # Generate Doxygen documentation
